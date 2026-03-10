@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="NGINX on Kubernetes — official NGINX Ingress Controller, Gateway Fabric, migration tools, and ingress2gateway resources.">
+    <meta name="description" content="NGINX on Kubernetes — official NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.">
     <meta name="author" content="F5, Inc.">
     <title>NGINX on Kubernetes</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='53' height='60' viewBox='0 0 53 60'%3E%3Cg transform='translate(-7.198 -0.359)'%3E%3Cpath fill='%23009639' d='M7.606,45.181a3.019,3.019,0,0,0,1.134,1.126L31.942,59.702a3.044,3.044,0,0,0,3.084,0L58.229,46.306a3.043,3.043,0,0,0,1.541-2.67V16.846a3.044,3.044,0,0,0-1.542-2.67L35.025,0.779a3.04,3.04,0,0,0-3.082,0L8.741,14.175a3.042,3.042,0,0,0-1.543,2.67V43.637a3.025,3.025,0,0,0,.407,1.544'/%3E%3Cpath fill='%23fff' d='M26.055,40.439a2.984,2.984,0,0,1-5.968,0l.003-20.483a3.111,3.111,0,0,1,3.388-2.899,5.306,5.306,0,0,1,4.067,1.819l.902,1.079L40.914,34.874V20.041a2.984,2.984,0,1,1,5.968,0l-.004,20.481a3.111,3.111,0,0,1-3.388,2.899,5.303,5.303,0,0,1-4.067-1.819L26.054,25.606V40.44Z'/%3E%3C/g%3E%3C/svg%3E">
@@ -278,6 +278,9 @@
             .main { margin-left: 0; }
             .menu-toggle { display: block; }
             .mobile-breadcrumb { display: block; }
+            .topbar-left { min-width: 0; overflow: hidden; }
+            .topbar-brand .sub { display: none; }
+            .topbar-brand span { white-space: nowrap; }
             .page-hero { padding: 32px 24px 28px; }
             .page-hero h1 { font-size: 1.5rem; }
             .page-body { padding: 28px 24px 40px; }
@@ -342,7 +345,7 @@
         <!-- ── Sidebar ── -->
         <aside class="sidebar" id="sidebar" aria-label="Product navigation">
             <section class="sidebar-section" aria-labelledby="sidebar-products-label">
-                <div class="sidebar-label" id="sidebar-products-label">Products</div>
+                <div class="sidebar-label" id="sidebar-products-label">Projects</div>
                 <ul class="sidebar-nav">
                     <li><button class="sidebar-link active" data-product="nginx-ingress-controller" aria-current="page">
                         <span class="dot"></span>
