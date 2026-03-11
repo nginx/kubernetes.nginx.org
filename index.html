@@ -211,11 +211,11 @@
         /* ── Info Box ── */
         .info-box { padding: 16px 20px; border-radius: 8px; margin: 20px 0; font-size: 0.88rem; line-height: 1.6; }
         .info-box.tip, .info-box.tip-green { background: #e8f5e9; border-left: 4px solid var(--green); color: #2e7d32; }
-        :is(html, body).dark-mode .info-box.tip, :is(html, body).dark-mode .info-box.tip-green { background: #1b3a1f; color: #66bb6a; }
+        :is(html, body).dark-mode .info-box.tip, :is(html, body).dark-mode .info-box.tip-green { background: #1b3a1f; color: var(--green); }
         .info-box.info { background: #e3f2fd; border-left: 4px solid var(--blue); color: #1565c0; }
         :is(html, body).dark-mode .info-box.info { background: #0d2137; color: #64b5f6; }
         .info-box.warning { background: #fff3e0; border-left: 4px solid var(--orange); color: #bf4000; }
-        :is(html, body).dark-mode .info-box.warning { background: #2a1a00; color: #ffb74d; }
+        :is(html, body).dark-mode .info-box.warning { background: #2d1a00; color: #ffb74d; }
 
         /* ── Key Details ── */
         .key-details { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin: 28px 0; }
@@ -305,7 +305,7 @@
             .preview-stats { gap: 20px; }
         }
     </style>
-    <script>try{if(localStorage.getItem('darkMode')==='1')document.documentElement.classList.add('dark-mode')}catch(e){}</script>
+    <script>try{var s=localStorage.getItem('darkMode');if(s==='1'||(s===null&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
 </head>
 <body>
     <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
@@ -935,18 +935,17 @@
 
         /* ── Dark Mode ── */
         function initDarkMode() {
-            try {
-                if (localStorage.getItem('darkMode') === '1') {
-                    document.body.classList.add('dark-mode');
-                }
-            } catch (e) { /* private browsing */ }
+            // Sync body class from documentElement (set by head script)
+            if (document.documentElement.classList.contains('dark-mode')) {
+                document.body.classList.add('dark-mode');
+            }
             updateDarkAriaLabel();
         }
 
         function updateDarkAriaLabel() {
             var btn = document.getElementById('darkToggle');
             if (!btn) return;
-            var isDark = document.body.classList.contains('dark-mode');
+            var isDark = document.documentElement.classList.contains('dark-mode') || document.body.classList.contains('dark-mode');
             btn.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
         }
 
@@ -1111,8 +1110,9 @@
             var darkToggle = document.getElementById('darkToggle');
             if (darkToggle) {
                 darkToggle.addEventListener('click', function() {
-                    document.body.classList.toggle('dark-mode');
-                    var isDark = document.body.classList.contains('dark-mode');
+                    var isDark = !document.body.classList.contains('dark-mode');
+                    document.documentElement.classList.toggle('dark-mode', isDark);
+                    document.body.classList.toggle('dark-mode', isDark);
                     localStorage.setItem('darkMode', isDark ? '1' : '0');
                     updateDarkAriaLabel();
                 });
