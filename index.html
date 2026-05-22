@@ -469,14 +469,14 @@
                         <span class="dot" data-color="green"></span>
                         <span class="sidebar-link-text">
                             <span class="sidebar-link-name">NGINX Ingress Controller</span>
-                            <span class="sidebar-link-desc"><span data-version="nic.release">v5.4.2</span> &middot; Ingress API</span>
+                            <span class="sidebar-link-desc"><span data-version="nic.release">v5.4.3</span> &middot; Ingress API</span>
                         </span>
                     </button></li>
                     <li><button class="sidebar-link" data-product="nginx-gateway-fabric">
                         <span class="dot" data-color="green"></span>
                         <span class="sidebar-link-text">
                             <span class="sidebar-link-name">NGINX Gateway Fabric</span>
-                            <span class="sidebar-link-desc"><span data-version="ngf.release">v2.6.0</span> &middot; Gateway API</span>
+                            <span class="sidebar-link-desc"><span data-version="ngf.release">v2.6.2</span> &middot; Gateway API</span>
                         </span>
                     </button></li>
                 </ul>
@@ -634,7 +634,7 @@
                         <span class="page-hero-badge nic">
                             <svg aria-hidden="true" width="16" height="16" viewBox="34 5 36 48" fill="none"><path fill="#009639" d="M35.31,40.15c.21.37.52.66.86.86l17.65,10.19c.34.2.75.32,1.17.32s.83-.12,1.17-.32l17.65-10.19c.35-.2.65-.48.86-.86.21-.37.31-.78.31-1.18v-20.38c0-.4-.1-.81-.31-1.18-.21-.37-.52-.66-.86-.86l-17.65-10.19c-.34-.2-.74-.32-1.17-.32s-.83.12-1.17.32l-17.65,10.19c-.35.2-.65.49-.86.86-.21.37-.31.78-.31,1.18v20.38c0,.4.1.8.31,1.18"/><path fill="#fff" d="M56.79,36.68h-13.66c-.37,0-.67-.3-.67-.67v-13.66c0-.37.3-.67.67-.67h13.66c.37,0,.67.3.67.67v13.66c0,.37-.3.67-.67.67Z"/><path fill="#fff" d="M67,22.69h-4.08c-.25,0-.46-.21-.46-.46v-4.08c0-.25.21-.46.46-.46h4.08c.25,0,.46.21.46.46v4.08c0,.25-.21.46-.46.46Z"/><path fill="#fff" d="M67,31.68h-4.08c-.25,0-.46-.21-.46-.46v-4.08c0-.25.21-.46.46-.46h4.08c.25,0,.46.21.46.46v4.08c0,.25-.21.46-.46.46Z"/><path fill="#fff" d="M67.08,39.88h-4.08c-.25,0-.46-.21-.46-.46v-4.08c0-.25.21-.46.46-.46h4.08c.25,0,.46.21.46.46v4.08c0,.25-.21.46-.46.46Z"/><polygon fill="#fff" points="64.95 29.68 48.15 29.66 64.7 19.76 65.21 20.62 51.76 28.67 64.96 28.68 64.95 29.68"/><rect fill="#fff" x="57" y="24.68" width="1" height="17.18" transform="translate(.78 67.86) rotate(-61.43)"/></svg>
                             Ingress Controller
-                            <a class="hero-version" data-version="nic.release" href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.4.2" target="_blank" rel="noopener">v5.4.2</a>
+                            <a class="hero-version" data-version="nic.release" href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.4.3" target="_blank" rel="noopener">v5.4.3</a>
                         </span>
                         <h1>NGINX Ingress Controller</h1>
                         <p>Production-grade Ingress controller built on NGINX. Advanced traffic management, TLS termination, VirtualServer CRDs, and full observability for Kubernetes.</p>
@@ -696,11 +696,11 @@
                         <div class="details-grid">
                             <div class="detail-item">
                                 <span class="detail-label">Latest Version</span>
-                                <span class="version-pill nic"><a data-version="nic.release" href="https://github.com/nginx/kubernetes-ingress/releases/latest" target="_blank" rel="noopener">v5.4.2</a></span>
+                                <span class="version-pill nic"><a data-version="nic.release" href="https://github.com/nginx/kubernetes-ingress/releases/latest" target="_blank" rel="noopener">v5.4.3</a></span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Latest Helm Chart</span>
-                                <span class="version-pill nic"><a data-version="nic.helm" href="https://github.com/nginx/kubernetes-ingress/tree/main/charts/nginx-ingress" target="_blank" rel="noopener">v2.5.2</a></span>
+                                <span class="version-pill nic"><a data-version="nic.helm" href="https://github.com/nginx/kubernetes-ingress/tree/main/charts/nginx-ingress" target="_blank" rel="noopener">v2.5.3</a></span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Custom Resources</span>
@@ -730,7 +730,7 @@
                         <thead><tr><th scope="col">Component</th><th scope="col">Version</th></tr></thead>
                         <tbody>
                             <tr><td>Kubernetes</td><td>1.34, 1.35, 1.36</td></tr>
-                            <tr><td>NGINX</td><td>1.29.8</td></tr>
+                            <tr><td>NGINX</td><td>1.31.1</td></tr>
                         </tbody>
                     </table>
 
@@ -739,7 +739,7 @@
                         <div class="code-block"><button class="copy-btn" aria-label="Copy NIC install command">Copy</button><code><span class="comment"># Install via Helm (OCI registry)</span>
 <span class="cmd">helm</span> install nginx-ingress \
   oci://ghcr.io/nginx/charts/nginx-ingress \
-  <span class="flag">--version</span> <span class="str" data-version="nic.helm" data-version-format="bare">2.5.2</span> \
+  <span class="flag">--version</span> <span class="str" data-version="nic.helm" data-version-format="bare">2.5.3</span> \
   <span class="flag">--namespace</span> nginx-ingress <span class="flag">--create-namespace</span></code></div>
                     </div>
 
@@ -755,7 +755,7 @@
                         <span class="page-hero-badge ngf">
                             <svg aria-hidden="true" width="16" height="16" viewBox="34 5 36 48" fill="none"><path fill="#009639" d="M35.31,39.58c.21.37.52.66.86.86l17.65,10.19c.34.2.75.32,1.17.32s.83-.12,1.17-.32l17.65-10.19c.35-.2.65-.48.86-.86.21-.37.31-.78.31-1.18v-20.38c0-.4-.1-.81-.31-1.18-.21-.37-.52-.66-.86-.86l-17.65-10.19c-.34-.2-.74-.32-1.17-.32s-.83.12-1.17.32l-17.65,10.19c-.35.2-.65.49-.86.86-.21.37-.31.78-.31,1.18v20.38c0,.4.1.8.31,1.18"/><polygon fill="#fff" points="54.87 41.41 43.25 34.46 54.88 27.97 55.37 28.84 45.25 34.49 55.38 40.55 54.87 41.41"/><path fill="#fff" d="M66.51,35.33l-11.38-6.35-.51.3v-12.98l-10.38,6.06-.5-.86,11.89-6.94v12.96l10.88-6.47v14.27ZM56.13,28.39l9.38,5.23v-10.81l-9.38,5.58Z"/><circle fill="#fff" cx="43.99" cy="21.94" r="3"/><circle fill="#fff" cx="66.01" cy="21.94" r="3"/><circle fill="#fff" cx="55.13" cy="15.44" r="3"/><circle fill="#fff" cx="55.13" cy="28.41" r="3"/><circle fill="#fff" cx="44.25" cy="34.48" r="3"/><circle fill="#fff" cx="55.13" cy="40.98" r="3"/><circle fill="#fff" cx="66.01" cy="34.48" r="3"/></svg>
                             Gateway Fabric
-                            <a class="hero-version" data-version="ngf.release" href="https://github.com/nginx/nginx-gateway-fabric/releases/tag/v2.6.0" target="_blank" rel="noopener">v2.6.0</a>
+                            <a class="hero-version" data-version="ngf.release" href="https://github.com/nginx/nginx-gateway-fabric/releases/tag/v2.6.2" target="_blank" rel="noopener">v2.6.2</a>
                         </span>
                         <h1>NGINX Gateway Fabric</h1>
                         <p>Gateway API implementation powered by NGINX. A future-ready, standards-based approach to Kubernetes traffic management with control and data plane separation.</p>
@@ -817,11 +817,11 @@
                         <div class="details-grid">
                             <div class="detail-item">
                                 <span class="detail-label">Latest Version</span>
-                                <span class="version-pill ngf"><a data-version="ngf.release" href="https://github.com/nginx/nginx-gateway-fabric/releases/latest" target="_blank" rel="noopener">v2.6.0</a></span>
+                                <span class="version-pill ngf"><a data-version="ngf.release" href="https://github.com/nginx/nginx-gateway-fabric/releases/latest" target="_blank" rel="noopener">v2.6.2</a></span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Latest Helm Chart</span>
-                                <span class="version-pill ngf"><a data-version="ngf.helm" href="https://github.com/nginx/nginx-gateway-fabric/tree/main/charts/nginx-gateway-fabric" target="_blank" rel="noopener">v2.6.0</a></span>
+                                <span class="version-pill ngf"><a data-version="ngf.helm" href="https://github.com/nginx/nginx-gateway-fabric/tree/main/charts/nginx-gateway-fabric" target="_blank" rel="noopener">v2.6.2</a></span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Supported Resources</span>
@@ -865,7 +865,7 @@
                         <thead><tr><th scope="col">Component</th><th scope="col">Version</th></tr></thead>
                         <tbody>
                             <tr><td>Kubernetes</td><td>1.34, 1.35, 1.36</td></tr>
-                            <tr><td>NGINX</td><td>1.30.0</td></tr>
+                            <tr><td>NGINX</td><td>1.31.1</td></tr>
                         </tbody>
                     </table>
 
@@ -874,7 +874,7 @@
                         <div class="code-block"><button class="copy-btn" aria-label="Copy NGF install command">Copy</button><code><span class="comment"># Install via Helm (OCI registry)</span>
 <span class="cmd">helm</span> install nginx-gateway-fabric \
   oci://ghcr.io/nginx/charts/nginx-gateway-fabric \
-  <span class="flag">--version</span> <span class="str" data-version="ngf.helm" data-version-format="bare">2.6.0</span> \
+  <span class="flag">--version</span> <span class="str" data-version="ngf.helm" data-version-format="bare">2.6.2</span> \
   <span class="flag">--namespace</span> nginx-gateway-fabric <span class="flag">--create-namespace</span></code></div>
                     </div>
 
@@ -1061,8 +1061,8 @@
 
         /* ── Auto-Fetch Versions ── */
         let VERSION_CONFIG = {
-            nic: { repo: 'nginx/kubernetes-ingress',        fallback: { release: 'v5.4.2', helm: 'v2.5.2' } },
-            ngf: { repo: 'nginx/nginx-gateway-fabric',      fallback: { release: 'v2.6.0', helm: 'v2.6.0' } },
+            nic: { repo: 'nginx/kubernetes-ingress',        fallback: { release: 'v5.4.3', helm: 'v2.5.3' } },
+            ngf: { repo: 'nginx/nginx-gateway-fabric',      fallback: { release: 'v2.6.2', helm: 'v2.6.2' } },
             i2g: { repo: 'kubernetes-sigs/ingress2gateway',  fallback: { release: 'v1.0.0' } }
         };
         // Bump the cache key suffix when VERSION_CONFIG shape or applyVersions logic changes

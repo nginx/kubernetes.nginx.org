@@ -711,7 +711,7 @@
 
         <div class="tool-page active" id="page-getting-started">
         <div class="info-box warning" style="margin: 0 0 12px;"><strong>Warning:</strong> The community-maintained <code>kubernetes/ingress-nginx</code> project has <a href="https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/" target="_blank" rel="noopener">reached end of maintenance</a>. <strong><span data-ingress-nginx-version>v1.15.1</span> (March 19, 2026) is the final release</strong> — it will receive no further releases, bugfixes, or security patches. The F5 NGINX Ingress Controller (<code>nginx/kubernetes-ingress</code>) is actively maintained and is the recommended migration target.</div>
-        <div class="info-box note" style="margin: 0 0 24px;"><strong>Version Reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Kubernetes Ingress NGINX (Ingress-NGINX) <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.4.2" target="_blank" rel="noopener">F5 NGINX Ingress Controller <span data-nic-version>v5.4.2</span></a>.</div>
+        <div class="info-box note" style="margin: 0 0 24px;"><strong>Version Reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Kubernetes Ingress NGINX (Ingress-NGINX) <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.4.3" target="_blank" rel="noopener">F5 NGINX Ingress Controller <span data-nic-version>v5.4.3</span></a>.</div>
 
         <section id="overview">
             <h2 id="migration-overview">Overview</h2>
@@ -834,7 +834,7 @@
             </div>
             <div class="install-box"><h4>Manifests (example)</h4>
                 <p style="margin: 0 0 12px; font-size: 0.9rem;">If you deploy using manifests, install CRDs manually before deploying the controller:</p>
-                <pre><code data-nic-crd-install>kubectl apply -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/v5.4.2/deploy/crds.yaml</code></pre>
+                <pre><code data-nic-crd-install>kubectl apply -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/v5.4.3/deploy/crds.yaml</code></pre>
                 <p style="margin: 12px 0 0; font-size: 0.85rem; opacity: 0.8;">Replace the version number with your target controller version. See the <a href="https://docs.nginx.com/nginx-ingress-controller/installation/installing-nic/installation-with-manifests/" target="_blank" rel="noopener">manifest installation guide</a> for the full step-by-step process.</p>
             </div>
             <div class="info-box note"><strong>Note:</strong> The <code>crds.yaml</code> file contains all CRDs (VirtualServer, VirtualServerRoute, Policy, TransportServer, GlobalConfiguration) in a single manifest.</div>
@@ -887,7 +887,7 @@
 
         <div class="tool-page" id="page-analyzer">
         <div class="info-box warning" style="margin: 0 0 12px;"><strong>Warning:</strong> The community-maintained <code>kubernetes/ingress-nginx</code> project has <a href="https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/" target="_blank" rel="noopener">reached end of maintenance</a>. <strong><span data-ingress-nginx-version>v1.15.1</span> (March 19, 2026) is the final release</strong> — it will receive no further releases, bugfixes, or security patches. The F5 NGINX Ingress Controller (<code>nginx/kubernetes-ingress</code>) is actively maintained and is the recommended migration target.</div>
-        <div class="info-box note" style="margin: 0 0 24px;"><strong>Version Reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Kubernetes Ingress NGINX (Ingress-NGINX) <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.4.2" target="_blank" rel="noopener">F5 NGINX Ingress Controller <span data-nic-version>v5.4.2</span></a>.</div>
+        <div class="info-box note" style="margin: 0 0 24px;"><strong>Version Reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Kubernetes Ingress NGINX (Ingress-NGINX) <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.4.3" target="_blank" rel="noopener">F5 NGINX Ingress Controller <span data-nic-version>v5.4.3</span></a>.</div>
         <!-- YAML Migration Analyzer -->
         <section id="analyzer">
             <h2 id="yaml-analyzer">Ingress NGINX Config Analyzer</h2>
@@ -949,7 +949,7 @@ spec:
 
         <div class="tool-page" id="page-reference">
         <div class="info-box warning" style="margin: 0 0 12px;"><strong>Warning:</strong> The community-maintained <code>kubernetes/ingress-nginx</code> project has <a href="https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/" target="_blank" rel="noopener">reached end of maintenance</a>. <strong><span data-ingress-nginx-version>v1.15.1</span> (March 19, 2026) is the final release</strong> — it will receive no further releases, bugfixes, or security patches. The F5 NGINX Ingress Controller (<code>nginx/kubernetes-ingress</code>) is actively maintained and is the recommended migration target.</div>
-        <div class="info-box note" style="margin: 0 0 24px;"><strong>Version Reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Kubernetes Ingress NGINX (Ingress-NGINX) <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.4.2" target="_blank" rel="noopener">F5 NGINX Ingress Controller <span data-nic-version>v5.4.2</span></a>.</div>
+        <div class="info-box note" style="margin: 0 0 24px;"><strong>Version Reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Kubernetes Ingress NGINX (Ingress-NGINX) <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.4.3" target="_blank" rel="noopener">F5 NGINX Ingress Controller <span data-nic-version>v5.4.3</span></a>.</div>
         <!-- Key Differences -->
         <section id="differences">
             <h2 id="key-differences">Key Differences</h2>
@@ -5254,7 +5254,7 @@ data:
         'use strict';
         // Single source of truth for the controller versions this tool is documented against.
         // Bump these when updating the Version Reference (and also update the version pills/install URLs in index.html).
-        const NIC_VERSION = 'v5.4.2';
+        const NIC_VERSION = 'v5.4.3';
         const INGRESS_NGINX_VERSION = 'v1.15.1';
         const NIC_CRD_INSTALL_CMD = 'kubectl apply -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/' + NIC_VERSION + '/deploy/crds.yaml';
         const NIC_RELEASE_URL = 'https://github.com/nginx/kubernetes-ingress/releases/tag/' + NIC_VERSION;
