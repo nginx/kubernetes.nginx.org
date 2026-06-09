@@ -831,8 +831,8 @@
             <p>CRDs can be installed via Helm or manually using manifests, depending on your deployment method. See the <a href="https://docs.nginx.com/nginx-ingress-controller/installation/" target="_blank" rel="noopener">F5 NGINX Ingress Controller installation docs</a> for full instructions.</p>
             <div class="install-box"><h4>Helm (example)</h4>
                 <p style="margin: 0 0 12px; font-size: 0.9rem;">If you install the F5 NGINX Ingress Controller via Helm, CRDs are included automatically. To ensure they are enabled:</p>
-                <pre><code>helm install nginx-ingress oci://ghcr.io/nginx/charts/nginx-ingress --version 2.5.0 --set controller.enableCRDs=true</code></pre>
-                <p style="margin: 12px 0 0; font-size: 0.85rem; opacity: 0.8;">The <code>controller.enableCRDs</code> flag is <code>true</code> by default. If you previously disabled it, re-enable it to use CRD resources. See the <a href="https://docs.nginx.com/nginx-ingress-controller/installation/installing-nic/installation-with-helm/" target="_blank" rel="noopener">Helm installation guide</a> for details.</p>
+                <pre><code>helm install nginx-ingress oci://ghcr.io/nginx/charts/nginx-ingress --version  --set controller.enableCustomResources=true</code></pre>
+                <p style="margin: 12px 0 0; font-size: 0.85rem; opacity: 0.8;">The <code>controller.enableCustomResources</code> flag is <code>true</code> by default. If you previously disabled it, re-enable it to use CRD resources. See the <a href="https://docs.nginx.com/nginx-ingress-controller/installation/installing-nic/installation-with-helm/" target="_blank" rel="noopener">Helm installation guide</a> for details.</p>
             </div>
             <div class="install-box"><h4>Manifests (example)</h4>
                 <p style="margin: 0 0 12px; font-size: 0.9rem;">If you deploy using manifests, install CRDs manually before deploying the controller:</p>
@@ -847,7 +847,7 @@
         <section id="checklist">
             <h2 id="migration-checklist">Migration Checklist</h2>
             <ul class="checklist" id="migrationChecklist">
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Install CRDs via Helm (<code>controller.enableCRDs=true</code>) or manifests (<code>deploy/crds.yaml</code>)</span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0"><span>Install CRDs via Helm (<code>controller.enableCustomResources=true</code>) or manifests (<code>deploy/crds.yaml</code>)</span></li>
                 <li role="checkbox" aria-checked="false" tabindex="0"><span>Review annotation mappings — not all <code>nginx.ingress.kubernetes.io/</code> annotations have a direct <code>nginx.org/</code> equivalent (see NGINX Mappings)</span></li>
                 <li role="checkbox" aria-checked="false" tabindex="0"><span>Map rewrite-target annotation to <code>nginx.org/rewrite-target</code> (not <code>nginx.org/rewrites</code>)</span></li>
                 <li role="checkbox" aria-checked="false" tabindex="0"><span>Migrate ConfigMap keys that differ between controllers (see ConfigMap Mappings)</span></li>
