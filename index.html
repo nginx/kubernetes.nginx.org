@@ -3,26 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="NGINX on Kubernetes — official NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.">
+    <meta name="description" content="NGINX on Kubernetes — the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.">
     <meta name="author" content="F5, Inc.">
     <link rel="canonical" href="https://kubernetes.nginx.org/">
     <link rel="preconnect" href="https://api.github.com" crossorigin>
     <link rel="preconnect" href="https://www.youtube-nocookie.com" crossorigin>
     <link rel="preconnect" href="https://i.ytimg.com" crossorigin>
     <link rel="dns-prefetch" href="https://nginxblog-8de1046ff5a84f2c-endpoint.azureedge.net">
-    <meta property="og:title" content="NGINX on Kubernetes">
-    <meta property="og:description" content="NGINX on Kubernetes — official NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.">
+    <meta property="og:title" content="NGINX - Networking for Kubernetes">
+    <meta property="og:description" content="NGINX on Kubernetes — the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.">
     <meta property="og:url" content="https://kubernetes.nginx.org/">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary">
-    <title>NGINX on Kubernetes</title>
+    <title>NGINX - Networking for Kubernetes</title>
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
         "@type": "WebSite",
-        "name": "NGINX on Kubernetes",
+        "name": "NGINX - Networking for Kubernetes",
         "url": "https://kubernetes.nginx.org/",
-        "description": "NGINX on Kubernetes — official NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.",
+        "description": "NGINX on Kubernetes — the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.",
         "publisher": {
             "@type": "Organization",
             "name": "F5, Inc.",
@@ -36,6 +36,7 @@
         :root {
             --green: #009639;
             --green-dark: #006b2b;
+            --green-text: #006b2b;
             --blue: #0072B0;
             --blue-dark: #005e91;
             --purple: #62228B;
@@ -70,6 +71,7 @@
             --border: #2a2d38;
             --shadow: 0 2px 12px rgba(0,0,0,0.3);
             --green: #34d058;
+            --green-text: #34d058;
             --blue: #58a6ff;
             --purple: #b07ee8;
             --teal: #4dd0e1;
@@ -184,7 +186,7 @@
         .page-hero-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; margin-bottom: 16px; min-height: 28px; }
         .page-hero-badge.nic, .page-hero-badge.ngf { background: rgba(0,150,57,0.15); color: #005f23; }
         .page-hero-badge.migration, .page-hero-badge.i2g { background: rgba(0,114,176,0.15); color: #004f80; }
-        :is(html, body).dark-mode .page-hero-badge.nic, :is(html, body).dark-mode .page-hero-badge.ngf { color: var(--green); }
+        :is(html, body).dark-mode .page-hero-badge.nic, :is(html, body).dark-mode .page-hero-badge.ngf { color: var(--green-text); }
         :is(html, body).dark-mode .page-hero-badge.migration, :is(html, body).dark-mode .page-hero-badge.i2g { color: var(--blue); }
         .page-hero-badge.blogs { background: rgba(0,131,143,0.15); color: var(--teal); }
         .page-hero-badge.videos { background: rgba(198,40,40,0.15); color: var(--red); }
@@ -217,7 +219,7 @@
         a.feature-card { text-decoration: none; color: inherit; }
         a.feature-card:link, a.feature-card:visited { color: inherit; }
         .feature-card-thumb { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; }
-        .feature-card-cta { display: inline-flex; align-items: center; gap: 4px; margin-top: 12px; font-size: 0.82rem; font-weight: 600; color: var(--green); }
+        .feature-card-cta { display: inline-flex; align-items: center; gap: 4px; margin-top: 12px; font-size: 0.82rem; font-weight: 600; color: var(--green-text); }
 
         /* ── Code Block ── */
         .code-section { margin: 28px 0; }
@@ -267,7 +269,7 @@
         /* ── Info Box ── */
         .info-box { padding: 16px 20px; border-radius: 8px; margin: 20px 0; font-size: 0.88rem; line-height: 1.6; }
         .info-box.tip, .info-box.tip-green { background: #e8f5e9; border-left: 4px solid var(--green); color: #2e7d32; }
-        :is(html, body).dark-mode .info-box.tip, :is(html, body).dark-mode .info-box.tip-green { background: #1b3a1f; color: var(--green); }
+        :is(html, body).dark-mode .info-box.tip, :is(html, body).dark-mode .info-box.tip-green { background: #1b3a1f; color: var(--green-text); }
         .info-box.info { background: #e3f2fd; border-left: 4px solid var(--blue); color: #1565c0; }
         :is(html, body).dark-mode .info-box.info { background: #0d2137; color: #64b5f6; }
         .info-box.warning { background: #fff3e0; border-left: 4px solid var(--orange); color: #bf4000; }
@@ -290,7 +292,7 @@
         .version-pill a:hover { text-decoration: underline; }
         .version-pill.nic, .version-pill.ngf { background: rgba(0,150,57,0.12); color: #005f23; }
         .version-pill.i2g { background: rgba(0,114,176,0.12); color: #004f80; }
-        :is(html, body).dark-mode .version-pill.nic, :is(html, body).dark-mode .version-pill.ngf { color: var(--green); }
+        :is(html, body).dark-mode .version-pill.nic, :is(html, body).dark-mode .version-pill.ngf { color: var(--green-text); }
         :is(html, body).dark-mode .version-pill.i2g { color: var(--blue); }
         :is(html, body).dark-mode .page-body a:link:not(.cta) { color: var(--blue); }
         :is(html, body).dark-mode .page-body a:visited:not(.cta) { color: var(--text); }
@@ -324,7 +326,7 @@
         .page-hero.home { background: linear-gradient(135deg, #e8f5e9, #e0f2f1); }
         :is(html, body).dark-mode .page-hero.home { background: linear-gradient(135deg, #0d1f10, #0a1a1b); }
         .page-hero-badge.home { background: rgba(0,150,57,0.15); color: #005f23; }
-        :is(html, body).dark-mode .page-hero-badge.home { color: var(--green); }
+        :is(html, body).dark-mode .page-hero-badge.home { color: var(--green-text); }
 
         /* ── Project Cards (Home) ── */
         .project-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 20px 0 32px; }
@@ -335,11 +337,11 @@
         .project-card-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
         .project-card-badge.green { background: rgba(0,150,57,0.12); color: #005f23; }
         .project-card-badge.blue { background: rgba(0,114,176,0.12); color: #004f80; }
-        :is(html, body).dark-mode .project-card-badge.green { color: var(--green); }
+        :is(html, body).dark-mode .project-card-badge.green { color: var(--green-text); }
         :is(html, body).dark-mode .project-card-badge.blue { color: var(--blue); }
         .project-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 8px; }
         .project-card p { font-size: 0.86rem; color: var(--text-secondary); line-height: 1.55; }
-        .project-card .card-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 12px; font-size: 0.82rem; font-weight: 600; color: var(--green); }
+        .project-card .card-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 12px; font-size: 0.82rem; font-weight: 600; color: var(--green-text); }
         .project-card .card-link.blue { color: var(--blue); }
 
         /* ── Video Embed ── */
@@ -438,7 +440,7 @@
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><use href="#icon-github"/></svg>
                 Contribute
             </a>
-            <button class="dark-toggle" id="darkToggle" aria-label="Switch to dark mode">
+            <button class="dark-toggle" id="darkToggle" aria-label="Switch to dark mode" aria-pressed="false">
                 <svg aria-hidden="true" class="dark-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
                 <svg aria-hidden="true" class="dark-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
             </button>
@@ -570,7 +572,7 @@
                         <a class="project-card" href="#ingress2gateway" data-navigate="ingress2gateway">
                             <span class="project-card-badge blue">Tool</span>
                             <h3>ingress2gateway</h3>
-                            <p>CLI tool to convert Ingress resources to Gateway API resources using the official NGINX provider.</p>
+                            <p>CLI tool to convert Ingress resources to Gateway API resources using the NGINX provider.</p>
                             <span class="card-link blue" aria-hidden="true">Learn more &rarr;</span>
                         </a>
                     </div>
@@ -918,7 +920,7 @@
                         </div>
                         <div class="feature-card">
                             <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> ConfigMap Migration</h3>
-                            <p>Detailed guide for migrating ConfigMap-based global configuration between the community and Official controllers.</p>
+                            <p>Detailed guide for migrating ConfigMap-based global configuration between the community controller and the NGINX Ingress Controller.</p>
                         </div>
                         <div class="feature-card">
                             <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> Complexity Assessment</h3>
@@ -967,7 +969,7 @@
                             <a class="hero-version" data-version="i2g.release" href="https://github.com/kubernetes-sigs/ingress2gateway/releases/tag/v1.0.0" target="_blank" rel="noopener">v1.0.0</a>
                         </span>
                         <h1>ingress2gateway</h1>
-                        <p>Convert Ingress resources to Gateway API resources using the official NGINX provider. Automate your migration from Ingress to the Kubernetes Gateway API.</p>
+                        <p>Convert Ingress resources to Gateway API resources using the NGINX provider. Automate your migration from Ingress to the Kubernetes Gateway API.</p>
                     </div>
                 </div>
                 <div class="page-body">
@@ -1189,6 +1191,7 @@
             if (!btn) return;
             let isDark = document.documentElement.classList.contains('dark-mode') || document.body.classList.contains('dark-mode');
             btn.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+            btn.setAttribute('aria-pressed', isDark ? 'true' : 'false');
         }
 
         /* ── Sidebar ── */
@@ -1200,16 +1203,24 @@
             if (backdrop) backdrop.classList.add('visible');
             if (toggle) toggle.setAttribute('aria-expanded', 'true');
             document.body.style.overflow = 'hidden';
+            // Take the content behind the drawer out of the tab order / a11y tree.
+            let main = document.querySelector('.main');
+            if (main) main.setAttribute('inert', '');
+            if (sidebar) { let firstLink = sidebar.querySelector('a, button'); if (firstLink) firstLink.focus(); }
         }
 
         function closeSidebarFn() {
             let sidebar = document.getElementById('sidebar');
+            // No-op (and don't steal focus) when the drawer isn't open — e.g. Escape on desktop.
+            if (!sidebar || !sidebar.classList.contains('open')) return;
             let backdrop = document.getElementById('sidebarBackdrop');
             let toggle = document.getElementById('menuToggle');
-            if (sidebar) sidebar.classList.remove('open');
+            sidebar.classList.remove('open');
             if (backdrop) backdrop.classList.remove('visible');
             if (toggle) toggle.setAttribute('aria-expanded', 'false');
             document.body.style.overflow = '';
+            let main = document.querySelector('.main');
+            if (main) main.removeAttribute('inert');
             if (toggle) toggle.focus();
         }
 
@@ -1346,9 +1357,10 @@
         /* ── Hash Routing ── */
         function handleHash() {
             let hash = location.hash.slice(1);
-            if (PRODUCTS.indexOf(hash) !== -1) {
-                showProductFn(hash, false);
-            }
+            // Treat an empty or unknown hash as Home, so Back/Forward to the bare
+            // URL restores the landing view instead of leaving the last product shown.
+            let id = PRODUCTS.indexOf(hash) !== -1 ? hash : 'home';
+            showProductFn(id, false);
         }
 
         window.addEventListener('hashchange', handleHash);
@@ -1369,7 +1381,7 @@
                     let isDark = !document.body.classList.contains('dark-mode');
                     document.documentElement.classList.toggle('dark-mode', isDark);
                     document.body.classList.toggle('dark-mode', isDark);
-                    localStorage.setItem('darkMode', isDark ? '1' : '0');
+                    try { localStorage.setItem('darkMode', isDark ? '1' : '0'); } catch (e) { /* storage blocked (e.g. private mode) */ }
                     updateDarkAriaLabel();
                 });
             }

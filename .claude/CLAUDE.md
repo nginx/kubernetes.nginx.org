@@ -28,7 +28,7 @@ Project characteristics:
 
 ### Migration tool (`ingress-nginx-migration.html`)
 
-- The live migration tool is `ingress-nginx-migration.html`, linked from the landing page via FQDN (`https://kubernetes.nginx.org/ingress-nginx-migration.html`).
+- The live migration tool is `ingress-nginx-migration.html`, linked from the landing page with a relative path (`href="ingress-nginx-migration.html"`) so the link resolves identically when opened locally, in PR previews, and in production. Do not change it to an absolute FQDN — that only works in production and breaks local testing.
 
 #### Migration tool ordering and structure rules
 

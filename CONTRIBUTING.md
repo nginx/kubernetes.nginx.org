@@ -11,7 +11,7 @@ The following is a set of guidelines for contributing to this project. We really
 
 ## Getting Started
 
-Follow the instructions on the README's [Getting Started](/README.md#Getting-Started) section to get this project up and running.
+This is a documentation-only project with no build step. Clone the repo, edit the self-contained HTML files (`index.html` and `ingress-nginx-migration.html`), and open them directly in a browser to preview your changes. See the [README](/README.md) for an overview of the project and its structure.
 
 <!-- ### Project Overview & Structure (OPTIONAL) -->
 
