@@ -1,0 +1,13 @@
+{
+  "name": "NGINX on Kubernetes",
+  "short_name": "NGINX K8s",
+  "description": "NGINX on Kubernetes — the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "browser",
+  "theme_color": "#009639",
+  "background_color": "#ffffff",
+  "icons": [
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
