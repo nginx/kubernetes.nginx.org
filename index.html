@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#009639">
     <meta name="description" content="NGINX on Kubernetes — the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.">
     <meta name="author" content="F5, Inc.">
     <link rel="canonical" href="https://kubernetes.nginx.org/">
@@ -14,8 +15,13 @@
     <meta property="og:description" content="NGINX on Kubernetes — the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.">
     <meta property="og:url" content="https://kubernetes.nginx.org/">
     <meta property="og:type" content="website">
-    <meta name="twitter:card" content="summary">
+    <meta property="og:image" content="https://kubernetes.nginx.org/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://kubernetes.nginx.org/og-image.png">
     <title>NGINX - Networking for Kubernetes</title>
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
@@ -497,7 +503,7 @@
                         <span class="dot" data-color="blue"></span>
                         <span class="sidebar-link-text">
                             <span class="sidebar-link-name">ingress2gateway</span>
-                            <span class="sidebar-link-desc"><span data-version="i2g.release">v1.0.0</span> &middot; Ingress API &rarr; Gateway API</span>
+                            <span class="sidebar-link-desc"><span data-version="i2g.release">v1.1.0</span> &middot; Ingress API &rarr; Gateway API</span>
                         </span>
                     </button></li>
                 </ul>
@@ -966,7 +972,7 @@
                         <span class="page-hero-badge i2g">
                             <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
                             Conversion Tool
-                            <a class="hero-version" data-version="i2g.release" href="https://github.com/kubernetes-sigs/ingress2gateway/releases/tag/v1.0.0" target="_blank" rel="noopener">v1.0.0</a>
+                            <a class="hero-version" data-version="i2g.release" href="https://github.com/kubernetes-sigs/ingress2gateway/releases/tag/v1.1.0" target="_blank" rel="noopener">v1.1.0</a>
                         </span>
                         <h1>ingress2gateway</h1>
                         <p>Convert Ingress resources to Gateway API resources using the NGINX provider. Automate your migration from Ingress to the Kubernetes Gateway API.</p>
@@ -999,8 +1005,8 @@
                             <p>Simple command-line interface that fits into CI/CD pipelines. Read from files or directly from a live cluster.</p>
                         </div>
                         <div class="feature-card">
-                            <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> 8 Providers</h3>
-                            <p>Support for NGINX, Istio, Kong, Apisix, GCE, OpenAPI3, and more &mdash; each with provider-specific annotation handling.</p>
+                            <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> 9 Providers</h3>
+                            <p>Support for NGINX, Istio, Kong, Apisix, GCE, OpenAPI3, Traefik, and more &mdash; each with provider-specific annotation handling.</p>
                         </div>
                         <div class="feature-card">
                             <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> File or Cluster Input</h3>
@@ -1015,7 +1021,7 @@
                     <h2 class="section-heading">Installation</h2>
                     <div class="code-section code-section-flush">
                         <div class="code-block"><button class="copy-btn" aria-label="Copy ingress2gateway install command">Copy</button><code><span class="comment"># Install with Go</span>
-<span class="cmd">go</span> install github.com/kubernetes-sigs/ingress2gateway<span data-version="i2g.release" data-version-format="atv">@v1.0.0</span>
+<span class="cmd">go</span> install github.com/kubernetes-sigs/ingress2gateway<span data-version="i2g.release" data-version-format="atv">@v1.1.0</span>
 
 <span class="comment"># Or install with Homebrew (macOS / Linux)</span>
 <span class="cmd">brew</span> install ingress2gateway
@@ -1065,7 +1071,7 @@
         let VERSION_CONFIG = {
             nic: { repo: 'nginx/kubernetes-ingress',        fallback: { release: 'v5.5.0', helm: 'v2.6.0' } },
             ngf: { repo: 'nginx/nginx-gateway-fabric',      fallback: { release: 'v2.6.2', helm: 'v2.6.2' } },
-            i2g: { repo: 'kubernetes-sigs/ingress2gateway',  fallback: { release: 'v1.0.0' } }
+            i2g: { repo: 'kubernetes-sigs/ingress2gateway',  fallback: { release: 'v1.1.0' } }
         };
         // Bump the cache key suffix when VERSION_CONFIG shape or applyVersions logic changes
         // so users don't apply stale payloads from previous schemas.
