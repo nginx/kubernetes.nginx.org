@@ -28,7 +28,11 @@ h3 { color: var(--text); margin: 30px 0 15px; font-size: 1.3rem; font-weight: 70
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .mapping-table { table-layout: fixed; }
 .mapping-table th, .mapping-table td { width: 50%; }
-.mapping-table td code { white-space: nowrap; }
+/* Annotation slugs wrap at every width. With table-layout: fixed 50/50 columns,
+   a `nowrap` slug wider than its half-column used to overflow and visually collide
+   with the other column at narrower desktop sizes. `overflow-wrap: anywhere` keeps
+   short codes on one line and only breaks the ones that would otherwise overflow. */
+.mapping-table td code { white-space: normal; overflow-wrap: anywhere; }
 .mapping-table td .or-text { display: block; font-size: 0.7rem; color: var(--text-secondary); margin: 6px 0; }
 .mapping-table pre code { white-space: pre; }
 th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border); }
@@ -40,9 +44,9 @@ tr.expandable:focus { outline: 2px solid var(--green); outline-offset: -2px; bac
 tr.expandable:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
 tr.expandable td:first-child { position: relative; padding-left: 28px; }
 tr.expandable td:last-child { line-height: 1.8; }
-tr.expandable td:first-child::before { content: ''; position: absolute; left: 8px; top: 50%; width: 6px; height: 6px; border-right: 2px solid var(--green); border-bottom: 2px solid var(--green); transform: translate(-50%, -50%) rotate(-45deg); transition: transform 0.25s ease; opacity: 0.5; }
-tr.expandable:hover td:first-child::before { opacity: 0.8; }
-tr.expandable.expanded td:first-child::before { transform: translate(-50%, -50%) rotate(45deg); opacity: 1; }
+tr.expandable td:first-child::after { content: ''; position: absolute; left: 8px; top: 50%; width: 6px; height: 6px; border-right: 2px solid var(--green); border-bottom: 2px solid var(--green); transform: translate(-50%, -50%) rotate(-45deg); transition: transform 0.25s ease; opacity: 0.5; }
+tr.expandable:hover td:first-child::after { opacity: 0.8; }
+tr.expandable.expanded td:first-child::after { transform: translate(-50%, -50%) rotate(45deg); opacity: 1; }
 tr.example-row { display: none; }
 tr.example-row.visible { display: table-row; }
 tr.example-row td { padding: 0; background: #fafafa; white-space: normal; }
@@ -113,6 +117,7 @@ pre code { background: none; color: inherit; padding: 0; }
 .feature-card ul { margin: 0; padding-left: 20px; }
 .feature-card li { margin: 8px 0; font-size: 0.9rem; }
 .main li::marker { color: var(--green-text); font-weight: 600; }
+.doc-list { padding-left: 40px; }
 .feature-card li strong { color: var(--blue); }
 .checklist { list-style: none; padding: 0; }
 .checklist li { display: flex; align-items: baseline; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); cursor: pointer; transition: opacity 0.2s; }
@@ -216,7 +221,7 @@ h2:hover .heading-anchor, h3:hover .heading-anchor, .heading-anchor:focus { opac
     .analyzer-download-btn { width: 100%; justify-content: center; }
     .analyzer-export-actions { flex-direction: column; }
     .mapping-table th, .mapping-table td { white-space: normal; word-break: break-word; font-size: 0.82rem; padding: 10px 8px; }
-    .mapping-table code { font-size: 0.75rem; word-break: break-all; }
+    .mapping-table code { font-size: 0.75rem; }
     .sample-dropdown-menu { min-width: 260px; left: auto; right: 0; }
 }
 @media (max-width: 900px) {
@@ -224,8 +229,8 @@ h2:hover .heading-anchor, h3:hover .heading-anchor, .heading-anchor:focus { opac
     section { border-radius: 8px; padding: 20px; }
     h2 { font-size: 1.4rem; }
     h3 { font-size: 1.1rem; }
-    .mapping-table { table-layout: auto; }
-    .mapping-table th, .mapping-table td { width: auto; }
+    /* table-layout stays fixed 50/50 (base) at tablet too: codes wrap, so columns
+       stay equal across all tables instead of auto-sizing per-table by content. */
     .comparison-block pre { font-size: 0.78rem; padding: 14px; }
     .example-content { padding: 14px; margin: 6px; }
     .approach-tabs { flex-wrap: wrap; gap: 4px; }
@@ -242,17 +247,34 @@ h2:hover .heading-anchor, h3:hover .heading-anchor, .heading-anchor:focus { opac
     section { padding: 16px; margin-bottom: 20px; }
     h2 { font-size: 1.2rem; margin-bottom: 16px; }
     h3 { font-size: 1rem; }
-    .mapping-table th:first-child { display: none; }
-    .mapping-table th:last-child { width: 100%; }
+    /* Stacked cards: drop the half-width header (it only showed the F5 column,
+       which read confusingly above community-first rows) and instead label both
+       sides per-row — community above, F5 below, split by a dashed rule. The two
+       labels are a matched pair: identical type, indent, spacing and a downward
+       arrow marker, distinguished only by colour (grey = from, green = to). The
+       expand chevron moves to ::after so ::before is free for the community label. */
+    .mapping-table thead { display: none; }
     .mapping-table td { display: block; width: 100%; }
-    .mapping-table td:first-child { font-size: 0.75rem; padding-bottom: 4px; border-bottom: none; opacity: 0.7; }
-    tr.expandable td:first-child { padding-left: 20px; }
-    tr.expandable td:first-child::before { left: 6px; }
-    tr.expandable td:last-child { padding-top: 0; }
+    .mapping-table td:first-child { font-size: 0.78rem; padding-bottom: 6px; border-bottom: none; }
+    /* Align both cells to the same left edge (the chevron sits in the shared gutter) */
+    tr.expandable td:first-child, tr.expandable td:last-child { padding-left: 24px; }
+    tr.expandable td:first-child::before, tr.expandable td:last-child::before { display: block; font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
+    tr.expandable td:first-child::before { content: "\2193 Kubernetes Ingress NGINX (Ingress-NGINX)"; color: var(--text-secondary); }
+    tr.expandable td:first-child::after { left: 8px; }
+    tr.expandable td:last-child { padding-top: 8px; border-top: 1px dashed var(--border); }
+    tr.expandable td:last-child::before { content: "\2193 F5 NGINX Ingress Controller"; color: var(--green-text); }
+    /* Key Differences (the one plain 3-col table) — stack into labeled cards */
+    .diff-table thead { display: none; }
+    .diff-table tr { display: block; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+    .diff-table td { display: block; border: none; padding: 3px 0; font-size: 0.84rem; }
+    .diff-table td:first-child { font-weight: 700; font-size: 0.9rem; margin-bottom: 2px; }
+    .diff-table td:nth-child(2)::before { content: "Community \2014 "; font-weight: 600; color: var(--text-secondary); }
+    .diff-table td:nth-child(3)::before { content: "F5 NIC \2014 "; font-weight: 600; color: var(--green-text); }
     .comparison { gap: 12px; }
     .comparison-block pre { font-size: 0.72rem; padding: 10px; }
     pre { font-size: 0.78rem; padding: 14px; }
-    .analyzer-textarea { font-size: 0.78rem; min-height: 150px; }
+    #yamlInput { min-height: 200px; }
+    .doc-list { padding-left: 22px; }
     .cta-row { flex-direction: column; }
     .cta { justify-content: center; width: 100%; }
 }
@@ -311,7 +333,7 @@ h2:hover .heading-anchor, h3:hover .heading-anchor, .heading-anchor:focus { opac
 :is(html, body).dark-mode tr.expandable:hover { background-color: rgba(102,187,106,0.1); border-left-color: rgba(102,187,106,0.4); }
 :is(html, body).dark-mode tr.expandable.expanded { border-left-color: var(--green-text); }
 :is(html, body).dark-mode tr.expandable:focus { outline-color: var(--green-text); background-color: rgba(102,187,106,0.1); }
-:is(html, body).dark-mode tr.expandable td:first-child::before { border-right-color: var(--green-text); border-bottom-color: var(--green-text); }
+:is(html, body).dark-mode tr.expandable td:first-child::after { border-right-color: var(--green-text); border-bottom-color: var(--green-text); }
 :is(html, body).dark-mode tr:not(.expandable):not(.example-row):hover { background-color: rgba(255,255,255,0.03); }
 :is(html, body).dark-mode tr.example-row td { background: var(--bg); }
 :is(html, body).dark-mode .example-content { background: var(--surface); border-left-color: var(--green-text); }
@@ -413,7 +435,7 @@ h2:hover .heading-anchor, h3:hover .heading-anchor, .heading-anchor:focus { opac
     .analyzer-yaml-output.collapsed { max-height: none !important; overflow: visible !important; }
     .analyzer-yaml-output.collapsed::after { display: none !important; }
     tr.example-row { display: table-row !important; }
-    tr.expandable td:first-child::before { display: none !important; }
+    tr.expandable td:first-child::after { display: none !important; }
     tr.expandable { border-left: none !important; }
     .yaml-key { color: #0066b3 !important; }
     .yaml-value { color: #c62828 !important; }

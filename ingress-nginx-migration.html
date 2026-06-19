@@ -168,7 +168,7 @@
         <section id="overview">
             <h2 id="migration-overview">Overview</h2>
             <p>This interactive guide helps you migrate from the community-maintained Kubernetes Ingress NGINX (Ingress-NGINX) controller (<code>kubernetes/ingress-nginx</code>) to the F5 NGINX Ingress Controller (<code>nginx/kubernetes-ingress</code>). It covers 130+ annotation mappings, ConfigMap key translations, and CRD migration examples across three tabs:</p>
-            <ul style="padding-left: 40px;">
+            <ul class="doc-list">
                 <li><strong>Getting Started</strong> — Background on why to migrate, CRD overviews, installation, and a migration checklist</li>
                 <li><strong>Ingress NGINX Config Analyzer</strong> — Paste an Ingress manifest and get automatic migration suggestions with ready-to-use YAML</li>
                 <li><strong>Reference Guide</strong> — Complete annotation and ConfigMap mapping tables with side-by-side examples</li>
@@ -179,13 +179,13 @@
             <h2 id="why-migrate-heading">Why Migrate?</h2>
             <p>The two controllers take fundamentally different approaches to configuring NGINX in Kubernetes.</p>
 
-            <ul style="padding-left: 40px;">
+            <ul class="doc-list">
                 <li><strong>Kubernetes Ingress NGINX (Ingress-NGINX)</strong> is <strong>annotation-driven</strong> — it relies on annotations and ConfigMap keys to customize NGINX. These are opaque strings with no schema validation — a single Ingress resource may carry dozens of annotations as unstructured key-value pairs.</li>
                 <li><strong>F5 NGINX Ingress Controller</strong> is <strong>CRD-native</strong> — it uses Custom Resource Definitions (VirtualServer, Policy, TransportServer) as its primary config model, providing structured, schema-validated YAML with IDE autocompletion.</li>
             </ul>
 
             <p style="margin-top: 24px;">While the F5 NGINX Ingress Controller still supports annotations for common settings, CRDs unlock capabilities that annotations cannot express:</p>
-            <ul style="padding-left: 40px;">
+            <ul class="doc-list">
                 <li><strong>Schema validation</strong> — Kubernetes validates CRD fields at apply time, catching misconfigurations before they reach NGINX</li>
                 <li><strong>Structured configuration</strong> — Nested YAML objects replace long annotation strings, making complex routing, traffic splitting, and security policies readable and maintainable</li>
                 <li><strong>Reusability</strong> — Policies (rate limiting, auth, WAF) are defined once and attached to any number of routes</li>
@@ -197,7 +197,7 @@
         <section id="phased-migration">
             <h2 id="phased-migration-strategy">Phased Migration Strategy</h2>
             <p>Rather than performing a "big bang" cutover, F5 recommends a phased migration that allows you to validate each workload before decommissioning the community controller. Both controllers can run side-by-side in the same cluster using separate <code>IngressClass</code> resources.</p>
-            <ol style="padding-left: 40px;">
+            <ol class="doc-list">
                 <li><strong>Deploy side-by-side</strong> — Install the F5 NGINX Ingress Controller alongside the community controller using a distinct <code>IngressClass</code> (e.g., <code>nginx-nic</code>). This ensures existing traffic is unaffected.</li>
                 <li><strong>Migrate service-by-service</strong> — Update each Ingress resource's <code>ingressClassName</code> to point to the new controller. Convert annotations as described in the Reference Guide, validate routing and TLS behavior, and promote to production before moving on to the next service.</li>
                 <li><strong>Decommission</strong> — After all workloads have been migrated and validated, remove the community controller deployment, its <code>IngressClass</code>, and any unused ConfigMaps.</li>
@@ -326,7 +326,7 @@
         <!-- Resources -->
         <section id="resources">
             <h2 id="additional-resources">Additional Resources</h2>
-            <ul style="padding-left: 40px;">
+            <ul class="doc-list">
                 <li><a href="https://docs.nginx.com/nginx-ingress-controller/" target="_blank" rel="noopener noreferrer">F5 NGINX Ingress Controller Documentation</a></li>
                 <li><a href="https://docs.nginx.com/nginx-ingress-controller/configuration/virtualserver-and-virtualserverroute-resources/" target="_blank" rel="noopener noreferrer">VirtualServer Reference</a></li>
                 <li><a href="https://docs.nginx.com/nginx-ingress-controller/configuration/policy-resource/" target="_blank" rel="noopener noreferrer">Policy Reference</a></li>
@@ -407,7 +407,7 @@ spec:
         <section id="differences">
             <h2 id="key-differences">Key Differences</h2>
             <div class="table-wrapper">
-                <table>
+                <table class="diff-table">
                     <thead><tr><th scope="col">Aspect</th><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr><td>Repository</td><td><code>kubernetes/ingress-nginx</code></td><td><code>nginx/kubernetes-ingress</code></td></tr>
