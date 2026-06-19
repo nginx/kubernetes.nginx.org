@@ -12,19 +12,36 @@ Documentation-only project covering NGINX on Kubernetes. The site serves as a ge
 Project characteristics:
 
 - No build system, tests, or package manager
-- Self-contained HTML + Markdown documentation (inline CSS/JS, no external dependencies)
+- Static HTML + Markdown documentation with CSS/JS in `assets/` (no CDN/third-party runtime dependencies)
 - Owned by F5, Inc., Apache 2.0 license
+
+## Directory layout
+
+CSS and JS are split into external files under `assets/` (shared chrome + per-page), so the two HTML pages no longer duplicate styles/scripts. Images live under `assets/img/`.
+
+```
+assets/
+  css/  shared.css        # chrome: design tokens, reset, topbar, sidebar, event banner, dark mode, layout, accessibility
+        index.css         # landing-page-only styles (hero, feature/project grids, compat tables, CTAs, code blocks)
+        migration.css     # migration-tool-only styles (analyzer UI, mapping/reference tables, badges, checklist, print)
+  js/   shared.js         # chrome behavior: dark-mode toggle, sidebar drawer, copy-to-clipboard, copyright year (globals)
+        index.js          # landing-page behavior: version auto-fetch, SPA product switching, entrance animation, YouTube
+        migration.js      # migration-tool behavior: YAML analyzer, ANNOTATION_MAPPINGS, reference tables, checklist
+  img/  icon.svg, icon-512.png, apple-touch-icon.{svg,png}, og-image.{svg,png}
+```
+
+Loading rules (both pages): `shared.css` is linked before the page CSS; `shared.js` is loaded before the page JS (the page scripts are IIFEs that call shared.js globals like `closeSidebar` / `copyToClipboard`). Asset paths are **relative** (`assets/css/…`, `assets/js/…`, no leading `/`) so they resolve identically locally, in PR previews, and in production. The inline `<head>` dark-mode flash-prevention `<script>` and the page-specific JSON-LD stay inline; classic (non-module) scripts keep functions global.
 
 ## Key Files
 
-- `index.html` — **The live landing page** served via GitHub Pages. Hub page linking to all four projects/tools above.
-- `ingress-nginx-migration.html` — **The live migration tool** at `https://kubernetes.nginx.org/ingress-nginx-migration.html`. Self-contained HTML app with an interactive YAML analyzer, 130+ annotation mappings, CRD migration examples, and ConfigMap migration guidance.
+- `index.html` — **The live landing page** served via GitHub Pages. Hub page linking to all four projects/tools above. Styles/scripts live in `assets/css/{shared,index}.css` and `assets/js/{shared,index}.js`.
+- `ingress-nginx-migration.html` — **The live migration tool** at `https://kubernetes.nginx.org/ingress-nginx-migration.html`. Interactive YAML analyzer, 130+ annotation mappings, CRD migration examples, and ConfigMap migration guidance. Styles/scripts live in `assets/css/{shared,migration}.css` and `assets/js/{shared,migration}.js`.
 
 ## Workflow
 
 ### Landing page (`index.html`)
 
-- Can be edited directly for layout/content updates since it is relatively lightweight (~1,165 lines).
+- Now markup-only (~690 lines) — styles are in `assets/css/{shared,index}.css` and behavior in `assets/js/{shared,index}.js`. Edit the HTML for content/layout, the CSS/JS files for presentation/behavior.
 
 ### Migration tool (`ingress-nginx-migration.html`)
 
@@ -39,15 +56,16 @@ Project characteristics:
 
 ## Shared UI Elements
 
-The following elements are duplicated across `index.html` and `ingress-nginx-migration.html` and must be kept in sync when either is updated:
+The shared "chrome" lives in `assets/css/shared.css` and `assets/js/shared.js` as the single source of truth — **edit it once there**, not in two places. This covers:
 
-- **Event banner** (Announcements) — the green fixed banner at the top of the page, including its CSS (`.event-banner`, `.has-banner` offsets) and JS init
-- **Top bar** — the NGINX logo, GitHub link, and dark mode toggle
-- **Sidebar external links** — GitHub, Documentation, Blog, YouTube, Community links at the bottom of the sidebar
-- **Sidebar copyright** — footer text in the sidebar
-- **Dark mode styles** — variable overrides, sidebar link/ext colors. Dark mode link colors (`a:link`, `a:visited`) must be scoped to the content area (`.page-body` in index.html, `.main-inner` in the migration tool) — never applied globally, or they will override topbar/sidebar link colors.
+- **Event banner** (Announcements) — the green fixed banner, its CSS (`.event-banner`, `body.has-banner` offsets), and JS init
+- **Top bar** — the NGINX logo, GitHub link, and dark-mode toggle (CSS + dark-toggle wiring in `shared.js`)
+- **Sidebar** — structure, external links, copyright, and the drawer open/close behavior (`shared.js`)
+- **Dark mode** — design-token overrides and chrome (topbar/sidebar) colors in `shared.css`; the dark-mode toggle logic in `shared.js`
 
-When changing any of these, update both files.
+The HTML markup for these elements (the topbar/sidebar/banner DOM) is still present in both `index.html` and `ingress-nginx-migration.html` and must stay structurally in sync — the shared CSS/JS keys off shared IDs/classes (`#sidebar`, `#sidebarBackdrop`, `#menuToggle`, `#darkToggle`, `.topbar`, `.event-banner`, `#copyright-year`, `#page-announce`).
+
+**Page-scoped exception — dark-mode content link colors:** dark-mode link colors (`a:link`, `a:visited`) must be scoped to the content area (`.page-body` in `index.css`, `.main-inner` in `migration.css`) and stay in the **per-page** CSS — never in `shared.css` and never global, or they override topbar/sidebar link colors.
 
 ## Hosting
 
@@ -121,16 +139,16 @@ When updating the sites for a new release, update **all** of the following.
 
 **`index.html`:**
 
-- Version fallback text in `data-version="nic.release"` spans (sidebar, hero badge, Key Details)
-- Release tag link in the hero badge (`href`)
-- Helm chart version in `data-version="nic.helm"` spans and the Helm install command
-- JS `VERSION_CONFIG` fallback values for `nic.release` and `nic.helm`
-- **Compatibility table** in the NIC section — update NGINX OSS version (check `NGINX_OSS_VERSION` in `build/Dockerfile` at the release tag) and Kubernetes versions if changed
+- Version fallback text in `data-version="nic.release"` spans in `index.html` (sidebar, hero badge, Key Details)
+- Release tag link in the hero badge (`href`) in `index.html`
+- Helm chart version in `data-version="nic.helm"` spans and the Helm install command in `index.html`
+- JS `VERSION_CONFIG` fallback values for `nic.release` and `nic.helm` — now in `assets/js/index.js`
+- **Compatibility table** in the NIC section of `index.html` — update NGINX OSS version (check `NGINX_OSS_VERSION` in `build/Dockerfile` at the release tag) and Kubernetes versions if changed
 
-**`ingress-nginx-migration.html`:**
+**Migration tool:**
 
-- Update the `NIC_VERSION` and `INGRESS_NGINX_VERSION` constants at the top of the main `<script>` block — these are the single source of truth for the Version Reference banners (3 instances), the standalone `kubectl apply` example, and every `crdInstall` URL inside `ANNOTATION_MAPPINGS`. Banner text and release-tag links are populated from these constants at `DOMContentLoaded`.
-- Update the static fallback text inside the `data-*-version` spans / `data-*-release-link` anchors (so no-JS users see the correct version before the JS runs).
+- Update the `NIC_VERSION` and `INGRESS_NGINX_VERSION` constants at the **top of `assets/js/migration.js`** — these are the single source of truth for the Version Reference banners (3 instances), the standalone `kubectl apply` example, and every `crdInstall` URL inside `ANNOTATION_MAPPINGS` (also in `assets/js/migration.js`). Banner text and release-tag links are populated from these constants at `DOMContentLoaded`.
+- Update the static fallback text inside the `data-*-version` spans / `data-*-release-link` anchors in `ingress-nginx-migration.html` (so no-JS users see the correct version before the JS runs).
 
 #### NGINX Gateway Fabric (NGF) release
 
@@ -139,7 +157,7 @@ When updating the sites for a new release, update **all** of the following.
 - Version fallback text in `data-version="ngf.release"` spans (sidebar, hero badge, Key Details)
 - Release tag link in the hero badge (`href`)
 - Helm chart version in `data-version="ngf.helm"` spans and the Helm install command
-- JS `VERSION_CONFIG` fallback values for `ngf.release` and `ngf.helm`
+- JS `VERSION_CONFIG` fallback values for `ngf.release` and `ngf.helm` — now in `assets/js/index.js`
 - **Compatibility table** in the NGF section — update NGINX OSS version (check the NGF release notes / README technical specs table) and Kubernetes versions if changed
 - **Supported Resources** tag list — review against `apis/v1alpha1` and `apis/v1alpha2` at the release tag to catch any new CRDs (e.g. `WAFPolicy` was added in v2.6.0). Keep tags alphabetical within the NGF custom-resources block.
 - **Gateway API version** in the "Fully Conformant Gateway API" pill and feature card copy (currently mentions v1.5.1) — update if the release bumps the conformant Gateway API version.
