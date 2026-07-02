@@ -24,6 +24,9 @@
                 let isExpanded = row.classList.contains('expanded');
                 row.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
                 exampleRow.setAttribute('aria-hidden', isExpanded ? 'false' : 'true');
+                // Highlighting is lazy — cover this row immediately in case the idle
+                // queue hasn't reached it yet (cheap no-op once highlighted).
+                if (isExpanded) highlightStaticExamples(exampleRow);
             }
         }
 
@@ -192,58 +195,62 @@
                 btn.setAttribute('aria-label', 'Copy code snippet');
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    let code = pre.textContent;
-                    if (navigator.clipboard && navigator.clipboard.writeText) {
-                        navigator.clipboard.writeText(code).then(function() {
-                            btn.textContent = 'Copied!';
-                            btn.classList.add('copied');
-                            setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
-                        }).catch(function() {
-                            btn.textContent = 'Failed';
-                            setTimeout(function() { btn.textContent = 'Copy'; }, 2000);
-                        });
-                    } else {
-                        let textarea = document.createElement('textarea');
-                        textarea.value = code;
-                        textarea.style.position = 'fixed';
-                        textarea.style.opacity = '0';
-                        document.body.appendChild(textarea);
-                        textarea.select();
-                        try {
-                            document.execCommand('copy');
-                            btn.textContent = 'Copied!';
-                            btn.classList.add('copied');
-                        } catch (err) {
-                            btn.textContent = 'Failed';
-                        } finally {
-                            document.body.removeChild(textarea);
-                        }
-                        setTimeout(function() { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
-                    }
+                    // Shared helper handles the fallback path, button feedback, and
+                    // the screen-reader announcement via #page-announce.
+                    copyToClipboard(pre.textContent, btn);
                 });
                 h5.appendChild(btn);
             });
-            // Syntax-highlight all static YAML examples
-            highlightStaticExamples();
+            // Syntax-highlight static YAML examples: the visible page immediately,
+            // the ~300 blocks inside hidden pages and collapsed rows during idle
+            // time — building 10k+ DOM nodes up front blocked first interaction.
+            highlightStaticExamples(document.querySelector('.tool-page.active') || document);
+            deferredHighlightRemaining();
         });
+
+        function highlightBlock(block) {
+            if (block.dataset.highlighted) return;
+            try {
+                let frag = highlightYaml(block.textContent);
+                block.textContent = '';
+                block.appendChild(frag);
+                block.dataset.highlighted = '1';
+            } catch (e) { /* skip block on error */ }
+        }
 
         // Applies the existing highlightYaml() DOM-based highlighter to all static pre>code blocks
         function highlightStaticExamples(root) {
-            (root || document).querySelectorAll('pre > code').forEach(function(block) {
-                if (block.dataset.highlighted) return;
-                try {
-                    let text = block.textContent;
-                    let frag = highlightYaml(text);
-                    block.textContent = '';
-                    block.appendChild(frag);
-                    block.dataset.highlighted = '1';
-                } catch (e) { /* skip block on error */ }
+            (root || document).querySelectorAll('pre > code').forEach(highlightBlock);
+        }
+
+        // Chunk the remaining (hidden) blocks through idle callbacks; a print
+        // request force-expands every example row, so flush the queue then.
+        function deferredHighlightRemaining() {
+            let blocks = Array.prototype.filter.call(document.querySelectorAll('pre > code'), function(b) { return !b.dataset.highlighted; });
+            function chunk(deadline) {
+                let count = 0;
+                while (blocks.length && (count < 8 || (deadline && deadline.timeRemaining && deadline.timeRemaining() > 4))) {
+                    highlightBlock(blocks.shift());
+                    count++;
+                }
+                if (blocks.length) schedule();
+            }
+            function schedule() {
+                if (window.requestIdleCallback) requestIdleCallback(chunk);
+                else setTimeout(chunk, 50);
+            }
+            if (blocks.length) schedule();
+            window.addEventListener('beforeprint', function() {
+                while (blocks.length) highlightBlock(blocks.shift());
             });
         }
 
         function expandAllExamples(btn) {
             let scope = btn ? btn.closest('section') : document;
             if (!scope) scope = document;
+            // Highlighting is lazy — cover the whole scope before revealing rows
+            // so none of them flash as plain text while the idle queue catches up.
+            highlightStaticExamples(scope);
             scope.querySelectorAll('.expandable').forEach(row => {
                 row.classList.add('expanded');
                 row.setAttribute('aria-expanded', 'true');
@@ -416,7 +423,7 @@
                 history.replaceState(null, '', '#' + anchorId);
                 let target = document.getElementById(anchorId);
                 if (target) {
-                    let y = target.getBoundingClientRect().top + window.pageYOffset - 64;
+                    let y = target.getBoundingClientRect().top + window.pageYOffset - chromeHeight() - 12;
                     window.scrollTo({ top: y, behavior: scrollBehavior() });
                 }
             });
@@ -480,7 +487,7 @@
             { community: ["custom-http-errors", "default-backend"], nic: "VirtualServer CRD errorPages[]", type: "virtualserver", category: "Error Handling", anchor: "error-handling", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { crdKind: "VirtualServer", crdInstall: NIC_CRD_INSTALL_CMD, templateFn: "generateErrorPagesVirtualServer" } },
             // Headers
-            { community: ["connection-proxy-header"], nic: "Snippets — or — VirtualServer CRD requestHeaders.set", type: "configmap", category: "Headers", anchor: "headers", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["connection-proxy-header"], nic: "Snippets — or — VirtualServer CRD requestHeaders.set", type: "annotation", category: "Headers", anchor: "headers", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { annotations: { "connection-proxy-header": { key: "nginx.org/location-snippets", transform: "snippetWrap", template: "proxy_set_header Connection \"${value}\";" } } } },
             { community: ["custom-headers"], nic: "VirtualServer CRD responseHeaders.add", type: "virtualserver", category: "Headers", anchor: "headers", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { crdKind: "VirtualServer", crdInstall: NIC_CRD_INSTALL_CMD, templateFn: "generateCustomHeadersVS" } },
@@ -512,8 +519,8 @@
               nicMapping: {} },
             // server-tokens: F5 NGINX Ingress Controller-only annotation (nginx.org/server-tokens) — no community equivalent, not in YAML analyzer
             // Request Mirroring
-            { community: ["mirror-host", "mirror-request-body", "mirror-target"], nic: "Annotation nginx.org/location-snippets with mirror directive", type: "annotation", category: "Request Mirroring", anchor: "mirroring", section: "oss", dualApproach: false, plusRequired: false,
-              nicMapping: { annotations: { "mirror-target": { key: "nginx.org/location-snippets", transform: "snippetWrap", template: "mirror /mirror;\nmirror_request_body on;" } } } },
+            { community: ["mirror-host", "mirror-request-body", "mirror-target"], nic: "Annotations nginx.org/location-snippets (mirror directive) + nginx.org/server-snippets (internal /mirror location)", type: "annotation", category: "Request Mirroring", anchor: "mirroring", section: "oss", dualApproach: false, plusRequired: false,
+              nicMapping: { annotations: { "mirror-target": { key: "nginx.org/location-snippets", transform: "mirrorSnippet" } } } },
             // Proxy Settings
             { community: ["proxy-http-version"], nic: "Annotation nginx.org/location-snippets", type: "annotation", category: "Proxy Settings", anchor: "proxy-settings", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { annotations: { "proxy-http-version": { key: "nginx.org/location-snippets", transform: "snippetWrap", template: "proxy_http_version ${value};" } } } },
@@ -523,14 +530,14 @@
             // OpenTelemetry
             { community: ["enable-opentelemetry"], nic: "ConfigMap otel-exporter-endpoint, otel-trace-in-http, otel-service-name", type: "configmap", category: "OpenTelemetry", anchor: "opentelemetry", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { configMap: { "enable-opentelemetry": { key: "otel-trace-in-http", transform: "direct" } } } },
-            { community: ["opentelemetry-trust-incoming-span"], nic: "ConfigMap otel-exporter-endpoint, otel-trace-in-http, otel-service-name (global configuration)", type: "configmap", category: "OpenTelemetry", anchor: "opentelemetry", section: "oss", dualApproach: false, plusRequired: false,
-              nicMapping: { configMap: { "opentelemetry-trust-incoming-span": { key: "otel-trace-in-http", transform: "direct" } } } },
+            { community: ["opentelemetry-trust-incoming-span"], nic: "No direct equivalent — incoming trace context is propagated whenever tracing is enabled; this annotation can be safely removed during migration", type: "unsupported", category: "OpenTelemetry", anchor: "opentelemetry", section: "oss", dualApproach: false, plusRequired: false,
+              nicMapping: {} },
             // Proxy Settings
             { community: ["proxy-next-upstream", "proxy-next-upstream-timeout", "proxy-next-upstream-tries"], nic: "Annotations nginx.org/proxy-next-upstream* — or — VirtualServer CRD upstreams[].next-upstream*", type: "annotation", category: "Proxy Settings", anchor: "proxy-settings", section: "oss", dualApproach: true, plusRequired: false,
               nicMapping: { annotations: { "proxy-next-upstream": { key: "nginx.org/proxy-next-upstream", transform: "direct" }, "proxy-next-upstream-timeout": { key: "nginx.org/proxy-next-upstream-timeout", transform: "direct" }, "proxy-next-upstream-tries": { key: "nginx.org/proxy-next-upstream-tries", transform: "direct" } }, crdKind: "VirtualServer", crdInstall: NIC_CRD_INSTALL_CMD, templateFn: "generateProxyNextUpstreamVS" } },
             // Rate Limiting
             { community: ["limit-burst-multiplier", "limit-connections", "limit-rate", "limit-rate-after", "limit-rpm", "limit-rps", "limit-whitelist"], nic: "nginx.org/limit-req-* annotations — or — Policy CRD rateLimit", type: "policy", category: "Rate Limiting", anchor: "rate-limiting", section: "oss", dualApproach: true, plusRequired: false,
-              nicMapping: { annotations: { "limit-rps": { key: "nginx.org/limit-req-rate", transform: "appendRateUnit" }, "limit-burst-multiplier": { key: "nginx.org/limit-req-burst", transform: "direct" } }, crdKind: "Policy", crdInstall: NIC_CRD_INSTALL_CMD, templateFn: "generateRateLimitPolicy" } },
+              nicMapping: { annotations: { "limit-rps": { key: "nginx.org/limit-req-rate", transform: "appendRateUnit" }, "limit-burst-multiplier": { key: "nginx.org/limit-req-burst", transform: "burstMultiplier" } }, crdKind: "Policy", crdInstall: NIC_CRD_INSTALL_CMD, templateFn: "generateRateLimitPolicy" } },
             // Redirects
             { community: ["from-to-www-redirect", "permanent-redirect", "permanent-redirect-code", "temporal-redirect", "temporal-redirect-code"], nic: "VirtualServer CRD action.redirect", type: "virtualserver", category: "Redirects", anchor: "redirects", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { crdKind: "VirtualServer", crdInstall: NIC_CRD_INSTALL_CMD, templateFn: "generateRedirectVirtualServer" } },
@@ -743,10 +750,21 @@
             return results;
         }
 
+        // Values interpolated into generated nginx directives come straight from
+        // the pasted YAML — neutralize characters that could terminate or extend
+        // the directive (newlines, ';', '{', '}', a quote-breaking '"', and a
+        // trailing backslash that would eat the closing quote). Legitimate values
+        // for these directives use none of them.
+        function sanitizeSnippetValue(value) {
+            return String(value).replace(/[\r\n;{}]+/g, ' ').replace(/"/g, '\\"').replace(/\\+$/, '').trim();
+        }
+
         // Translate a community annotation value to its NIC equivalent.
         // Returns either a string (the translated value) or an object
         // { value, note } when a non-trivial substitution was applied.
-        function translateValue(value, transform, template) {
+        // `found` (the entry's found annotations) enables cross-annotation
+        // transforms like burstMultiplier.
+        function translateValue(value, transform, template, found) {
             if (!value && value !== '0') return value;
             switch (transform) {
                 case 'direct': return value;
@@ -754,8 +772,18 @@
                 case 'appendRateUnit': return /r\/[sm]$/.test(value) ? value : value + 'r/s';
                 case 'appendTimeUnit': return /[smhd]$/.test(value) ? value : value + 's';
                 case 'appendBufferSize': return /\s/.test(value) ? value : value + ' 8k';
-                case 'snippetWrap': return template ? template.replace('${value}', value) : value;
-                case 'booleanOnOffSnippet': return template ? template.replace('${value}', value === 'true' ? 'on' : value === 'false' ? 'off' : value) : value;
+                case 'snippetWrap': return template ? template.replace('${value}', sanitizeSnippetValue(value)) : value;
+                case 'booleanOnOffSnippet': return template ? template.replace('${value}', value === 'true' ? 'on' : value === 'false' ? 'off' : sanitizeSnippetValue(value)) : value;
+                case 'burstMultiplier': {
+                    // Community semantics: burst = rate × limit-burst-multiplier
+                    // (default 5); nginx.org/limit-req-burst is the absolute burst.
+                    let rate = found ? parseInt(getAnnotationValue(found, 'limit-rps') || getAnnotationValue(found, 'limit-rpm') || '', 10) : NaN;
+                    let mult = parseInt(value, 10);
+                    if (!isNaN(rate) && !isNaN(mult)) {
+                        return { value: String(rate * mult), note: 'burst = rate (' + rate + ') × multiplier (' + mult + ')' };
+                    }
+                    return { value: value, note: 'community burst = rate × multiplier — replace with your computed burst size' };
+                }
                 case 'backendProtocol': return value; // key selection handled in generateMigrationYaml
                 case 'corsSnippet': return value; // handled specially in generateMigrationYaml
                 case 'lbMethod': {
@@ -882,17 +910,25 @@
             generateAccessControlPolicy: function(found) {
                 let allow = getAnnotationValue(found, 'whitelist-source-range');
                 let deny = getAnnotationValue(found, 'denylist-source-range');
-                let lines = ['apiVersion: k8s.nginx.org/v1', 'kind: Policy', 'metadata:', '  name: access-control-policy', 'spec:', '  accessControl:'];
-                if (allow) {
-                    lines.push('    allow:');
-                    allow.split(',').forEach(function(ip) { lines.push('      - ' + ip.trim()); });
+                function buildPolicy(name, mode, cidrs) {
+                    let lines = ['apiVersion: k8s.nginx.org/v1', 'kind: Policy', 'metadata:', '  name: ' + name, 'spec:', '  accessControl:', '    ' + mode + ':'];
+                    cidrs.split(',').forEach(function(ip) { lines.push('      - ' + ip.trim()); });
+                    return lines;
                 }
-                if (deny) {
-                    lines.push('    deny:');
-                    deny.split(',').forEach(function(ip) { lines.push('      - ' + ip.trim()); });
+                let lines, refNames;
+                if (allow && deny) {
+                    // accessControl accepts either allow or deny, never both — NIC
+                    // rejects a Policy carrying both, so emit one Policy per mode.
+                    lines = buildPolicy('access-control-allow', 'allow', allow).concat(['---'], buildPolicy('access-control-deny', 'deny', deny));
+                    refNames = 'access-control-allow,access-control-deny';
+                } else if (allow || deny) {
+                    lines = buildPolicy('access-control-policy', allow ? 'allow' : 'deny', allow || deny);
+                    refNames = 'access-control-policy';
+                } else {
+                    lines = ['apiVersion: k8s.nginx.org/v1', 'kind: Policy', 'metadata:', '  name: access-control-policy', 'spec:', '  accessControl:', '    allow:', '      - # TODO: Set your allowed CIDRs'];
+                    refNames = 'access-control-policy';
                 }
-                if (!allow && !deny) { lines.push('    allow:', '      - # TODO: Set your allowed CIDRs'); }
-                lines.push('', '# Reference from Ingress using:', '#   annotations:', '#     nginx.org/policies: "access-control-policy"');
+                lines.push('', '# Reference from Ingress using:', '#   annotations:', '#     nginx.org/policies: "' + refNames + '"');
                 return lines.join('\n');
             },
             generateCORSPolicy: function(found) {
@@ -918,8 +954,10 @@
                 return lines.join('\n');
             },
             generateBasicAuthPolicy: function(found) {
-                let secret = getAnnotationValue(found, 'auth-secret') || '# TODO: Set your secret name';
-                let realm = getAnnotationValue(found, 'auth-realm') || 'Protected Area';
+                // auth-secret is commonly "namespace/name" — the Policy takes a bare Secret name
+                let secretRaw = getAnnotationValue(found, 'auth-secret');
+                let secret = secretRaw ? secretRaw.replace(/^[^/]+\//, '') : '# TODO: Set your secret name';
+                let realm = (getAnnotationValue(found, 'auth-realm') || 'Protected Area').replace(/"/g, '\\"');
                 return ['apiVersion: k8s.nginx.org/v1', 'kind: Policy', 'metadata:', '  name: basic-auth-policy', 'spec:', '  basicAuth:', '    secret: ' + secret, '    realm: "' + realm + '"'].join('\n');
             },
             generateIngressMTLSPolicy: function(found) {
@@ -941,29 +979,54 @@
             },
             generateRateLimitPolicy: function(found) {
                 let rps = getAnnotationValue(found, 'limit-rps');
-                let burst = getAnnotationValue(found, 'limit-burst-multiplier');
-                let rate = rps ? rps + 'r/s' : '# TODO: Set your rate';
-                let burstVal = (rps && burst) ? String(parseInt(rps, 10) * parseInt(burst, 10)) : (burst || '5');
+                let rpm = getAnnotationValue(found, 'limit-rpm');
+                let rate = rps ? rps + 'r/s' : (rpm ? rpm + 'r/m' : '# TODO: Set your rate');
+                // Community burst = rate × limit-burst-multiplier (default multiplier 5)
+                let rateNum = parseInt(rps || rpm, 10);
+                let mult = parseInt(getAnnotationValue(found, 'limit-burst-multiplier') || '5', 10);
+                let burstVal = !isNaN(rateNum) ? String(rateNum * (isNaN(mult) ? 5 : mult)) : '# TODO: Set your burst (rate × multiplier)';
                 return ['apiVersion: k8s.nginx.org/v1', 'kind: Policy', 'metadata:', '  name: rate-limit-policy', 'spec:', '  rateLimit:', '    rate: ' + rate, '    burst: ' + burstVal, '    key: ${binary_remote_addr}', '    zoneSize: 10M', '    rejectCode: 429'].join('\n');
             },
             generateCanaryVirtualServer: function(found, spec) {
-                let weight = getAnnotationValue(found, 'canary-weight') || '20';
+                let weight = parseInt(getAnnotationValue(found, 'canary-weight') || '20', 10);
+                let total = parseInt(getAnnotationValue(found, 'canary-weight-total') || '100', 10);
                 let header = getAnnotationValue(found, 'canary-by-header');
+                let headerValue = getAnnotationValue(found, 'canary-by-header-value');
+                let headerPattern = getAnnotationValue(found, 'canary-by-header-pattern');
                 let cookie = getAnnotationValue(found, 'canary-by-cookie');
-                let mainWeight = String(100 - parseInt(weight, 10));
+                if (isNaN(weight)) weight = 20;
+                if (isNaN(total) || total <= 0) total = 100;
+                // Community weights are a fraction of canary-weight-total (default 100);
+                // NIC split weights are integers that must sum to exactly 100.
+                let canaryPct = Math.min(100, Math.max(0, Math.round((weight / total) * 100)));
                 let lines = ['apiVersion: k8s.nginx.org/v1', 'kind: VirtualServer', 'metadata:', '  name: canary-app', 'spec:', '  host: ' + specHost(spec), '  upstreams:', '    - name: main', '      service: ' + specService(spec), '      port: ' + specPort(spec), '    - name: canary', '      service: # TODO: canary service', '      port: ' + specPort(spec), '  routes:', '    - path: ' + specPath(spec)];
                 if (header || cookie) {
+                    // Community routes to the canary when the header/cookie value is
+                    // exactly "always", the custom canary-by-header-value, or matches
+                    // the canary-by-header-pattern regex (NIC conditions accept PCRE
+                    // via a "~" prefix). Value takes precedence over pattern upstream.
                     lines.push('      matches:');
-                    if (header) { lines.push('        - conditions:', '            - header: ' + header, '              value: "true"', '          action:', '            pass: canary'); }
-                    if (cookie) { lines.push('        - conditions:', '            - cookie: ' + cookie, '              value: "true"', '          action:', '            pass: canary'); }
+                    if (header) {
+                        let matchVal = headerValue || (headerPattern ? '~' + headerPattern : 'always');
+                        matchVal = matchVal.replace(/"/g, '\\"').replace(/\\+$/, '');
+                        lines.push('        - conditions:', '            - header: ' + header, '              value: "' + matchVal + '"', '          action:', '            pass: canary');
+                    }
+                    if (cookie) { lines.push('        - conditions:', '            - cookie: ' + cookie, '              value: "always"', '          action:', '            pass: canary'); }
                 }
-                lines.push('      splits:', '        - weight: ' + mainWeight, '          action: { pass: main }', '        - weight: ' + weight, '          action: { pass: canary }');
+                let rounded = (weight / total) * 100 !== canaryPct;
+                lines.push('      splits:', '        - weight: ' + (100 - canaryPct), '          action: { pass: main }', '        - weight: ' + canaryPct + (rounded ? '  # rounded from ' + weight + '/' + total : ''), '          action: { pass: canary }');
                 return lines.join('\n');
             },
             generateRedirectVirtualServer: function(found, spec) {
-                let url = getAnnotationValue(found, 'permanent-redirect') || getAnnotationValue(found, 'temporal-redirect') || '# TODO: Set redirect URL';
-                let code = getAnnotationValue(found, 'permanent-redirect-code') || (getAnnotationValue(found, 'temporal-redirect') ? '302' : '301');
-                return ['apiVersion: k8s.nginx.org/v1', 'kind: VirtualServer', 'metadata:', '  name: redirect-app', 'spec:', '  host: ' + specHost(spec), '  routes:', '    - path: ' + specPath(spec), '      action:', '        redirect:', '          url: ' + url + '${request_uri}', '          code: ' + code].join('\n');
+                let permanent = getAnnotationValue(found, 'permanent-redirect');
+                let temporal = getAnnotationValue(found, 'temporal-redirect');
+                // Community redirects everything to the exact URL — don't append
+                // ${request_uri} (add it yourself if you want path preservation).
+                let url = permanent || temporal || '# TODO: Set redirect URL';
+                let code = (!permanent && temporal)
+                    ? (getAnnotationValue(found, 'temporal-redirect-code') || '302')
+                    : (getAnnotationValue(found, 'permanent-redirect-code') || '301');
+                return ['apiVersion: k8s.nginx.org/v1', 'kind: VirtualServer', 'metadata:', '  name: redirect-app', 'spec:', '  host: ' + specHost(spec), '  routes:', '    - path: ' + specPath(spec), '      action:', '        redirect:', '          url: ' + url, '          code: ' + code].join('\n');
             },
             generateRewriteVirtualServer: function(found, spec) {
                 let target = getAnnotationValue(found, 'rewrite-target') || '/$2';
@@ -1082,21 +1145,25 @@
                     return;
                 }
 
-                // For dualApproach entries, only generate the path matching the chosen strategy
+                // For dualApproach entries, only generate the path matching the chosen strategy.
                 let isDual = m.dualApproach && om.annotations && om.crdKind;
                 let skipAnnotations = isDual && _migrationStrategy === 'crd';
-                let skipCrd = isDual && _migrationStrategy === 'annotation';
+                let hasCorsSnippet = om.annotations && Object.keys(om.annotations).some(function(k) { return om.annotations[k].transform === 'corsSnippet'; });
+                // Annotation-first only skips the CRD when the found annotations actually
+                // have an annotation path — entries whose annotations are CRD-only keep it.
+                let coversFound = om.annotations && (hasCorsSnippet || entry.foundAnnotations.some(function(a) { return !!om.annotations[a.annotation]; }));
+                let skipCrd = isDual && _migrationStrategy === 'annotation' && coversFound;
 
                 // Annotation swaps
                 if (om.annotations && !skipAnnotations) {
+                    let hasMirrorSnippet = Object.keys(om.annotations).some(function(k) { return om.annotations[k].transform === 'mirrorSnippet'; });
                     // Special handling for CORS — generate one combined snippet
-                    let hasCorsSnippet = Object.keys(om.annotations).some(function(k) { return om.annotations[k].transform === 'corsSnippet'; });
                     if (hasCorsSnippet) {
-                        let corsOrigin = getAnnotationValue(entry.foundAnnotations, 'cors-allow-origin') || '*';
-                        let corsMethods = getAnnotationValue(entry.foundAnnotations, 'cors-allow-methods') || 'GET, POST, OPTIONS';
-                        let corsHeaders = getAnnotationValue(entry.foundAnnotations, 'cors-allow-headers') || 'DNT,User-Agent,X-Requested-With,Content-Type,Authorization';
+                        let corsOrigin = sanitizeSnippetValue(getAnnotationValue(entry.foundAnnotations, 'cors-allow-origin') || '*');
+                        let corsMethods = sanitizeSnippetValue(getAnnotationValue(entry.foundAnnotations, 'cors-allow-methods') || 'GET, POST, OPTIONS');
+                        let corsHeaders = sanitizeSnippetValue(getAnnotationValue(entry.foundAnnotations, 'cors-allow-headers') || 'DNT,User-Agent,X-Requested-With,Content-Type,Authorization');
                         let corsCreds = getAnnotationValue(entry.foundAnnotations, 'cors-allow-credentials');
-                        let corsMaxAge = getAnnotationValue(entry.foundAnnotations, 'cors-max-age') || '86400';
+                        let corsMaxAge = sanitizeSnippetValue(getAnnotationValue(entry.foundAnnotations, 'cors-max-age') || '86400');
                         let corsExpose = getAnnotationValue(entry.foundAnnotations, 'cors-expose-headers');
                         let snippetLines = [];
                         snippetLines.push('add_header Access-Control-Allow-Origin "' + corsOrigin + '" always;');
@@ -1104,9 +1171,23 @@
                         snippetLines.push('add_header Access-Control-Allow-Headers "' + corsHeaders + '" always;');
                         if (corsCreds === 'true') snippetLines.push('add_header Access-Control-Allow-Credentials "true" always;');
                         snippetLines.push('add_header Access-Control-Max-Age ' + corsMaxAge + ' always;');
-                        if (corsExpose) snippetLines.push('add_header Access-Control-Expose-Headers "' + corsExpose + '" always;');
+                        if (corsExpose) snippetLines.push('add_header Access-Control-Expose-Headers "' + sanitizeSnippetValue(corsExpose) + '" always;');
                         snippetLines.push('if ($request_method = OPTIONS) { return 204; }');
                         annotationSwaps.push({ from: 'nginx.ingress.kubernetes.io/enable-cors + cors-*', fromAnnotations: entry.foundAnnotations, to: 'nginx.org/server-snippets', value: '|\\n  ' + snippetLines.join('\\n  '), originalValue: 'true (+ cors-* values)', entry: entry });
+                    } else if (hasMirrorSnippet) {
+                        // Mirroring needs a pair of snippets: the mirror directives on the
+                        // location, plus the internal /mirror location they point at —
+                        // otherwise the generated config mirrors to nowhere.
+                        let mirrorTarget = getAnnotationValue(entry.foundAnnotations, 'mirror-target');
+                        let mirrorHost = getAnnotationValue(entry.foundAnnotations, 'mirror-host');
+                        let mirrorBody = getAnnotationValue(entry.foundAnnotations, 'mirror-request-body');
+                        let locLines = ['mirror /mirror;', 'mirror_request_body ' + (mirrorBody === 'off' ? 'off' : 'on') + ';'];
+                        annotationSwaps.push({ from: 'nginx.ingress.kubernetes.io/mirror-*', fromAnnotations: entry.foundAnnotations, to: 'nginx.org/location-snippets', value: '|\\n  ' + locLines.join('\\n  '), originalValue: mirrorTarget || '', entry: entry });
+                        let srvLines = ['location /mirror {', '  internal;'];
+                        srvLines.push(mirrorTarget ? '  proxy_pass ' + sanitizeSnippetValue(mirrorTarget) + ';' : '  proxy_pass http://TODO-mirror-target;  # set your mirror target URL');
+                        if (mirrorHost) srvLines.push('  proxy_set_header Host ' + sanitizeSnippetValue(mirrorHost) + ';');
+                        srvLines.push('}');
+                        annotationSwaps.push({ from: 'nginx.ingress.kubernetes.io/mirror-target', fromAnnotations: [], to: 'nginx.org/server-snippets', value: '|\\n  ' + srvLines.join('\\n  '), originalValue: mirrorTarget || '', entry: entry });
                     } else {
                         // Special handling for backend-protocol — selects correct F5 NGINX Ingress Controller annotation based on value
                         let hasBackendProtocol = Object.keys(om.annotations).some(function(k) { return om.annotations[k].transform === 'backendProtocol'; });
@@ -1117,29 +1198,39 @@
                                     let upperVal = (a.value || '').toUpperCase();
                                     let svcName = specService(ingressSpec);
                                     if (upperVal === 'GRPC' || upperVal === 'GRPCS') {
-                                        annotationSwaps.push({ from: 'nginx.ingress.kubernetes.io/' + a.annotation, to: 'nginx.org/grpc-services', value: svcName, originalValue: a.value, entry: entry });
+                                        annotationSwaps.push({ from: 'nginx.ingress.kubernetes.io/' + a.annotation, fromAnnotations: [{ annotation: a.annotation, value: a.value }], to: 'nginx.org/grpc-services', value: svcName, originalValue: a.value, entry: entry });
                                     } else if (upperVal === 'HTTPS') {
-                                        annotationSwaps.push({ from: 'nginx.ingress.kubernetes.io/' + a.annotation, to: 'nginx.org/ssl-services', value: svcName, originalValue: a.value, entry: entry });
+                                        annotationSwaps.push({ from: 'nginx.ingress.kubernetes.io/' + a.annotation, fromAnnotations: [{ annotation: a.annotation, value: a.value }], to: 'nginx.org/ssl-services', value: svcName, originalValue: a.value, entry: entry });
                                     } else if (upperVal === 'HTTP') {
                                         infoNotes.push({ annotation: a.annotation, value: a.value, message: 'HTTP is the default protocol in F5 NGINX Ingress Controller. Remove this annotation — no replacement is needed.', entry: entry });
                                     } else if (upperVal === 'AUTO_HTTP' || upperVal === 'FCGI') {
                                         infoNotes.push({ annotation: a.annotation, value: a.value, message: upperVal + ' has no direct equivalent in F5 NGINX Ingress Controller. Review your backend protocol strategy before migrating.', entry: entry });
                                     }
                                 } else if (spec) {
-                                    let translated = unwrapTranslated(translateValue(a.value, spec.transform, spec.template));
-                                    annotationSwaps.push({ from: 'nginx.ingress.kubernetes.io/' + a.annotation, to: spec.key, value: translated.value, note: translated.note, originalValue: a.value, entry: entry });
+                                    let translated = unwrapTranslated(translateValue(a.value, spec.transform, spec.template, entry.foundAnnotations));
+                                    annotationSwaps.push({ from: 'nginx.ingress.kubernetes.io/' + a.annotation, fromAnnotations: [{ annotation: a.annotation, value: a.value }], to: spec.key, value: translated.value, note: translated.note, originalValue: a.value, entry: entry });
                                 }
                             });
                         } else {
                             entry.foundAnnotations.forEach(function(a) {
                                 let spec = om.annotations[a.annotation];
                                 if (spec) {
-                                    let translated = unwrapTranslated(translateValue(a.value, spec.transform, spec.template));
-                                    annotationSwaps.push({ from: 'nginx.ingress.kubernetes.io/' + a.annotation, to: spec.key, value: translated.value, note: translated.note, originalValue: a.value, entry: entry });
+                                    let translated = unwrapTranslated(translateValue(a.value, spec.transform, spec.template, entry.foundAnnotations));
+                                    annotationSwaps.push({ from: 'nginx.ingress.kubernetes.io/' + a.annotation, fromAnnotations: [{ annotation: a.annotation, value: a.value }], to: spec.key, value: translated.value, note: translated.note, originalValue: a.value, entry: entry });
                                 }
                             });
                         }
                     }
+                }
+
+                // Under annotation-first, found annotations without an annotation path
+                // are covered by the skipped CRD — say so instead of dropping them.
+                if (skipCrd && !hasCorsSnippet) {
+                    entry.foundAnnotations.forEach(function(a) {
+                        if (!om.annotations[a.annotation]) {
+                            infoNotes.push({ annotation: a.annotation, value: a.value, message: 'No annotation-only equivalent — this setting maps to the ' + om.crdKind + ' CRD approach. Switch the migration strategy to CRD-first to generate it.', entry: entry });
+                        }
+                    });
                 }
 
                 // ConfigMap changes
@@ -1147,7 +1238,7 @@
                     entry.foundAnnotations.forEach(function(a) {
                         let spec = om.configMap[a.annotation];
                         if (spec) {
-                            let translated = unwrapTranslated(translateValue(a.value, spec.transform, spec.template));
+                            let translated = unwrapTranslated(translateValue(a.value, spec.transform, spec.template, entry.foundAnnotations));
                             configMapChanges.push({ from: 'nginx.ingress.kubernetes.io/' + a.annotation, to: spec.key, value: translated.value, note: translated.note, originalValue: a.value, entry: entry });
                         }
                     });
@@ -1162,6 +1253,19 @@
                         console.warn('CRD generator failed for ' + om.crdKind + ' (' + om.templateFn + '):', e);
                     }
                 }
+            });
+
+            // Several annotations can map to the same ConfigMap key — keep the first
+            // occurrence and flag conflicting values instead of emitting duplicate
+            // keys in the generated ConfigMap data block.
+            let seenCmKeys = {};
+            configMapChanges = configMapChanges.filter(function(c) {
+                let prev = seenCmKeys[c.to];
+                if (!prev) { seenCmKeys[c.to] = c; return true; }
+                if (c.value !== prev.value) {
+                    prev.note = (prev.note ? prev.note + '; ' : '') + 'conflicting value "' + c.value + '" from ' + c.from.replace('nginx.ingress.kubernetes.io/', '') + ' ignored';
+                }
+                return false;
             });
 
             // Merge duplicate annotation keys (e.g., multiple location-snippets)
@@ -1240,14 +1344,16 @@
             container.textContent = '';
             let wrap = document.createElement('div');
             wrap.className = 'analyzer-loading';
-            wrap.setAttribute('role', 'status');
-            wrap.setAttribute('aria-live', 'polite');
             let spinner = document.createElement('span');
             spinner.className = 'analyzer-loading-spinner';
             spinner.setAttribute('aria-hidden', 'true');
             wrap.appendChild(spinner);
             wrap.appendChild(document.createTextNode('Analyzing your YAML…'));
             container.appendChild(wrap);
+            // A freshly inserted, already-populated live node isn't announced by most
+            // screen readers — write to the pre-existing live region instead.
+            let liveStatus = document.getElementById('analyzerLiveStatus');
+            if (liveStatus) liveStatus.textContent = 'Analyzing your YAML…';
         }
 
         function analyzeYaml() {
@@ -1279,6 +1385,7 @@
             }
             let matchedMappings = new Map();
             let unrecognized = [];
+            let dupConflicts = [];
             annotations.forEach(function(ann) {
                 let idx = ANNOTATION_LOOKUP.get(ann.annotation);
                 if (idx !== undefined) {
@@ -1286,8 +1393,13 @@
                         matchedMappings.set(idx, { mapping: ANNOTATION_MAPPINGS[idx], foundAnnotations: [] });
                     }
                     let entry = matchedMappings.get(idx);
-                    if (!entry.foundAnnotations.some(function(a) { return a.annotation === ann.annotation; })) {
+                    let existing = entry.foundAnnotations.find(function(a) { return a.annotation === ann.annotation; });
+                    if (!existing) {
                         entry.foundAnnotations.push({ annotation: ann.annotation, value: ann.value });
+                    } else if (existing.value !== ann.value && dupConflicts.indexOf(ann.annotation) === -1) {
+                        // Same annotation with a different value in another document —
+                        // results are built from the first occurrence; warn below.
+                        dupConflicts.push(ann.annotation);
                     }
                 } else {
                     if (!unrecognized.some(function(u) { return u.annotation === ann.annotation; })) {
@@ -1295,6 +1407,12 @@
                     }
                 }
             });
+            if (dupConflicts.length > 0) {
+                warnings.push({
+                    title: 'Duplicate annotations with different values',
+                    message: 'These annotations appear more than once (e.g. across YAML documents) with different values — results use the first occurrence: ' + dupConflicts.join(', ') + '.'
+                });
+            }
             let typeOrder = { policy: 0, virtualserver: 1, virtualserverroute: 2, transportserver: 3, globalconfiguration: 4, annotation: 5, configmap: 6, unsupported: 7 };
             let sorted = Array.from(matchedMappings.values()).sort(function(a, b) {
                 let ta = typeOrder[a.mapping.type] !== undefined ? typeOrder[a.mapping.type] : 99;
@@ -1329,6 +1447,10 @@
             div.appendChild(document.createTextNode(' ' + message));
             if (!opts.append) container.textContent = '';
             container.appendChild(div);
+            // #analyzerResults is a plain region — mirror error/info messages into
+            // the pre-existing live region so screen readers hear them too.
+            let liveStatus = document.getElementById('analyzerLiveStatus');
+            if (liveStatus) liveStatus.textContent = title + ' ' + message;
         }
 
         function highlightYaml(text) {
@@ -1474,33 +1596,6 @@
             return pre;
         }
 
-        function buildDiffYamlBlock(text, diffType) {
-            // diffType: 'removed' or 'added' — highlights annotation lines (skips the first 'annotations:' line)
-            let pre = document.createElement('div');
-            pre.className = 'analyzer-yaml-output';
-            let copyBtn = document.createElement('button');
-            copyBtn.className = 'analyzer-copy-btn';
-            copyBtn.textContent = 'Copy';
-            copyBtn.addEventListener('click', function() { copyAnalyzerBlock(copyBtn); });
-            pre.appendChild(copyBtn);
-            let lines = text.split('\n');
-            lines.forEach(function(line, i) {
-                if (i > 0) pre.appendChild(document.createTextNode('\n'));
-                let isAnnotationLine = i > 0 && line.match(/^\s+\S/);
-                if (isAnnotationLine) {
-                    let wrapper = document.createElement('span');
-                    wrapper.className = 'yaml-diff-line ' + diffType;
-                    let frag = highlightYaml(line);
-                    wrapper.appendChild(frag);
-                    pre.appendChild(wrapper);
-                } else {
-                    pre.appendChild(highlightYaml(line));
-                }
-            });
-            pre.setAttribute('data-raw', text);
-            return pre;
-        }
-
         function renderAnalyzerResults(container, totalAnnotations, sorted, unrecognized, ingressSpec) {
             container.textContent = '';
             let migration = generateMigrationYaml(sorted, ingressSpec);
@@ -1509,18 +1604,20 @@
             let summary = document.createElement('div');
             summary.className = 'analyzer-summary';
             function addPill(cls, text, scrollTarget) {
-                let span = document.createElement('span');
-                span.className = 'analyzer-pill ' + cls;
-                span.textContent = text;
+                // Scrollable pills are real buttons so keyboard users can operate them.
+                let pill = document.createElement(scrollTarget ? 'button' : 'span');
+                pill.className = 'analyzer-pill ' + cls;
+                pill.textContent = text;
                 if (scrollTarget) {
-                    span.setAttribute('data-scroll', scrollTarget);
-                    span.setAttribute('title', 'Click to jump to this section');
-                    span.addEventListener('click', function() {
+                    pill.type = 'button';
+                    pill.setAttribute('data-scroll', scrollTarget);
+                    pill.setAttribute('title', 'Click to jump to this section');
+                    pill.addEventListener('click', function() {
                         let el = document.getElementById(scrollTarget);
                         if (el) el.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
                     });
                 }
-                summary.appendChild(span);
+                summary.appendChild(pill);
             }
             addPill('found', totalAnnotations + ' annotation' + (totalAnnotations !== 1 ? 's' : '') + ' found');
             addPill('paths', sorted.length + ' migration path' + (sorted.length !== 1 ? 's' : ''), migration.annotationSwaps.length > 0 ? 'analyzer-step-1' : null);
@@ -2044,10 +2141,9 @@
                             if (sidebarLink) sidebarLink.click();
                             setTimeout(function() {
                                 let target = document.getElementById(entry.mapping.anchor);
-                                if (target) { let y = target.getBoundingClientRect().top + window.pageYOffset - 64; window.scrollTo({ top: y, behavior: scrollBehavior() }); }
+                                if (target) { let y = target.getBoundingClientRect().top + window.pageYOffset - chromeHeight() - 12; window.scrollTo({ top: y, behavior: scrollBehavior() }); }
                             }, 150);
                         });
-                        card.appendChild(desc);
                         card.appendChild(link);
                     }
                     step4.appendChild(card);
@@ -2067,7 +2163,7 @@
                 unrecSection.appendChild(h4);
                 let desc = document.createElement('p');
                 desc.style.fontSize = '0.9rem';
-                desc.style.color = '#666';
+                desc.style.color = 'var(--text-secondary)';
                 desc.style.marginBottom = '10px';
                 desc.textContent = 'These annotations were not found in the migration database. They may be custom, deprecated, or not yet mapped.';
                 unrecSection.appendChild(desc);
@@ -2154,26 +2250,33 @@
                 copyAllBtn.appendChild(clipSvg);
                 copyAllBtn.appendChild(document.createTextNode('Copy All Migration YAML'));
                 copyAllBtn.addEventListener('click', function() {
+                    function restoreLabel() {
+                        copyAllBtn.textContent = '';
+                        copyAllBtn.appendChild(clipSvg);
+                        copyAllBtn.appendChild(document.createTextNode('Copy All Migration YAML'));
+                        copyAllBtn.classList.remove('copied');
+                    }
                     function onCopied() {
                         copyAllBtn.textContent = '';
                         copyAllBtn.appendChild(clipSvg);
                         copyAllBtn.appendChild(document.createTextNode('Copied!'));
                         copyAllBtn.classList.add('copied');
-                        setTimeout(function() {
-                            copyAllBtn.textContent = '';
-                            copyAllBtn.appendChild(clipSvg);
-                            copyAllBtn.appendChild(document.createTextNode('Copy All Migration YAML'));
-                            copyAllBtn.classList.remove('copied');
-                        }, 2000);
+                        announce('Migration YAML copied to clipboard');
+                        setTimeout(restoreLabel, 2000);
+                    }
+                    function onFailed() {
+                        copyAllBtn.textContent = '';
+                        copyAllBtn.appendChild(clipSvg);
+                        copyAllBtn.appendChild(document.createTextNode('Copy failed'));
+                        announce('Copy failed');
+                        setTimeout(restoreLabel, 2000);
                     }
                     if (navigator.clipboard && navigator.clipboard.writeText) {
                         navigator.clipboard.writeText(allYaml).then(onCopied).catch(function() {
-                            fallbackCopy(allYaml);
-                            onCopied();
+                            if (fallbackCopy(allYaml)) onCopied(); else onFailed();
                         });
                     } else {
-                        fallbackCopy(allYaml);
-                        onCopied();
+                        if (fallbackCopy(allYaml)) onCopied(); else onFailed();
                     }
                 });
                 exportRow.appendChild(copyAllBtn);
@@ -2380,7 +2483,7 @@
 '    nginx.ingress.kubernetes.io/enable-modsecurity: "true"\n' +
 '    nginx.ingress.kubernetes.io/modsecurity-snippet: |\n' +
 '      SecRuleEngine On\n' +
-'      SecRule ARGS "@contains &lt;script&gt;" "id:1,deny,status:403"\n' +
+'      SecRule ARGS "@contains <script>" "id:1,deny,status:403"\n' +
 '    # Rate limiting\n' +
 '    nginx.ingress.kubernetes.io/limit-rps: "100"\n' +
 '    nginx.ingress.kubernetes.io/limit-connections: "50"\n' +
@@ -2477,7 +2580,11 @@
             document.getElementById('analyzerResults').textContent = '';
             document.getElementById('sampleDropdown').classList.remove('visible');
             let btn = document.querySelector('.sample-dropdown-btn');
-            if (btn) btn.setAttribute('aria-expanded', 'false');
+            if (btn) {
+                btn.setAttribute('aria-expanded', 'false');
+                // Focus was on the now-hidden menu item — return it to the trigger.
+                btn.focus();
+            }
             updateInputStatus();
             updateYamlHighlight();
         }
@@ -2630,7 +2737,9 @@
                 this.blur();
                 return;
             }
-            if (e.key === 'Tab') {
+            // Shift+Tab must keep moving focus backwards — intercepting it too
+            // would make the textarea a full keyboard trap.
+            if (e.key === 'Tab' && !e.shiftKey) {
                 e.preventDefault();
                 let start = this.selectionStart;
                 let end = this.selectionEnd;
@@ -2649,16 +2758,6 @@
             let pageLinks = document.querySelectorAll('.sidebar-link[data-page]');
             let sectionLinks = document.querySelectorAll('.sidebar-link[data-section]');
             let allSubnavs = document.querySelectorAll('.sidebar-subnav');
-
-            function closeMobileSidebar() {
-                let sidebar = document.getElementById('sidebar');
-                let backdrop = document.getElementById('sidebarBackdrop');
-                let menuToggle = document.getElementById('menuToggle');
-                if (sidebar) sidebar.classList.remove('open');
-                if (backdrop) backdrop.classList.remove('visible');
-                if (menuToggle) menuToggle.setAttribute('aria-expanded', 'false');
-                document.body.style.overflow = '';
-            }
 
             let currentPage = 'getting-started';
 
@@ -2688,16 +2787,17 @@
                     if (parentSubnav) { parentSubnav.classList.add('open'); activeLink.setAttribute('aria-expanded', 'true'); }
                 }
 
-                // Update URL hash
-                if (opts.updateHash !== false) {
-                    history.replaceState(null, '', '#' + id);
+                // Update URL hash — a real history entry per page switch so Back/Forward
+                // navigate within the tool (restored by the hashchange listener below);
+                // guarded so re-clicks and hash-driven restores don't stack duplicates.
+                if (opts.updateHash !== false && location.hash !== '#' + id) {
+                    history.pushState(null, '', '#' + id);
                 }
 
                 // Announce page switch for screen readers
-                let announcer = document.getElementById('page-announce');
                 let pageNames = { 'getting-started': 'Getting Started', analyzer: 'Config Analyzer', reference: 'Reference Guide' };
-                if (announcer && switching) {
-                    announcer.textContent = 'Navigated to ' + (pageNames[id] || id);
+                if (switching) {
+                    announce('Navigated to ' + (pageNames[id] || id));
                 }
 
                 // Update mobile breadcrumb
@@ -2706,7 +2806,10 @@
 
                 // Only scroll to top when switching pages (unless caller handles scroll)
                 if (switching && !opts.skipScroll) window.scrollTo(0, 0);
-                closeMobileSidebar();
+                // Shared closeSidebar() (a no-op while the drawer isn't open) also clears
+                // the inert attribute openSidebar() set on .main — a local re-implementation
+                // here used to leave the whole page inert after mobile drawer navigation.
+                closeSidebar();
             }
 
             // Page link click handlers
@@ -2730,8 +2833,10 @@
                     let wasOnTargetPage = (currentPage === targetPage);
                     // Ensure target page is visible (skip hash + scroll-to-top)
                     showPage(targetPage, { updateHash: false, skipScroll: true });
-                    // Update hash to the section
-                    history.replaceState(null, '', '#' + sectionId);
+                    // Update hash to the section (real, deduplicated entry so Back works)
+                    if (location.hash !== '#' + sectionId) {
+                        history.pushState(null, '', '#' + sectionId);
+                    }
 
                     function scrollToSection() {
                         let target = document.getElementById(sectionId);
@@ -2795,16 +2900,44 @@
                 sections.forEach(function(s) { observer.observe(s.el); });
             }
 
-            // Restore page from URL hash on load
-            let hash = location.hash.replace('#', '');
-            if (hash) {
+            // Navigate to whatever the URL hash points at — sidebar sections, tool pages,
+            // or any anchor inside a (possibly hidden) tool page. Runs on load for deep
+            // links, and on hashchange for Back/Forward and plain in-content anchors.
+            function navigateFromHash() {
+                let hash = location.hash.replace('#', '');
+                if (!hash) {
+                    // Back past the first in-tool navigation lands on the bare URL.
+                    showPage('getting-started', { updateHash: false });
+                    return;
+                }
+                // Anything outside [\w-] can't be an id on this page and would break
+                // the attribute selector below (e.g. a trailing backslash throws).
+                if (!/^[\w-]+$/.test(hash)) return;
                 let sectionLink = document.querySelector('.sidebar-link[data-section="' + hash + '"]');
                 if (sectionLink) {
                     sectionLink.click();
                 } else if (hash === 'getting-started' || hash === 'analyzer' || hash === 'reference') {
                     showPage(hash);
+                } else {
+                    // Heading permalinks and other subsection anchors live inside
+                    // display:none tool pages, so the browser's native fragment scroll
+                    // can't reach them — activate the owning page, then scroll past
+                    // the fixed chrome.
+                    let target = document.getElementById(hash);
+                    let owner = target && target.closest('.tool-page');
+                    if (target && owner) {
+                        if (!owner.classList.contains('active')) {
+                            showPage(owner.id.replace('page-', ''), { updateHash: false, skipScroll: true });
+                        }
+                        requestAnimationFrame(function() {
+                            let y = target.getBoundingClientRect().top + window.pageYOffset - chromeHeight() - 12;
+                            window.scrollTo({ top: y });
+                        });
+                    }
                 }
             }
+            if (location.hash) navigateFromHash();
+            window.addEventListener('hashchange', navigateFromHash);
         })();
 
         // Scroll-to-top button (created dynamically to ensure it exists)
@@ -2856,18 +2989,25 @@
                 catch (e) { /* quota or private browsing */ }
             }
 
+            // Stable per-item keys (data-id) so editing the checklist between
+            // releases doesn't shift saved checkmarks onto the wrong items.
+            function keyFor(li, index) {
+                return li.getAttribute('data-id') || String(index);
+            }
+
             function toggle(li, index) {
                 let state = loadState();
                 let isChecked = li.classList.toggle('checked');
                 li.setAttribute('aria-checked', isChecked ? 'true' : 'false');
-                if (isChecked) { state[index] = true; } else { delete state[index]; }
+                let k = keyFor(li, index);
+                if (isChecked) { state[k] = true; } else { delete state[k]; }
                 saveState(state);
             }
 
             // Restore saved state
             let state = loadState();
             for (let i = 0; i < items.length; i++) {
-                if (state[i]) {
+                if (state[keyFor(items[i], i)]) {
                     items[i].classList.add('checked');
                     items[i].setAttribute('aria-checked', 'true');
                 }

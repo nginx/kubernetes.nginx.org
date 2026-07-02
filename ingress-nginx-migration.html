@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#009639">
+    <meta name="theme-color" content="#009639" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#1a1c25" media="(prefers-color-scheme: dark)">
+    <meta name="color-scheme" content="light dark">
     <meta name="description" content="Migrate from Kubernetes Ingress NGINX (ingress-nginx) to the F5 NGINX Ingress Controller: config analyzer, 130+ annotation mappings, and CRD migration examples.">
     <meta name="keywords" content="NGINX, Ingress, Kubernetes, Migration, Controller, CRD, VirtualServer, Policy">
     <meta name="author" content="F5, Inc.">
@@ -15,11 +17,13 @@
     <meta property="og:image" content="https://kubernetes.nginx.org/assets/img/og-image.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="NGINX Ingress Migration Tool — migrate from ingress-nginx to the NGINX Ingress Controller">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:image" content="https://kubernetes.nginx.org/assets/img/og-image.png">
+    <meta name="twitter:image:alt" content="NGINX Ingress Migration Tool — migrate from ingress-nginx to the NGINX Ingress Controller">
     <title>NGINX Ingress Migration Tool</title>
-    <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
-    <link rel="manifest" href="/site.webmanifest">
+    <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+    <link rel="manifest" href="site.webmanifest">
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
@@ -41,17 +45,25 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='53' height='60' viewBox='0 0 53 60'%3E%3Cg transform='translate(-7.198 -0.359)'%3E%3Cpath fill='%23009639' d='M7.606,45.181a3.019,3.019,0,0,0,1.134,1.126L31.942,59.702a3.044,3.044,0,0,0,3.084,0L58.229,46.306a3.043,3.043,0,0,0,1.541-2.67V16.846a3.044,3.044,0,0,0-1.542-2.67L35.025,0.779a3.04,3.04,0,0,0-3.082,0L8.741,14.175a3.042,3.042,0,0,0-1.543,2.67V43.637a3.025,3.025,0,0,0,.407,1.544'/%3E%3Cpath fill='%23fff' d='M26.055,40.439a2.984,2.984,0,0,1-5.968,0l.003-20.483a3.111,3.111,0,0,1,3.388-2.899,5.306,5.306,0,0,1,4.067,1.819l.902,1.079L40.914,34.874V20.041a2.984,2.984,0,1,1,5.968,0l-.004,20.481a3.111,3.111,0,0,1-3.388,2.899,5.303,5.303,0,0,1-4.067-1.819L26.054,25.606V40.44Z'/%3E%3C/g%3E%3C/svg%3E">
     <link rel="stylesheet" href="assets/css/shared.css">
     <link rel="stylesheet" href="assets/css/migration.css">
+    <!-- Without JS the tool pages would all be display:none — stack them so the
+         static reference content stays readable. -->
+    <noscript><style>.tool-page { display: block; }</style></noscript>
     <script>try{let s=localStorage.getItem('darkMode');if(s==='1'||(s===null&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
+    <!-- defer: fetch starts with the first HTML chunk instead of after the whole
+         document; execution order (shared before page) and after-parse timing keep
+         the classic-script/globals convention working. -->
+    <script defer src="assets/js/shared.js"></script>
+    <script defer src="assets/js/migration.js"></script>
 </head>
 <body>
-    <noscript><div style="background:#fff3e0;color:#bf4000;text-align:center;padding:12px;font-size:0.9rem;">This tool requires JavaScript for the config analyzer, navigation, and interactive features.</div></noscript>
+    <noscript><div class="noscript-warning">This tool requires JavaScript for the config analyzer, navigation, and interactive features.</div></noscript>
     <a href="#main-content" class="skip-link">Skip to main content</a>
     <div class="sr-only" aria-live="polite" id="page-announce"></div>
 
     <!-- ── Top Bar ── -->
     <nav class="topbar" aria-label="Top navigation">
         <div class="topbar-left">
-            <button class="menu-toggle" id="menuToggle" aria-label="Toggle sidebar navigation" aria-expanded="false">
+            <button class="menu-toggle" id="menuToggle" aria-label="Toggle sidebar navigation" aria-expanded="false" aria-controls="sidebar">
                 <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
             </button>
             <a class="topbar-brand" href="index.html">
@@ -69,7 +81,7 @@
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
                 Contribute
             </a>
-            <button class="dark-toggle" id="darkToggle" aria-label="Switch to dark mode" aria-pressed="false">
+            <button class="dark-toggle" id="darkToggle" aria-label="Dark mode" aria-pressed="false">
                 <svg aria-hidden="true" class="dark-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
                 <svg aria-hidden="true" class="dark-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
             </button>
@@ -282,12 +294,12 @@
             <div class="install-box"><h3>Helm (example)</h3>
                 <p style="margin: 0 0 12px; font-size: 0.9rem;">If you install the F5 NGINX Ingress Controller via Helm, CRDs are included automatically. To ensure they are enabled:</p>
                 <pre><code data-nic-helm-install>helm install nginx-ingress oci://ghcr.io/nginx/charts/nginx-ingress --version 2.6.1 --set controller.enableCustomResources=true</code></pre>
-                <p style="margin: 12px 0 0; font-size: 0.85rem; opacity: 0.8;">The <code>controller.enableCustomResources</code> flag is <code>true</code> by default. If you previously disabled it, re-enable it to use CRD resources. See the <a href="https://docs.nginx.com/nginx-ingress-controller/installation/installing-nic/installation-with-helm/" target="_blank" rel="noopener">Helm installation guide</a> for details.</p>
+                <p style="margin: 12px 0 0; font-size: 0.85rem; opacity: 0.8;">The <code>controller.enableCustomResources</code> flag is <code>true</code> by default. If you previously disabled it, re-enable it to use CRD resources. See the <a href="https://docs.nginx.com/nginx-ingress-controller/install/helm/" target="_blank" rel="noopener">Helm installation guide</a> for details.</p>
             </div>
             <div class="install-box"><h3>Manifests (example)</h3>
                 <p style="margin: 0 0 12px; font-size: 0.9rem;">If you deploy using manifests, install CRDs manually before deploying the controller:</p>
                 <pre><code data-nic-crd-install>kubectl apply -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/v5.5.1/deploy/crds.yaml</code></pre>
-                <p style="margin: 12px 0 0; font-size: 0.85rem; opacity: 0.8;">Replace the version number with your target controller version. See the <a href="https://docs.nginx.com/nginx-ingress-controller/installation/installing-nic/installation-with-manifests/" target="_blank" rel="noopener">manifest installation guide</a> for the full step-by-step process.</p>
+                <p style="margin: 12px 0 0; font-size: 0.85rem; opacity: 0.8;">Replace the version number with your target controller version. See the <a href="https://docs.nginx.com/nginx-ingress-controller/install/manifests/" target="_blank" rel="noopener">manifest installation guide</a> for the full step-by-step process.</p>
             </div>
             <div class="info-box note"><strong>Note:</strong> The <code>crds.yaml</code> file contains all CRDs (VirtualServer, VirtualServerRoute, Policy, TransportServer, GlobalConfiguration) in a single manifest.</div>
             <div class="info-box note"><strong>Note:</strong> Replace version numbers with your target controller version.</div>
@@ -296,29 +308,29 @@
         <!-- Checklist -->
         <section id="checklist">
             <h2 id="migration-checklist">Migration Checklist</h2>
-            <ul class="checklist" id="migrationChecklist">
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Install CRDs via Helm (<code>controller.enableCustomResources=true</code>) or manifests (<code>deploy/crds.yaml</code>)</span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Review annotation mappings — not all <code>nginx.ingress.kubernetes.io/</code> annotations have a direct <code>nginx.org/</code> equivalent (see NGINX Mappings)</span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Map rewrite-target annotation to <code>nginx.org/rewrite-target</code> (not <code>nginx.org/rewrites</code>)</span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Migrate ConfigMap keys that differ between controllers (see ConfigMap Mappings)</span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Convert HSTS ConfigMap keys to <code>nginx.org/hsts</code> annotations for per-Ingress control</span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Convert <code>server-tokens</code> ConfigMap key to <code>nginx.org/server-tokens</code> annotation</span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Convert access control annotations to Policy CRD (<code>accessControl</code>)</span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Convert authentication annotations to Policy CRD (<code>basicAuth</code>, <code>jwt</code>, <code>oidc</code>, <code>apiKey</code>)</span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Convert canary/traffic splitting to VirtualServer <code>splits</code>/<code>matches</code></span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Convert mTLS annotations to <code>ingressMTLS</code>/<code>egressMTLS</code> policies</span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Convert CORS annotations to <code>location-snippets</code> or <code>server-snippets</code></span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Convert custom error pages to VirtualServer <code>errorPages</code></span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Convert header manipulation to VirtualServer <code>requestHeaders</code>/<code>responseHeaders</code></span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Convert rate limiting annotations to Policy CRD (<code>rateLimit</code>)</span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Convert redirect annotations to VirtualServer <code>action.redirect</code></span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Convert session affinity annotations to VirtualServer upstream <code>sessionCookie</code></span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Convert SSL passthrough to TransportServer CRD</span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Convert TCP/UDP services to TransportServer CRD</span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Replace <code>ssl-redirect</code> with <code>nginx.org/ssl-redirect</code> (not the deprecated <code>ingress.kubernetes.io/ssl-redirect</code>)</span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Verify snippets (<code>configuration-snippet</code>, <code>server-snippet</code>) use F5 NGINX Ingress Controller equivalents</span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Test in staging environment</span></li>
-                <li role="checkbox" aria-checked="false" tabindex="0"><span>Update monitoring and alerting</span></li>
+            <ul class="checklist" id="migrationChecklist" role="group" aria-labelledby="migration-checklist">
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="install-crds-via-helm"><span>Install CRDs via Helm (<code>controller.enableCustomResources=true</code>) or manifests (<code>deploy/crds.yaml</code>)</span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="review-annotation-mappings-not"><span>Review annotation mappings — not all <code>nginx.ingress.kubernetes.io/</code> annotations have a direct <code>nginx.org/</code> equivalent (see NGINX Mappings)</span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="map-rewrite-target-annotation-to"><span>Map rewrite-target annotation to <code>nginx.org/rewrite-target</code> (not <code>nginx.org/rewrites</code>)</span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="migrate-configmap-keys-that"><span>Migrate ConfigMap keys that differ between controllers (see ConfigMap Mappings)</span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="convert-hsts-configmap-keys"><span>Convert HSTS ConfigMap keys to <code>nginx.org/hsts</code> annotations for per-Ingress control</span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="convert-server-tokens-configmap-key"><span>Convert <code>server-tokens</code> ConfigMap key to <code>nginx.org/server-tokens</code> annotation</span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="convert-access-control-annotations"><span>Convert access control annotations to Policy CRD (<code>accessControl</code>)</span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="convert-authentication-annotations-to"><span>Convert authentication annotations to Policy CRD (<code>apiKey</code>, <code>basicAuth</code>, <code>externalAuth</code>, <code>jwt</code>, <code>oidc</code>)</span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="convert-canary-traffic-splitting"><span>Convert canary/traffic splitting to VirtualServer <code>splits</code>/<code>matches</code></span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="convert-mtls-annotations-to"><span>Convert mTLS annotations to <code>ingressMTLS</code>/<code>egressMTLS</code> policies</span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="convert-cors-annotations-to"><span>Convert CORS annotations to the <code>cors</code> Policy CRD via <code>nginx.org/policies</code> (v5.4.0+), falling back to snippets only where needed</span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="convert-custom-error-pages"><span>Convert custom error pages to VirtualServer <code>errorPages</code></span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="convert-header-manipulation-to"><span>Convert header manipulation to VirtualServer <code>requestHeaders</code>/<code>responseHeaders</code></span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="convert-rate-limiting-annotations"><span>Convert rate limiting annotations to Policy CRD (<code>rateLimit</code>)</span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="convert-redirect-annotations-to"><span>Convert redirect annotations to VirtualServer <code>action.redirect</code></span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="convert-session-affinity-annotations"><span>Convert session affinity annotations to VirtualServer upstream <code>sessionCookie</code></span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="convert-ssl-passthrough-to"><span>Convert SSL passthrough to TransportServer CRD</span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="convert-tcp-udp-services"><span>Convert TCP/UDP services to TransportServer CRD</span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="replace-ssl-redirect-with-nginxorg"><span>Replace <code>ssl-redirect</code> with <code>nginx.org/ssl-redirect</code> (not the deprecated <code>ingress.kubernetes.io/ssl-redirect</code>)</span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="verify-snippets-configuration-snippet-server-snippet"><span>Verify snippets (<code>configuration-snippet</code>, <code>server-snippet</code>) use F5 NGINX Ingress Controller equivalents</span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="test-in-staging-environment"><span>Test in staging environment</span></li>
+                <li role="checkbox" aria-checked="false" tabindex="0" data-id="update-monitoring-and-alerting"><span>Update monitoring and alerting</span></li>
             </ul>
         </section>
 
@@ -392,7 +404,7 @@ spec:
                         </div>
                     </div>
                 </div>
-                <span style="font-size:0.78rem;color:var(--text-secondary);margin-left:4px;align-self:center;">Ctrl+Enter to analyze</span>
+                <span style="font-size:0.78rem;color:var(--text-secondary);margin-left:4px;align-self:center;">Ctrl+Enter to analyze &middot; in the editor, Tab indents &mdash; press Esc then Tab to move focus</span>
             </div>
             <div id="analyzerLiveStatus" aria-live="polite" class="sr-only"></div>
             <div id="analyzerResults" role="region" aria-label="Analysis results"></div>
@@ -407,7 +419,7 @@ spec:
         <section id="differences">
             <h2 id="key-differences">Key Differences</h2>
             <div class="table-wrapper">
-                <table class="diff-table">
+                <table class="diff-table" aria-labelledby="key-differences">
                     <thead><tr><th scope="col">Aspect</th><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr><td>Repository</td><td><code>kubernetes/ingress-nginx</code></td><td><code>nginx/kubernetes-ingress</code></td></tr>
@@ -452,7 +464,7 @@ spec:
             <!-- Access Control -->
             <h3 id="access-control">Access Control</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="access-control"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/denylist-source-range</code><br><code>nginx.ingress.kubernetes.io/whitelist-source-range</code></td>
@@ -578,7 +590,7 @@ spec:
             <!-- Authentication - Basic -->
             <h3 id="authentication-basic">Authentication (Basic)</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="authentication-basic"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/auth-realm</code><br><code>nginx.ingress.kubernetes.io/auth-secret</code><br><code>nginx.ingress.kubernetes.io/auth-secret-type</code><br><code>nginx.ingress.kubernetes.io/auth-type: "basic"</code></td>
@@ -652,7 +664,7 @@ spec:
             <h3 id="authentication-external">Authentication (External)</h3>
             <div class="info-box note" style="margin: 0 0 12px;"><strong>New in v5.5.0 &mdash; ExternalAuth Policy:</strong> The new <code>externalAuth</code> Policy CRD is the recommended migration path for the community's generic <code>auth_request</code> pattern (<code>auth-url</code>, <code>auth-signin</code>, <code>auth-snippet</code>). Unlike the <code>oidc</code> Policy (Plus-only, native OIDC), <code>externalAuth</code> works in NGINX OSS and Plus and can be attached directly to Ingress, VirtualServer, and VirtualServerRoute resources via <code>nginx.org/policies</code>. For native OIDC, see the <a href="#oidc-authentication">OIDC Authentication</a> section in Plus Mappings.</div>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="authentication-external"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/auth-always-set-cookie</code></td>
@@ -704,63 +716,7 @@ spec:
                             <div class="info-box note"><strong>Note:</strong> The community <code>auth-always-set-cookie</code> ensures Set-Cookie headers from the auth service are forwarded to the client regardless of the response code. Use <code>nginx.org/location-snippets</code> with <code>auth_request_set</code> to capture and forward cookies. (The Plus-only <code>oidc</code> Policy handles cookies internally.)</div>
                         </div></td></tr>
                         <tr class="expandable">
-                            <td><code>nginx.ingress.kubernetes.io/auth-keepalive</code><br><code>nginx.ingress.kubernetes.io/auth-keepalive-requests</code><br><code>nginx.ingress.kubernetes.io/auth-keepalive-share-vars</code><br><code>nginx.ingress.kubernetes.io/auth-keepalive-timeout</code></td>
-                            <td><span class="badge badge-virtualserver">VirtualServer CRD</span> <code>location-snippets</code><span class="or-text">— or —</span><code>nginx.org/location-snippets</code></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
-                            </div>
-                            <div class="approach-content" data-approach="annotation">
-                                <div class="comparison">
-                                    <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code>annotations:
-  nginx.ingress.kubernetes.io/auth-keepalive: "10"
-  nginx.ingress.kubernetes.io/auth-keepalive-requests: "100"
-  nginx.ingress.kubernetes.io/auth-keepalive-share-vars: "true"
-  nginx.ingress.kubernetes.io/auth-keepalive-timeout: "60"
-  nginx.ingress.kubernetes.io/auth-url: "https://auth.example.com/verify"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code># No direct auth-keepalive annotations; use snippets
-# for auth_request subrequest customization.
-annotations:
-  nginx.org/location-snippets: |  # auth-keepalive
-    auth_request /auth;
-    auth_request_set $auth_user $upstream_http_x_auth_user;
-    proxy_set_header X-Auth-User $auth_user;</code></pre></div>
-                                </div>
-                            </div>
-                            <div class="approach-content active" data-approach="crd">
-                                <div class="comparison">
-                                    <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code>annotations:
-  nginx.ingress.kubernetes.io/auth-keepalive: "10"
-  nginx.ingress.kubernetes.io/auth-keepalive-requests: "100"
-  nginx.ingress.kubernetes.io/auth-keepalive-share-vars: "true"
-  nginx.ingress.kubernetes.io/auth-keepalive-timeout: "60"
-  nginx.ingress.kubernetes.io/auth-url: "https://auth.example.com/verify"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: k8s.nginx.org/v1
-kind: VirtualServer
-metadata:
-  name: my-app
-spec:
-  host: app.example.com
-  upstreams:
-    - name: backend
-      service: backend-svc
-      port: 80
-  routes:
-    - path: /
-      location-snippets: |  # auth-keepalive
-        auth_request /auth;
-        auth_request_set $auth_user $upstream_http_x_auth_user;
-        proxy_set_header X-Auth-User $auth_user;
-      action:
-        pass: backend</code></pre></div>
-                                </div>
-                            </div>
-                            <div class="info-box note"><strong>Note:</strong> The community controller's <code>auth-keepalive</code>, <code>auth-keepalive-requests</code>, <code>auth-keepalive-share-vars</code>, and <code>auth-keepalive-timeout</code> annotations configure keepalive connections to the external auth service. The F5 NGINX Ingress Controller doesn't have dedicated <code>auth_request</code> annotations. For generic external auth, use <code>nginx.org/location-snippets</code> with the <code>auth_request</code> directive. If you adopt the <code>externalAuth</code> Policy (shown in the row above), keepalive concerns can be expressed via the Policy's <code>authSnippets</code> field.</div>
-                        </div></td></tr>
-                        <tr class="expandable">
-                            <td><code>nginx.ingress.kubernetes.io/auth-method</code><br><code>nginx.ingress.kubernetes.io/auth-signin</code><br><code>nginx.ingress.kubernetes.io/auth-snippet</code><br><code>nginx.ingress.kubernetes.io/auth-url</code></td>
+                            <td><code>nginx.ingress.kubernetes.io/auth-cache-duration</code><br><code>nginx.ingress.kubernetes.io/auth-cache-key</code><br><code>nginx.ingress.kubernetes.io/auth-method</code><br><code>nginx.ingress.kubernetes.io/auth-proxy-set-headers</code><br><code>nginx.ingress.kubernetes.io/auth-request-redirect</code><br><code>nginx.ingress.kubernetes.io/auth-response-headers</code><br><code>nginx.ingress.kubernetes.io/auth-signin</code><br><code>nginx.ingress.kubernetes.io/auth-signin-redirect-param</code><br><code>nginx.ingress.kubernetes.io/auth-snippet</code><br><code>nginx.ingress.kubernetes.io/auth-url</code></td>
                             <td><span class="badge badge-policy">Policy CRD</span> <code>externalAuth</code> + <code>nginx.org/policies</code> <span class="badge badge-new">New v5.5.0</span><span class="or-text">— or —</span><span class="badge badge-policy">Policy CRD</span> <code>externalAuth</code> + <span class="badge badge-virtualserver">VirtualServer</span> <code>policies[]</code> <span class="badge badge-new">New v5.5.0</span></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
@@ -843,6 +799,62 @@ spec:
                             </div>
                         </div></td></tr>
                         <tr class="expandable">
+                            <td><code>nginx.ingress.kubernetes.io/auth-keepalive</code><br><code>nginx.ingress.kubernetes.io/auth-keepalive-requests</code><br><code>nginx.ingress.kubernetes.io/auth-keepalive-share-vars</code><br><code>nginx.ingress.kubernetes.io/auth-keepalive-timeout</code></td>
+                            <td><span class="badge badge-virtualserver">VirtualServer CRD</span> <code>location-snippets</code><span class="or-text">— or —</span><code>nginx.org/location-snippets</code></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="approach-tabs">
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                            </div>
+                            <div class="approach-content" data-approach="annotation">
+                                <div class="comparison">
+                                    <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code>annotations:
+  nginx.ingress.kubernetes.io/auth-keepalive: "10"
+  nginx.ingress.kubernetes.io/auth-keepalive-requests: "100"
+  nginx.ingress.kubernetes.io/auth-keepalive-share-vars: "true"
+  nginx.ingress.kubernetes.io/auth-keepalive-timeout: "60"
+  nginx.ingress.kubernetes.io/auth-url: "https://auth.example.com/verify"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code># No direct auth-keepalive annotations; use snippets
+# for auth_request subrequest customization.
+annotations:
+  nginx.org/location-snippets: |  # auth-keepalive
+    auth_request /auth;
+    auth_request_set $auth_user $upstream_http_x_auth_user;
+    proxy_set_header X-Auth-User $auth_user;</code></pre></div>
+                                </div>
+                            </div>
+                            <div class="approach-content active" data-approach="crd">
+                                <div class="comparison">
+                                    <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code>annotations:
+  nginx.ingress.kubernetes.io/auth-keepalive: "10"
+  nginx.ingress.kubernetes.io/auth-keepalive-requests: "100"
+  nginx.ingress.kubernetes.io/auth-keepalive-share-vars: "true"
+  nginx.ingress.kubernetes.io/auth-keepalive-timeout: "60"
+  nginx.ingress.kubernetes.io/auth-url: "https://auth.example.com/verify"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: my-app
+spec:
+  host: app.example.com
+  upstreams:
+    - name: backend
+      service: backend-svc
+      port: 80
+  routes:
+    - path: /
+      location-snippets: |  # auth-keepalive
+        auth_request /auth;
+        auth_request_set $auth_user $upstream_http_x_auth_user;
+        proxy_set_header X-Auth-User $auth_user;
+      action:
+        pass: backend</code></pre></div>
+                                </div>
+                            </div>
+                            <div class="info-box note"><strong>Note:</strong> The community controller's <code>auth-keepalive</code>, <code>auth-keepalive-requests</code>, <code>auth-keepalive-share-vars</code>, and <code>auth-keepalive-timeout</code> annotations configure keepalive connections to the external auth service. The F5 NGINX Ingress Controller doesn't have dedicated <code>auth_request</code> annotations. For generic external auth, use <code>nginx.org/location-snippets</code> with the <code>auth_request</code> directive. If you adopt the <code>externalAuth</code> Policy (shown in the row above), keepalive concerns can be expressed via the Policy's <code>authSnippets</code> field.</div>
+                        </div></td></tr>
+                        <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/enable-global-auth</code></td>
                             <td>Not applicable</td>
                         </tr>
@@ -865,7 +877,7 @@ annotations:
             <!-- Buffering -->
             <h3 id="buffering">Buffering</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="buffering"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/client-body-buffer-size</code></td>
@@ -1123,7 +1135,7 @@ spec:
             <!-- Canary / Traffic Splitting -->
             <h3 id="canary-traffic-splitting">Canary / Traffic Splitting</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="canary-traffic-splitting"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/canary</code><br><code>nginx.ingress.kubernetes.io/canary-by-cookie</code><br><code>nginx.ingress.kubernetes.io/canary-by-header</code><br><code>nginx.ingress.kubernetes.io/canary-by-header-pattern</code><br><code>nginx.ingress.kubernetes.io/canary-by-header-value</code><br><code>nginx.ingress.kubernetes.io/canary-weight</code><br><code>nginx.ingress.kubernetes.io/canary-weight-total</code></td>
@@ -1165,7 +1177,7 @@ spec:
             pass: canary
         - conditions:
             - cookie: canary  # canary-by-cookie
-              value: "true"
+              value: always  # community routes to canary on "always"
           action:
             pass: canary
       splits:  # canary-weight / canary-weight-total
@@ -1182,7 +1194,7 @@ spec:
             <!-- Configuration Snippets -->
             <h3 id="configuration-snippets">Configuration Snippets</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="configuration-snippets"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/configuration-snippet</code></td>
@@ -1314,7 +1326,7 @@ spec:
             <!-- CORS / Header Manipulation -->
             <h3 id="cors">CORS / Header Manipulation</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="cors"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/cors-allow-credentials</code><br><code>nginx.ingress.kubernetes.io/cors-allow-headers</code><br><code>nginx.ingress.kubernetes.io/cors-allow-methods</code><br><code>nginx.ingress.kubernetes.io/cors-allow-origin</code><br><code>nginx.ingress.kubernetes.io/cors-expose-headers</code><br><code>nginx.ingress.kubernetes.io/cors-max-age</code><br><code>nginx.ingress.kubernetes.io/enable-cors</code></td>
@@ -1457,7 +1469,7 @@ spec:
             <!-- Deprecated -->
             <h3 id="deprecated">Deprecated</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="deprecated"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/http2-push-preload</code></td>
@@ -1480,7 +1492,7 @@ spec:
             <!-- Error Handling -->
             <h3 id="error-handling">Error Handling</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="error-handling"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/custom-http-errors</code><br><code>nginx.ingress.kubernetes.io/default-backend</code></td>
@@ -1517,7 +1529,7 @@ spec:
             <!-- Headers -->
             <h3 id="headers">Headers</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="headers"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/connection-proxy-header</code></td>
@@ -1665,7 +1677,7 @@ data:
             <!-- HSTS -->
             <h3 id="hsts">HSTS</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="hsts"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><span class="badge badge-configmap">ConfigMap</span> <code>hsts</code><br><span class="badge badge-configmap">ConfigMap</span> <code>hsts-include-subdomains</code><br><span class="badge badge-configmap">ConfigMap</span> <code>hsts-max-age</code><br><span class="badge badge-configmap">ConfigMap</span> <code>hsts-preload</code></td>
@@ -1712,7 +1724,7 @@ data:
             <!-- Ingress Configuration -->
             <h3 id="ingress-configuration">Ingress Configuration</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="ingress-configuration"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable"><td>No direct equivalent</td><td><code>nginx.org/mergeable-ingress-type</code></td></tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
@@ -1737,7 +1749,7 @@ annotations:
             <!-- Load Balancing -->
             <h3 id="load-balancing">Load Balancing</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="load-balancing"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/load-balance</code></td>
@@ -1846,7 +1858,7 @@ spec:
             <!-- Logging -->
             <h3 id="logging">Logging</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="logging"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/enable-access-log</code></td>
@@ -1914,7 +1926,7 @@ spec:
             <!-- Request Mirroring -->
             <h3 id="mirroring">Request Mirroring</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="mirroring"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/mirror-host</code><br><code>nginx.ingress.kubernetes.io/mirror-request-body</code><br><code>nginx.ingress.kubernetes.io/mirror-target</code></td>
@@ -1982,7 +1994,7 @@ spec:
             <!-- mTLS (Client) -->
             <h3 id="mtls-client">mTLS (Client Certificate Verification)</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="mtls-client"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/auth-tls-error-page</code><br><code>nginx.ingress.kubernetes.io/auth-tls-pass-certificate-to-upstream</code><br><code>nginx.ingress.kubernetes.io/auth-tls-secret</code><br><code>nginx.ingress.kubernetes.io/auth-tls-verify-client</code><br><code>nginx.ingress.kubernetes.io/auth-tls-verify-depth</code></td>
@@ -2125,7 +2137,7 @@ spec:
             <!-- mTLS (Backend) -->
             <h3 id="mtls-backend">mTLS (Backend/Egress)</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="mtls-backend"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/proxy-ssl-ciphers</code><br><code>nginx.ingress.kubernetes.io/proxy-ssl-name</code><br><code>nginx.ingress.kubernetes.io/proxy-ssl-protocols</code><br><code>nginx.ingress.kubernetes.io/proxy-ssl-secret</code><br><code>nginx.ingress.kubernetes.io/proxy-ssl-server-name</code><br><code>nginx.ingress.kubernetes.io/proxy-ssl-verify</code><br><code>nginx.ingress.kubernetes.io/proxy-ssl-verify-depth</code></td>
@@ -2229,7 +2241,7 @@ spec:
             <!-- ModSecurity / WAF -->
             <h3 id="modsecurity">ModSecurity / WAF</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="modsecurity"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/enable-modsecurity</code><br><code>nginx.ingress.kubernetes.io/enable-owasp-core-rules</code><br><code>nginx.ingress.kubernetes.io/modsecurity-snippet</code><br><code>nginx.ingress.kubernetes.io/modsecurity-transaction-id</code></td>
@@ -2259,7 +2271,7 @@ spec:
             <h3 id="opentelemetry">OpenTelemetry</h3>
             <div class="info-box note"><strong>Key difference:</strong> The community controller supports per-Ingress OpenTelemetry control via annotations (<code>enable-opentelemetry</code>, <code>opentelemetry-trust-incoming-span</code>). The F5 NGINX Ingress Controller configures OpenTelemetry <strong>globally via ConfigMap</strong> — tracing applies to all routes when enabled. Per-Ingress toggling is not supported.</div>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="opentelemetry"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/enable-opentelemetry</code></td>
@@ -2331,10 +2343,10 @@ data:
             <!-- Passive Health Checks -->
             <h3 id="passive-health-checks">Passive Health Checks</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="passive-health-checks"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
-                            <td><span class="badge badge-configmap">ConfigMap</span> <code>upstream-fail-timeout</code><br><span class="badge badge-configmap">ConfigMap</span> <code>upstream-max-fails</code></td>
+                            <td>No direct equivalent</td>
                             <td><span class="badge badge-virtualserver">VirtualServer CRD</span> <code>upstreams[].fail-timeout</code><br><span class="badge badge-virtualserver">VirtualServer CRD</span> <code>upstreams[].max-fails</code><span class="or-text">— or —</span><code>nginx.org/fail-timeout</code><br><code>nginx.org/max-fails</code></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
@@ -2344,31 +2356,23 @@ data:
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
-                                    <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># ConfigMap keys (global):
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ingress-nginx-controller
-data:
-  upstream-fail-timeout: "30s"
-  upstream-max-fails: "3"</code></pre></div>
+                                    <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># No passive health check settings &mdash; the community
+# controller's load balancer does not support
+# max_fails / fail_timeout; failed upstreams are
+# handled via proxy-next-upstream retries only.</code></pre></div>
                                     <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code># Per-Ingress annotations:
 annotations:
-  nginx.org/fail-timeout: "30s"  # upstream-fail-timeout
-  nginx.org/max-fails: "3"  # upstream-max-fails</code></pre></div>
+  nginx.org/fail-timeout: "30s"
+  nginx.org/max-fails: "3"</code></pre></div>
                                 </div>
-                                <div class="info-box note"><strong>Note:</strong> The community controller configures passive health checks globally via ConfigMap keys. The F5 NGINX Ingress Controller uses per-Ingress annotations (<code>nginx.org/max-fails</code>, <code>nginx.org/fail-timeout</code>), giving you finer-grained control. The <code>proxy-next-upstream</code> annotations (see <a href="#proxy-settings">Proxy Settings</a>) complement passive health checks by controlling retry behavior when an upstream fails.</div>
+                                <div class="info-box note"><strong>Note:</strong> The community controller has no passive health check tuning — its load balancer does not support <code>max_fails</code>/<code>fail_timeout</code>, and upstream failures are handled through <code>proxy-next-upstream</code> retries (see <a href="#proxy-settings">Proxy Settings</a>). The F5 NGINX Ingress Controller adds per-upstream passive health checks via the <code>nginx.org/max-fails</code> and <code>nginx.org/fail-timeout</code> annotations.</div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
                                 <div class="comparison">
-                                    <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># ConfigMap keys (global):
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ingress-nginx-controller
-data:
-  upstream-fail-timeout: "30s"
-  upstream-max-fails: "3"</code></pre></div>
+                                    <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># No passive health check settings &mdash; the community
+# controller's load balancer does not support
+# max_fails / fail_timeout; failed upstreams are
+# handled via proxy-next-upstream retries only.</code></pre></div>
                                     <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: k8s.nginx.org/v1
 kind: VirtualServer
 spec:
@@ -2376,8 +2380,8 @@ spec:
     - name: backend
       service: my-service
       port: 80
-      fail-timeout: 30s  # upstream-fail-timeout
-      max-fails: 3  # upstream-max-fails</code></pre></div>
+      fail-timeout: 30s
+      max-fails: 3</code></pre></div>
                                 </div>
                                 <div class="info-box note"><strong>Note:</strong> The VirtualServer CRD allows passive health check settings per upstream. For active health checks that proactively probe endpoints, see <a href="#active-health-checks">Active Health Checks</a> in Plus Mappings.</div>
                             </div>
@@ -2389,7 +2393,7 @@ spec:
             <!-- Proxy Settings -->
             <h3 id="proxy-settings">Proxy Settings</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="proxy-settings"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/proxy-http-version</code></td>
@@ -2481,11 +2485,11 @@ spec:
             <!-- Rate Limiting -->
             <h3 id="rate-limiting">Rate Limiting</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="rate-limiting"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/limit-burst-multiplier</code><br><code>nginx.ingress.kubernetes.io/limit-connections</code><br><code>nginx.ingress.kubernetes.io/limit-rate</code><br><code>nginx.ingress.kubernetes.io/limit-rate-after</code><br><code>nginx.ingress.kubernetes.io/limit-rpm</code><br><code>nginx.ingress.kubernetes.io/limit-rps</code><br><code>nginx.ingress.kubernetes.io/limit-whitelist</code></td>
-                            <td><span class="badge badge-policy">Policy CRD</span> <code>rateLimit</code><span class="or-text">— or —</span><code>nginx.org/limit-req-rate</code><br><code>nginx.org/limit-req-burst</code><br><code>nginx.org/location-snippets</code></td>
+                            <td><span class="badge badge-policy">Policy CRD</span> <code>rateLimit</code><span class="or-text">— or —</span><code>nginx.org/limit-req-burst</code><br><code>nginx.org/limit-req-rate</code><br><code>nginx.org/location-snippets</code></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
@@ -2581,7 +2585,7 @@ spec:
             <!-- Redirects -->
             <h3 id="redirects">Redirects</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="redirects"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/from-to-www-redirect</code><br><code>nginx.ingress.kubernetes.io/permanent-redirect</code><br><code>nginx.ingress.kubernetes.io/permanent-redirect-code</code><br><code>nginx.ingress.kubernetes.io/temporal-redirect</code><br><code>nginx.ingress.kubernetes.io/temporal-redirect-code</code></td>
@@ -2625,7 +2629,7 @@ spec:
             <!-- Rewrites -->
             <h3 id="rewrites">Rewrites</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="rewrites"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/app-root</code><br><code>nginx.ingress.kubernetes.io/rewrite-target</code><br><code>nginx.ingress.kubernetes.io/use-regex</code></td>
@@ -2756,7 +2760,7 @@ spec:
             <!-- Route Delegation -->
             <h3 id="route-delegation">Route Delegation</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="route-delegation"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/server-alias</code></td>
@@ -2846,14 +2850,122 @@ spec:
                 </table>
             </div>
 
+            <!-- Session Affinity -->
+            <h3 id="session-affinity">Session Affinity / Sticky Sessions</h3>
+            <div class="table-wrapper">
+                <table class="mapping-table" aria-labelledby="session-affinity"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                    <tbody>
+                        <tr class="expandable">
+                            <td><code>nginx.ingress.kubernetes.io/affinity: "cookie"</code><br><code>nginx.ingress.kubernetes.io/affinity-mode</code><br><code>nginx.ingress.kubernetes.io/session-cookie-change-on-failure</code><br><code>nginx.ingress.kubernetes.io/session-cookie-conditional-samesite-none</code><br><code>nginx.ingress.kubernetes.io/session-cookie-domain</code><br><code>nginx.ingress.kubernetes.io/session-cookie-expires</code><br><code>nginx.ingress.kubernetes.io/session-cookie-max-age</code><br><code>nginx.ingress.kubernetes.io/session-cookie-name</code><br><code>nginx.ingress.kubernetes.io/session-cookie-path</code><br><code>nginx.ingress.kubernetes.io/session-cookie-samesite</code><br><code>nginx.ingress.kubernetes.io/session-cookie-secure</code></td>
+                            <td><span class="badge badge-virtualserver">VirtualServer CRD</span> <code>sessionCookie</code> <span class="badge badge-new">New v5.4.0</span><span class="or-text">— or —</span><code>nginx.org/sticky-cookie-services</code></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="approach-tabs">
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                            </div>
+                            <div class="approach-content" data-approach="annotation">
+                                <div class="comparison">
+                                    <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code>annotations:
+  nginx.ingress.kubernetes.io/affinity: "cookie"
+  nginx.ingress.kubernetes.io/session-cookie-expires: "172800"
+  nginx.ingress.kubernetes.io/session-cookie-max-age: "172800"
+  nginx.ingress.kubernetes.io/session-cookie-name: "SERVERID"
+  nginx.ingress.kubernetes.io/session-cookie-path: "/"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
+  nginx.org/sticky-cookie-services: "serviceName=my-service srv_id expires=48h path=/"</code></pre></div>
+                                </div>
+                                <div class="info-box note"><strong>Note:</strong> The <code>nginx.org/sticky-cookie-services</code> annotation works with both NGINX OSS and NGINX Plus and provides a simpler way to configure session persistence via Ingress annotations (the legacy <code>nginx.com/sticky-cookie-services</code> form is Plus-only and kept for backward compatibility). For more granular control (domain, secure, samesite, httpOnly), use the VirtualServer CRD approach.</div>
+                            </div>
+                            <div class="approach-content active" data-approach="crd">
+                                <div class="comparison">
+                                    <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code>annotations:
+  nginx.ingress.kubernetes.io/affinity: "cookie"
+  nginx.ingress.kubernetes.io/affinity-mode: "balanced"
+  nginx.ingress.kubernetes.io/session-cookie-change-on-failure: "true"
+  nginx.ingress.kubernetes.io/session-cookie-conditional-samesite-none: "true"
+  nginx.ingress.kubernetes.io/session-cookie-domain: ".example.com"
+  nginx.ingress.kubernetes.io/session-cookie-expires: "172800"
+  nginx.ingress.kubernetes.io/session-cookie-max-age: "172800"
+  nginx.ingress.kubernetes.io/session-cookie-name: "SERVERID"
+  nginx.ingress.kubernetes.io/session-cookie-path: "/"
+  nginx.ingress.kubernetes.io/session-cookie-samesite: "Strict"
+  nginx.ingress.kubernetes.io/session-cookie-secure: "true"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+spec:
+  upstreams:
+    - name: backend
+      service: my-service
+      port: 80
+      sessionCookie:
+        domain: ".example.com"  # session-cookie-domain
+        enable: true  # affinity: "cookie"
+        expires: 48h  # session-cookie-expires / session-cookie-max-age
+        httpOnly: true
+        name: SERVERID  # session-cookie-name
+        path: /  # session-cookie-path
+        samesite: strict  # session-cookie-samesite
+        secure: true  # session-cookie-secure</code></pre></div>
+                                </div>
+                                <div class="info-box note"><strong>New in v5.4.0:</strong> Session persistence via <code>sessionCookie</code> is now available in both NGINX OSS and NGINX Plus. Community-specific features <code>affinity-mode</code>, <code>session-cookie-change-on-failure</code>, and <code>session-cookie-conditional-samesite-none</code> have no direct equivalents.</div>
+                            </div>
+                        </div></td></tr>
+                        <tr class="expandable">
+                            <td><code>nginx.ingress.kubernetes.io/affinity-canary-behavior</code></td>
+                            <td><span class="badge badge-virtualserver">VirtualServer CRD</span> <code>matches[]</code> + <span class="badge badge-virtualserver">VirtualServer CRD</span> <code>upstreams[].sessionCookie</code></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="comparison">
+                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># Canary with session affinity behavior
+annotations:
+  nginx.ingress.kubernetes.io/affinity: "cookie"
+  nginx.ingress.kubernetes.io/affinity-canary-behavior: "sticky"
+  nginx.ingress.kubernetes.io/canary: "true"
+  nginx.ingress.kubernetes.io/canary-by-header: "X-Canary"</code></pre></div>
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+spec:
+  upstreams:
+    - name: main
+      service: main-svc
+      port: 80
+      sessionCookie:  # affinity: "cookie" + affinity-canary-behavior: "sticky"
+        enable: true  # affinity: "cookie"
+        httpOnly: true
+        name: SERVERID
+    - name: canary
+      service: canary-svc
+      port: 80
+      sessionCookie:  # affinity: "cookie" + affinity-canary-behavior: "sticky"
+        enable: true  # affinity: "cookie"
+        httpOnly: true
+        name: SERVERID
+  routes:
+    - path: /
+      matches:
+        - conditions:
+            - header: X-Canary  # canary-by-header
+              value: always  # community routes to canary on "always"
+          action:
+            pass: canary  # canary: "true"
+      action:
+        pass: main</code></pre></div>
+                            </div>
+                            <div class="info-box note"><strong>Note:</strong> The community controller's <code>affinity-canary-behavior: "sticky"</code> ensures users routed to canary by session affinity continue to be served by the canary. The F5 NGINX Ingress Controller separates these concerns: canary routing uses VirtualServer <code>matches[]</code>, <code>splits[]</code>, while session persistence uses the VirtualServer <code>upstreams[].sessionCookie</code> field. The <code>sessionCookie</code> feature is available in both NGINX OSS and NGINX Plus.</div>
+                        </div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
             <!-- SSL/TLS -->
             <h3 id="ssl-tls">SSL/TLS</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="ssl-tls"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/backend-protocol</code></td>
-                            <td><span class="badge badge-virtualserver">VirtualServer CRD</span> <code>upstreams[].tls.enable</code><br><span class="badge badge-virtualserver">VirtualServer CRD</span> <code>upstreams[].type</code><span class="or-text">— or —</span><code>nginx.org/ssl-services</code><br><code>nginx.org/grpc-services</code></td>
+                            <td><span class="badge badge-virtualserver">VirtualServer CRD</span> <code>upstreams[].tls.enable</code><br><span class="badge badge-virtualserver">VirtualServer CRD</span> <code>upstreams[].type</code><span class="or-text">— or —</span><code>nginx.org/grpc-services</code><br><code>nginx.org/ssl-services</code></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
@@ -3048,10 +3160,10 @@ spec:
             <!-- TCP/UDP -->
             <h3 id="tcp-udp">TCP/UDP Load Balancing</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="tcp-udp"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
-                            <td><code>nginx.ingress.kubernetes.io/stream-snippet</code><br><code>nginx.ingress.kubernetes.io/tcp-services ConfigMap</code><br><code>nginx.ingress.kubernetes.io/udp-services ConfigMap</code></td>
+                            <td><code>nginx.ingress.kubernetes.io/stream-snippet</code><br><span class="badge badge-configmap">ConfigMap</span> <code>tcp-services</code><br><span class="badge badge-configmap">ConfigMap</span> <code>udp-services</code></td>
                             <td><span class="badge badge-globalconfiguration">GlobalConfiguration CRD</span> +<span class="badge badge-transportserver">TransportServer CRD</span></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
@@ -3093,7 +3205,7 @@ spec:
             <!-- Timeouts -->
             <h3 id="timeouts">Timeouts</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="timeouts"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/proxy-connect-timeout</code></td>
@@ -3198,7 +3310,7 @@ spec:
             <!-- Upstream Configuration -->
             <h3 id="upstream-configuration">Upstream Configuration</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="upstream-configuration"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td>No direct equivalent</td>
@@ -3257,113 +3369,6 @@ spec:
                     </tbody>
                 </table>
             </div>
-            <!-- Session Affinity -->
-            <h3 id="session-affinity">Session Affinity / Sticky Sessions</h3>
-            <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
-                    <tbody>
-                        <tr class="expandable">
-                            <td><code>nginx.ingress.kubernetes.io/affinity: "cookie"</code><br><code>nginx.ingress.kubernetes.io/affinity-mode</code><br><code>nginx.ingress.kubernetes.io/session-cookie-change-on-failure</code><br><code>nginx.ingress.kubernetes.io/session-cookie-conditional-samesite-none</code><br><code>nginx.ingress.kubernetes.io/session-cookie-domain</code><br><code>nginx.ingress.kubernetes.io/session-cookie-expires</code><br><code>nginx.ingress.kubernetes.io/session-cookie-max-age</code><br><code>nginx.ingress.kubernetes.io/session-cookie-name</code><br><code>nginx.ingress.kubernetes.io/session-cookie-path</code><br><code>nginx.ingress.kubernetes.io/session-cookie-samesite</code><br><code>nginx.ingress.kubernetes.io/session-cookie-secure</code></td>
-                            <td><span class="badge badge-virtualserver">VirtualServer CRD</span> <code>sessionCookie</code> <span class="badge badge-new">New v5.4.0</span><span class="or-text">— or —</span><code>nginx.com/sticky-cookie-services</code></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
-                            </div>
-                            <div class="approach-content" data-approach="annotation">
-                                <div class="comparison">
-                                    <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code>annotations:
-  nginx.ingress.kubernetes.io/affinity: "cookie"
-  nginx.ingress.kubernetes.io/session-cookie-expires: "172800"
-  nginx.ingress.kubernetes.io/session-cookie-max-age: "172800"
-  nginx.ingress.kubernetes.io/session-cookie-name: "SERVERID"
-  nginx.ingress.kubernetes.io/session-cookie-path: "/"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.com/sticky-cookie-services: "serviceName=my-service srv_id expires=48h path=/"</code></pre></div>
-                                </div>
-                                <div class="info-box note"><strong>Note:</strong> The <code>nginx.com/sticky-cookie-services</code> annotation provides a simpler way to configure session persistence via Ingress annotations. For more granular control (domain, secure, samesite, httpOnly), use the VirtualServer CRD approach.</div>
-                            </div>
-                            <div class="approach-content active" data-approach="crd">
-                                <div class="comparison">
-                                    <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code>annotations:
-  nginx.ingress.kubernetes.io/affinity: "cookie"
-  nginx.ingress.kubernetes.io/affinity-mode: "balanced"
-  nginx.ingress.kubernetes.io/session-cookie-change-on-failure: "true"
-  nginx.ingress.kubernetes.io/session-cookie-conditional-samesite-none: "true"
-  nginx.ingress.kubernetes.io/session-cookie-domain: ".example.com"
-  nginx.ingress.kubernetes.io/session-cookie-expires: "172800"
-  nginx.ingress.kubernetes.io/session-cookie-max-age: "172800"
-  nginx.ingress.kubernetes.io/session-cookie-name: "SERVERID"
-  nginx.ingress.kubernetes.io/session-cookie-path: "/"
-  nginx.ingress.kubernetes.io/session-cookie-samesite: "Strict"
-  nginx.ingress.kubernetes.io/session-cookie-secure: "true"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: k8s.nginx.org/v1
-kind: VirtualServer
-spec:
-  upstreams:
-    - name: backend
-      service: my-service
-      port: 80
-      sessionCookie:
-        domain: ".example.com"  # session-cookie-domain
-        enable: true  # affinity: "cookie"
-        expires: 48h  # session-cookie-expires / session-cookie-max-age
-        httpOnly: true
-        name: SERVERID  # session-cookie-name
-        path: /  # session-cookie-path
-        samesite: strict  # session-cookie-samesite
-        secure: true  # session-cookie-secure</code></pre></div>
-                                </div>
-                                <div class="info-box note"><strong>New in v5.4.0:</strong> Session persistence via <code>sessionCookie</code> is now available in both NGINX OSS and NGINX Plus. Community-specific features <code>affinity-mode</code>, <code>session-cookie-change-on-failure</code>, and <code>session-cookie-conditional-samesite-none</code> have no direct equivalents.</div>
-                            </div>
-                        </div></td></tr>
-                        <tr class="expandable">
-                            <td><code>nginx.ingress.kubernetes.io/affinity-canary-behavior</code></td>
-                            <td><span class="badge badge-virtualserver">VirtualServer CRD</span> <code>matches[]</code> + <span class="badge badge-virtualserver">VirtualServer CRD</span> <code>upstreams[].sessionCookie</code></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># Canary with session affinity behavior
-annotations:
-  nginx.ingress.kubernetes.io/affinity: "cookie"
-  nginx.ingress.kubernetes.io/affinity-canary-behavior: "sticky"
-  nginx.ingress.kubernetes.io/canary: "true"
-  nginx.ingress.kubernetes.io/canary-by-header: "X-Canary"</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: k8s.nginx.org/v1
-kind: VirtualServer
-spec:
-  upstreams:
-    - name: main
-      service: main-svc
-      port: 80
-      sessionCookie:  # affinity: "cookie" + affinity-canary-behavior: "sticky"
-        enable: true  # affinity: "cookie"
-        httpOnly: true
-        name: SERVERID
-    - name: canary
-      service: canary-svc
-      port: 80
-      sessionCookie:  # affinity: "cookie" + affinity-canary-behavior: "sticky"
-        enable: true  # affinity: "cookie"
-        httpOnly: true
-        name: SERVERID
-  routes:
-    - path: /
-      matches:
-        - conditions:
-            - header: X-Canary  # canary-by-header
-              value: "true"
-          action:
-            pass: canary  # canary: "true"
-      action:
-        pass: main</code></pre></div>
-                            </div>
-                            <div class="info-box note"><strong>Note:</strong> The community controller's <code>affinity-canary-behavior: "sticky"</code> ensures users routed to canary by session affinity continue to be served by the canary. The F5 NGINX Ingress Controller separates these concerns: canary routing uses VirtualServer <code>matches[]</code>, <code>splits[]</code>, while session persistence uses the VirtualServer <code>upstreams[].sessionCookie</code> field. The <code>sessionCookie</code> feature is available in both NGINX OSS and NGINX Plus.</div>
-                        </div></td></tr>
-                    </tbody>
-                </table>
-            </div>
 
         </section>
 
@@ -3393,47 +3398,10 @@ spec:
             </div>
 
 
-            <!-- API Key Authentication -->
-            <h3 id="api-key-authentication">API Key Authentication</h3>
-            <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
-                    <tbody>
-                        <tr class="expandable">
-                            <td>No direct equivalent</td>
-                            <td><span class="badge badge-policy">Policy CRD</span> <span class="badge badge-plus">Plus</span> <code>apiKey</code></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># No direct equivalent
-# Requires custom Lua or external service</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller (Plus)</h4><pre><code>apiVersion: v1
-kind: Secret
-metadata:
-  name: api-keys
-type: nginx.org/apikey
-data:
-  client1: YXBpa2V5MTIzNDU=
----
-apiVersion: k8s.nginx.org/v1
-kind: Policy
-metadata:
-  name: api-key-auth
-spec:
-  apiKey:
-    clientSecret: api-keys
-    suppliedIn:
-      header: [X-API-Key]
-      query: [api_key]</code></pre></div>
-                            </div>
-                        </div></td></tr>
-                    </tbody>
-                </table>
-            </div>
-
             <!-- Active Health Checks -->
             <h3 id="active-health-checks">Active Health Checks</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="active-health-checks"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td>No direct equivalent</td>
@@ -3479,10 +3447,47 @@ spec:
                 </table>
             </div>
 
+            <!-- API Key Authentication -->
+            <h3 id="api-key-authentication">API Key Authentication</h3>
+            <div class="table-wrapper">
+                <table class="mapping-table" aria-labelledby="api-key-authentication"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                    <tbody>
+                        <tr class="expandable">
+                            <td>No direct equivalent</td>
+                            <td><span class="badge badge-policy">Policy CRD</span> <span class="badge badge-plus">Plus</span> <code>apiKey</code></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="comparison">
+                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># No direct equivalent
+# Requires custom Lua or external service</code></pre></div>
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller (Plus)</h4><pre><code>apiVersion: v1
+kind: Secret
+metadata:
+  name: api-keys
+type: nginx.org/apikey
+data:
+  client1: YXBpa2V5MTIzNDU=
+---
+apiVersion: k8s.nginx.org/v1
+kind: Policy
+metadata:
+  name: api-key-auth
+spec:
+  apiKey:
+    clientSecret: api-keys
+    suppliedIn:
+      header: [X-API-Key]
+      query: [api_key]</code></pre></div>
+                            </div>
+                        </div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
             <!-- JWT Authentication -->
             <h3 id="jwt-authentication">JWT Authentication</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="jwt-authentication"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td>No direct equivalent</td>
@@ -3531,7 +3536,7 @@ spec:
             <h3 id="oidc-authentication">OIDC Authentication</h3>
             <div class="info-box note" style="margin: 0 0 12px;"><strong>Looking for generic <code>auth_request</code> (non-OIDC) migration?</strong> Use the new <code>externalAuth</code> Policy CRD documented in the <a href="#authentication-external">Authentication (External)</a> section &mdash; it works in NGINX OSS and Plus. The <code>oidc</code> Policy below is specifically for native OIDC flows (no oauth2-proxy required) and requires NGINX Plus.</div>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="oidc-authentication"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/auth-cache-duration</code><br><code>nginx.ingress.kubernetes.io/auth-cache-key</code><br><code>nginx.ingress.kubernetes.io/auth-method</code><br><code>nginx.ingress.kubernetes.io/auth-proxy-set-headers</code><br><code>nginx.ingress.kubernetes.io/auth-request-redirect</code><br><code>nginx.ingress.kubernetes.io/auth-response-headers</code><br><code>nginx.ingress.kubernetes.io/auth-signin</code><br><code>nginx.ingress.kubernetes.io/auth-signin-redirect-param</code><br><code>nginx.ingress.kubernetes.io/auth-url</code></td>
@@ -3579,7 +3584,7 @@ spec:
             <!-- WAF -->
             <h3 id="waf">WAF (Web Application Firewall)</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="waf"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td>No direct equivalent — see <a href="#modsecurity">ModSecurity / WAF (OSS)</a></td>
@@ -3689,7 +3694,7 @@ spec:
             <h3 id="configmap-identical">Identical Keys</h3>
             <p>These keys have the same name and semantics in both controllers. No changes are needed when migrating.</p>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="configmap-identical"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable" aria-expanded="false">
                             <td><code>client-body-buffer-size</code></td>
@@ -4138,7 +4143,7 @@ data:
             <!-- Proxy & Buffering -->
             <h3 id="configmap-proxy-buffering">Proxy &amp; Buffering</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="configmap-proxy-buffering"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>proxy-body-size</code></td>
@@ -4189,7 +4194,7 @@ data:
             <!-- SSL/TLS -->
             <h3 id="configmap-ssl-tls">SSL/TLS</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="configmap-ssl-tls"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>force-ssl-redirect</code></td>
@@ -4280,7 +4285,7 @@ data:
             <!-- Logging -->
             <h3 id="configmap-logging">Logging</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="configmap-logging"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>disable-access-log</code></td>
@@ -4371,7 +4376,7 @@ data:
             <!-- Network / Real IP -->
             <h3 id="configmap-network">Network / Real IP</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="configmap-network"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>proxy-real-ip-cidr</code></td>
@@ -4423,7 +4428,7 @@ data:
             <!-- Worker & Performance -->
             <h3 id="configmap-worker">Worker &amp; Performance</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="configmap-worker"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>max-worker-connections</code></td>
@@ -4472,7 +4477,7 @@ data:
             <!-- Upstream & Load Balancing -->
             <h3 id="configmap-upstream">Upstream &amp; Load Balancing</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="configmap-upstream"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>load-balance</code></td>
@@ -4522,7 +4527,7 @@ data:
             <!-- Keepalive & Timeouts -->
             <h3 id="configmap-keepalive">Keepalive &amp; Timeouts</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="configmap-keepalive"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>keep-alive</code></td>
@@ -4572,7 +4577,7 @@ data:
             <!-- Server & Hash Configuration -->
             <h3 id="configmap-server">Server &amp; Hash Configuration</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="configmap-server"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>server-name-hash-bucket-size</code></td>
@@ -4622,7 +4627,7 @@ data:
             <!-- Headers -->
             <h3 id="configmap-headers">Headers</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="configmap-headers"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>add-headers</code></td>
@@ -4655,23 +4660,6 @@ data:
                             <div class="info-box note"><strong>New in v5.5.0:</strong> The <code>add-header</code> ConfigMap key adds globally-applied response headers using a comma-separated <code>Name: Value</code> list. Unlike the community <code>add-headers</code> key (which references a separate ConfigMap of headers), values are specified inline.</div>
                         </div></td></tr>
                         <tr class="expandable">
-                            <td>No direct equivalent</td>
-                            <td><code>add-header-inherit</code> <span class="badge badge-new">New v5.5.0</span></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># No equivalent ConfigMap key &mdash; the community
-# controller does not expose add_header_inherit.</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-data:
-  add-header-inherit: "merge"  # on | off | merge</code></pre></div>
-                            </div>
-                            <div class="info-box note"><strong>New in v5.5.0:</strong> The <code>add-header-inherit</code> ConfigMap key sets the global default for <code>add_header_inherit</code>: <code>on</code> (inherit headers from outer contexts &mdash; the NGINX default), <code>off</code> (do not inherit), or <code>merge</code> (combine inner and outer headers). Per-Ingress override is available via the <code>nginx.org/add-header-inherit</code> annotation.</div>
-                        </div></td></tr>
-                        <tr class="expandable">
                             <td><code>hide-headers</code></td>
                             <td><code>proxy-hide-headers</code></td>
                         </tr>
@@ -4692,25 +4680,21 @@ data:
                             </div>
                         </div></td></tr>
                         <tr class="expandable">
-                            <td><code>proxy-real-ip-cidr</code></td>
-                            <td><code>set-real-ip-from</code></td>
+                            <td>No direct equivalent</td>
+                            <td><code>add-header-inherit</code> <span class="badge badge-new">New v5.5.0</span></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="comparison">
-                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX) ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ingress-nginx-controller
-data:
-  proxy-real-ip-cidr: "10.0.0.0/8,172.16.0.0/12"</code></pre></div>
+                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># No equivalent ConfigMap key &mdash; the community
+# controller does not expose add_header_inherit.</code></pre></div>
                                 <div class="comparison-block new"><h4>F5 NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
 kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  set-real-ip-from: "10.0.0.0/8,172.16.0.0/12"</code></pre></div>
+  add-header-inherit: "merge"  # on | off | merge</code></pre></div>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> Both map to the NGINX <code>set_real_ip_from</code> directive. The F5 NGINX Ingress Controller key uses the NGINX-native naming convention.</div>
+                            <div class="info-box note"><strong>New in v5.5.0:</strong> The <code>add-header-inherit</code> ConfigMap key sets the global default for <code>add_header_inherit</code>: <code>on</code> (inherit headers from outer contexts &mdash; the NGINX default), <code>off</code> (do not inherit), or <code>merge</code> (combine inner and outer headers). Per-Ingress override is available via the <code>nginx.org/add-header-inherit</code> annotation.</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -4719,7 +4703,7 @@ data:
             <!-- Protocol -->
             <h3 id="configmap-protocol">Protocol</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="configmap-protocol"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>use-http2</code></td>
@@ -4741,26 +4725,6 @@ data:
   http2: "true"</code></pre></div>
                             </div>
                         </div></td></tr>
-                        <tr class="expandable">
-                            <td><code>use-proxy-protocol</code></td>
-                            <td><code>proxy-protocol</code></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX) ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ingress-nginx-controller
-data:
-  use-proxy-protocol: "true"</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-data:
-  proxy-protocol: "true"</code></pre></div>
-                            </div>
-                        </div></td></tr>
                     </tbody>
                 </table>
             </div>
@@ -4768,11 +4732,11 @@ data:
             <!-- Snippets -->
             <h3 id="configmap-snippets">Snippets</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="configmap-snippets"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
-                            <td><code>main-snippet</code><br><code>http-snippet</code><br><code>server-snippet</code><br><code>location-snippet</code><br><code>stream-snippet</code></td>
-                            <td><code>main-snippets</code><br><code>http-snippets</code><br><code>server-snippets</code><br><code>location-snippets</code><br><code>stream-snippets</code></td>
+                            <td><code>http-snippet</code><br><code>location-snippet</code><br><code>main-snippet</code><br><code>server-snippet</code><br><code>stream-snippet</code></td>
+                            <td><code>http-snippets</code><br><code>location-snippets</code><br><code>main-snippets</code><br><code>server-snippets</code><br><code>stream-snippets</code></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="comparison">
@@ -4781,17 +4745,17 @@ kind: ConfigMap
 metadata:
   name: ingress-nginx-controller
 data:
-  main-snippet: |
-    worker_rlimit_nofile 65535;
   http-snippet: |
     map $http_upgrade $connection_upgrade {
       default upgrade;
       '' close;
     }
-  server-snippet: |
-    add_header X-Custom "value";
   location-snippet: |
     proxy_cache_valid 200 10m;
+  main-snippet: |
+    worker_rlimit_nofile 65535;
+  server-snippet: |
+    add_header X-Custom "value";
   stream-snippet: |
     log_format stream '$remote_addr [$time_local]';</code></pre></div>
                                 <div class="comparison-block new"><h4>F5 NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
@@ -4799,21 +4763,21 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  main-snippets: |
-    worker_rlimit_nofile 65535;
   http-snippets: |
     map $http_upgrade $connection_upgrade {
       default upgrade;
       '' close;
     }
-  server-snippets: |
-    add_header X-Custom "value";
   location-snippets: |
     proxy_cache_valid 200 10m;
+  main-snippets: |
+    worker_rlimit_nofile 65535;
+  server-snippets: |
+    add_header X-Custom "value";
   stream-snippets: |
     log_format stream '$remote_addr [$time_local]';</code></pre></div>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> All snippet keys change from singular to plural: <code>main-snippet</code> → <code>main-snippets</code>, <code>http-snippet</code> → <code>http-snippets</code>, <code>server-snippet</code> → <code>server-snippets</code>, <code>location-snippet</code> → <code>location-snippets</code>, <code>stream-snippet</code> → <code>stream-snippets</code>.</div>
+                            <div class="info-box note"><strong>Note:</strong> All snippet keys change from singular to plural: <code>http-snippet</code> → <code>http-snippets</code>, <code>location-snippet</code> → <code>location-snippets</code>, <code>main-snippet</code> → <code>main-snippets</code>, <code>server-snippet</code> → <code>server-snippets</code>, <code>stream-snippet</code> → <code>stream-snippets</code>.</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -4822,7 +4786,7 @@ data:
             <!-- OpenTelemetry -->
             <h3 id="configmap-otel">OpenTelemetry</h3>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="configmap-otel"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>enable-opentelemetry</code></td>
@@ -4874,7 +4838,7 @@ data:
             <h3 id="configmap-snippets-required">Snippet-Based Keys</h3>
             <p>These community ConfigMap keys have no direct equivalent in the F5 NGINX Ingress Controller. Use <code>main-snippets</code>, <code>http-snippets</code>, or <code>server-snippets</code> in the NIC ConfigMap to inject the equivalent NGINX directives.</p>
             <div class="table-wrapper">
-                <table class="mapping-table"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="configmap-snippets-required"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
                             <td><code>access-log-path</code></td>
@@ -4946,7 +4910,5 @@ data:
 
 
 
-    <script src="assets/js/shared.js"></script>
-    <script src="assets/js/migration.js"></script>
 </body>
 </html>

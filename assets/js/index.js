@@ -17,13 +17,13 @@
 
         /* ── Auto-Fetch Versions ── */
         let VERSION_CONFIG = {
-            nic: { repo: 'nginx/kubernetes-ingress',        fallback: { release: 'v5.5.1', helm: 'v2.6.1' } },
-            ngf: { repo: 'nginx/nginx-gateway-fabric',      fallback: { release: 'v2.6.5', helm: 'v2.6.5' } },
+            nic: { repo: 'nginx/kubernetes-ingress',        chartPath: 'charts/nginx-ingress',        fallback: { release: 'v5.5.1', helm: 'v2.6.1' } },
+            ngf: { repo: 'nginx/nginx-gateway-fabric',      chartPath: 'charts/nginx-gateway-fabric', fallback: { release: 'v2.6.6', helm: 'v2.6.6' } },
             i2g: { repo: 'kubernetes-sigs/ingress2gateway',  fallback: { release: 'v1.1.0' } }
         };
         // Bump the cache key suffix when VERSION_CONFIG shape or applyVersions logic changes
         // so users don't apply stale payloads from previous schemas.
-        let VERSION_CACHE_KEY = 'nginx_k8s_versions_v2';
+        let VERSION_CACHE_KEY = 'nginx_k8s_versions_v3';
         let VERSION_CACHE_TTL = 3600000; // 1 hour
 
         function readVersionCache() {
@@ -60,6 +60,12 @@
                     }
                     if (el.tagName === 'A' && field === 'release' && VERSION_CONFIG[product]) {
                         el.href = 'https://github.com/' + VERSION_CONFIG[product].repo + '/releases/tag/' + vTag;
+                    }
+                    // Helm pills link to the chart at the *release* tag (the chart version
+                    // shown may differ from the tag, e.g. NIC), so displayed version and
+                    // link target can't drift apart.
+                    if (el.tagName === 'A' && field === 'helm' && VERSION_CONFIG[product] && VERSION_CONFIG[product].chartPath && data[product].release) {
+                        el.href = 'https://github.com/' + VERSION_CONFIG[product].repo + '/tree/' + data[product].release + '/' + VERSION_CONFIG[product].chartPath;
                     }
                 }
             }
@@ -154,17 +160,22 @@
             let page = document.getElementById('page-' + id);
             if (page) {
                 page.classList.add('active');
-                animatePageEntrance(page);
+                if (!_skipEntranceAnimation) animatePageEntrance(page);
+                // The activated card/button is now inside a display:none page, which
+                // would drop keyboard focus to <body> — land it on the new page instead.
+                // Only for user-initiated switches (pushHash), not load/back-forward.
+                if (pushHash) {
+                    page.setAttribute('tabindex', '-1');
+                    page.focus({ preventScroll: true });
+                }
             }
 
             // Announce for screen readers
-            let announcer = document.getElementById('page-announce');
-            if (announcer) {
-                announcer.textContent = 'Navigated to ' + PAGE_NAMES[id];
-            }
+            announce('Navigated to ' + PAGE_NAMES[id]);
 
-            // Update URL hash
-            if (pushHash) {
+            // Update URL hash — skipped when already there (e.g. re-clicking the
+            // active nav item) so Back doesn't walk through duplicate entries.
+            if (pushHash && location.hash !== '#' + id) {
                 history.pushState(null, '', '#' + id);
             }
 
@@ -184,6 +195,10 @@
         /* ── Entrance Animation ── */
         let animationTimers = [];
         let prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        // The stagger is for in-page navigation; on the very first render it would
+        // re-hide content the browser may already have painted (flash-to-invisible
+        // on slow connections) and delay visibility for no reason.
+        let _skipEntranceAnimation = true;
 
         let _animatingPage = null;
         function animatePageEntrance(pageEl) {
@@ -224,14 +239,16 @@
         /* ── Hash Routing ── */
         function handleHash() {
             let hash = location.hash.slice(1);
-            // Treat an empty or unknown hash as Home, so Back/Forward to the bare
-            // URL restores the landing view instead of leaving the last product shown.
-            let id = PRODUCTS.indexOf(hash) !== -1 ? hash : 'home';
-            showProductFn(id, false);
+            // Empty hash (Back/Forward to the bare URL) restores Home. Unknown
+            // hashes are in-page anchors (e.g. the #main-content skip link) —
+            // leave those to the browser instead of resetting the SPA.
+            if (hash !== '' && PRODUCTS.indexOf(hash) === -1) return;
+            showProductFn(hash || 'home', false);
         }
 
+        // Routing is fragment-only, so hashchange covers Back/Forward on its own;
+        // a popstate listener would run showProductFn twice per navigation.
         window.addEventListener('hashchange', handleHash);
-        window.addEventListener('popstate', handleHash);
 
         /* ── Event Listeners ── */
         document.addEventListener('DOMContentLoaded', function() {
@@ -247,7 +264,10 @@
             document.querySelectorAll('.feature-card[data-yt-id]').forEach(function(card) {
                 let poster = card.querySelector('.video-poster');
                 if (!poster) return;
+                let activated = false;
                 function activate() {
+                    if (activated) return;
+                    activated = true;
                     let id = card.getAttribute('data-yt-id');
                     let title = card.getAttribute('data-yt-title') || 'YouTube video';
                     let iframe = document.createElement('iframe');
@@ -255,7 +275,16 @@
                     iframe.title = title;
                     iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
                     iframe.allowFullscreen = true;
-                    poster.replaceWith(iframe);
+                    // The poster div doubles as the 16:9 .video-embed wrapper — swap its
+                    // contents for the player (replacing the div would drop the sizing CSS)
+                    // and move focus to the iframe so keyboard users keep their place.
+                    poster.textContent = '';
+                    poster.classList.remove('video-poster');
+                    poster.removeAttribute('role');
+                    poster.removeAttribute('tabindex');
+                    poster.removeAttribute('aria-label');
+                    poster.appendChild(iframe);
+                    iframe.focus();
                 }
                 poster.addEventListener('click', activate);
                 poster.addEventListener('keydown', function(e) {
@@ -274,10 +303,12 @@
                 });
             });
 
-            // Brand click goes to home
+            // Brand click goes to home — same modifier-click guard as the project
+            // cards so cmd/ctrl/middle-click still opens a new tab.
             let brand = document.querySelector('.topbar-brand');
             if (brand) {
                 brand.addEventListener('click', function(e) {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
                     e.preventDefault();
                     showProductFn('home');
                 });
@@ -290,13 +321,15 @@
                 });
             });
 
-            // Restore from hash or default to home
+            // Restore from hash or default to home (no entrance animation on the
+            // initial render — content should just be there)
             let hash = location.hash.slice(1);
             if (PRODUCTS.indexOf(hash) !== -1) {
                 showProductFn(hash, false);
             } else {
                 showProductFn('home', false);
             }
+            _skipEntranceAnimation = false;
 
             // Fetch latest versions from GitHub
             fetchVersions();

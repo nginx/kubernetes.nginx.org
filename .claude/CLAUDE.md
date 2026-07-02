@@ -12,7 +12,7 @@ Documentation-only project covering NGINX on Kubernetes. The site serves as a ge
 Project characteristics:
 
 - No build system, tests, or package manager
-- Static HTML + Markdown documentation with CSS/JS in `assets/` (no CDN/third-party runtime dependencies)
+- Static HTML + Markdown documentation with CSS/JS in `assets/` (no CDN/third-party runtime dependencies — one deliberate exception: the featured videos load poster images from `i.ytimg.com` and are click-to-play into `youtube-nocookie`, so nothing off-origin runs until a reader asks for it)
 - Owned by F5, Inc., Apache 2.0 license
 
 ## Directory layout

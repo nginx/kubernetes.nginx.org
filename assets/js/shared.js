@@ -12,14 +12,43 @@ function initDarkMode() {
         document.body.classList.add('dark-mode');
     }
     updateDarkAriaLabel();
+    updateThemeColorMeta();
+}
+
+// The <head> ships a media-matched theme-color pair that follows the OS
+// preference; the site's dark mode is class-based and user-togglable, so set
+// both metas to the active mode's color to keep browser chrome in sync.
+function updateThemeColorMeta() {
+    let isDark = document.documentElement.classList.contains('dark-mode') || document.body.classList.contains('dark-mode');
+    document.querySelectorAll('meta[name="theme-color"]').forEach(function(m) {
+        m.setAttribute('content', isDark ? '#1a1c25' : '#009639');
+    });
 }
 
 function updateDarkAriaLabel() {
     let btn = document.getElementById('darkToggle');
     if (!btn) return;
     let isDark = document.documentElement.classList.contains('dark-mode') || document.body.classList.contains('dark-mode');
-    btn.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
+    // Constant accessible name + aria-pressed state — pairing an action-style
+    // name ("Switch to light mode") with a pressed state reads contradictorily.
+    btn.setAttribute('aria-label', 'Dark mode');
     btn.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+}
+
+/* ── Screen-reader announcements ── */
+let _announceTimeout = null;
+// Single writer for the #page-announce live region: clears first (so identical
+// consecutive messages re-announce) and cancels any pending write, so a stale
+// message can't clobber a newer one.
+function announce(text) {
+    let announcer = document.getElementById('page-announce');
+    if (!announcer) return;
+    if (_announceTimeout) clearTimeout(_announceTimeout);
+    announcer.textContent = '';
+    _announceTimeout = setTimeout(function() {
+        announcer.textContent = text;
+        _announceTimeout = null;
+    }, 50);
 }
 
 /* ── Sidebar drawer (mobile) ── */
@@ -65,19 +94,23 @@ function copyToClipboard(text, btn) {
     }
 }
 
+// Returns whether the copy actually succeeded — execCommand('copy') signals
+// failure by returning false, not by throwing.
 function fallbackCopy(text, btn) {
     let ta = document.createElement('textarea');
     ta.value = text;
     ta.style.cssText = 'position:fixed;opacity:0;left:-9999px';
     document.body.appendChild(ta);
+    let ok = false;
     try {
         ta.select();
-        document.execCommand('copy');
-        showCopied(btn);
-    } catch (e) { /* silent */ }
+        ok = document.execCommand('copy');
+    } catch (e) { ok = false; }
     finally {
         document.body.removeChild(ta);
     }
+    if (btn) { if (ok) showCopied(btn); else showCopyFailed(btn); }
+    return ok;
 }
 
 function showCopied(btn) {
@@ -85,12 +118,22 @@ function showCopied(btn) {
     if (btn._copyTimeout) clearTimeout(btn._copyTimeout);
     btn.textContent = 'Copied!';
     btn.classList.add('copied');
-    let announcer = document.getElementById('page-announce');
-    if (announcer) announcer.textContent = 'Code copied to clipboard';
+    announce('Code copied to clipboard');
     btn._copyTimeout = setTimeout(function() {
         btn.textContent = 'Copy';
         btn.classList.remove('copied');
-        if (announcer) announcer.textContent = '';
+    }, 2000);
+}
+
+function showCopyFailed(btn) {
+    if (!btn) return;
+    if (btn._copyTimeout) clearTimeout(btn._copyTimeout);
+    btn.textContent = 'Failed';
+    // A cancelled success timer would otherwise leave the class behind forever.
+    btn.classList.remove('copied');
+    announce('Copy failed');
+    btn._copyTimeout = setTimeout(function() {
+        btn.textContent = 'Copy';
     }, 2000);
 }
 
@@ -111,6 +154,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.body.classList.toggle('dark-mode', isDark);
             try { localStorage.setItem('darkMode', isDark ? '1' : '0'); } catch (e) { /* storage blocked (e.g. private mode) */ }
             updateDarkAriaLabel();
+            updateThemeColorMeta();
         });
     }
 
@@ -135,4 +179,12 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') closeSidebar();
     });
+
+    // Close the drawer when the viewport leaves the mobile breakpoint, so the
+    // backdrop, scroll lock, and inert state don't linger while the menu toggle
+    // is hidden (e.g. rotating a tablet with the drawer open).
+    let drawerMq = window.matchMedia('(max-width: 900px)');
+    let onDrawerChange = function(e) { if (!e.matches) closeSidebar(); };
+    if (drawerMq.addEventListener) drawerMq.addEventListener('change', onDrawerChange);
+    else if (drawerMq.addListener) drawerMq.addListener(onDrawerChange);
 });

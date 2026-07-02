@@ -3,13 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#009639">
+    <meta name="theme-color" content="#009639" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#1a1c25" media="(prefers-color-scheme: dark)">
+    <meta name="color-scheme" content="light dark">
     <meta name="description" content="NGINX on Kubernetes — the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.">
     <meta name="author" content="F5, Inc.">
     <link rel="canonical" href="https://kubernetes.nginx.org/">
     <link rel="preconnect" href="https://api.github.com" crossorigin>
-    <link rel="preconnect" href="https://www.youtube-nocookie.com" crossorigin>
-    <link rel="preconnect" href="https://i.ytimg.com" crossorigin>
+    <!-- No crossorigin here: the poster <img> and iframe requests are no-cors, and
+         connection reuse is keyed on credential mode — a CORS-mode preconnect
+         would warm sockets those requests can never use. -->
+    <link rel="preconnect" href="https://www.youtube-nocookie.com">
+    <link rel="preconnect" href="https://i.ytimg.com">
     <link rel="dns-prefetch" href="https://nginxblog-8de1046ff5a84f2c-endpoint.azureedge.net">
     <meta property="og:title" content="NGINX - Networking for Kubernetes">
     <meta property="og:description" content="NGINX on Kubernetes — the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.">
@@ -18,11 +23,13 @@
     <meta property="og:image" content="https://kubernetes.nginx.org/assets/img/og-image.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="NGINX — Networking for Kubernetes">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:image" content="https://kubernetes.nginx.org/assets/img/og-image.png">
+    <meta name="twitter:image:alt" content="NGINX — Networking for Kubernetes">
     <title>NGINX - Networking for Kubernetes</title>
-    <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
-    <link rel="manifest" href="/site.webmanifest">
+    <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+    <link rel="manifest" href="site.webmanifest">
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
@@ -40,7 +47,15 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='53' height='60' viewBox='0 0 53 60'%3E%3Cg transform='translate(-7.198 -0.359)'%3E%3Cpath fill='%23009639' d='M7.606,45.181a3.019,3.019,0,0,0,1.134,1.126L31.942,59.702a3.044,3.044,0,0,0,3.084,0L58.229,46.306a3.043,3.043,0,0,0,1.541-2.67V16.846a3.044,3.044,0,0,0-1.542-2.67L35.025,0.779a3.04,3.04,0,0,0-3.082,0L8.741,14.175a3.042,3.042,0,0,0-1.543,2.67V43.637a3.025,3.025,0,0,0,.407,1.544'/%3E%3Cpath fill='%23fff' d='M26.055,40.439a2.984,2.984,0,0,1-5.968,0l.003-20.483a3.111,3.111,0,0,1,3.388-2.899,5.306,5.306,0,0,1,4.067,1.819l.902,1.079L40.914,34.874V20.041a2.984,2.984,0,1,1,5.968,0l-.004,20.481a3.111,3.111,0,0,1-3.388,2.899,5.303,5.303,0,0,1-4.067-1.819L26.054,25.606V40.44Z'/%3E%3C/g%3E%3C/svg%3E">
     <link rel="stylesheet" href="assets/css/shared.css">
     <link rel="stylesheet" href="assets/css/index.css">
+    <!-- Without JS the product pages would all be display:none — stack them so
+         the static content stays readable. -->
+    <noscript><style>.product-page { display: block; }</style></noscript>
     <script>try{let s=localStorage.getItem('darkMode');if(s==='1'||(s===null&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
+    <!-- defer: fetch starts with the first HTML chunk instead of after the whole
+         document; execution order (shared before page) and after-parse timing keep
+         the classic-script/globals convention working. -->
+    <script defer src="assets/js/shared.js"></script>
+    <script defer src="assets/js/index.js"></script>
 </head>
 <body>
     <svg xmlns="http://www.w3.org/2000/svg" class="svg-sprite" aria-hidden="true">
@@ -56,7 +71,7 @@
     <!-- ── Top Bar ── -->
     <nav class="topbar" aria-label="Top navigation">
         <div class="topbar-left">
-            <button class="menu-toggle" id="menuToggle" aria-label="Toggle sidebar navigation" aria-expanded="false">
+            <button class="menu-toggle" id="menuToggle" aria-label="Toggle sidebar navigation" aria-expanded="false" aria-controls="sidebar">
                 <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
             </button>
             <a class="topbar-brand" href="#">
@@ -74,7 +89,7 @@
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><use href="#icon-github"/></svg>
                 Contribute
             </a>
-            <button class="dark-toggle" id="darkToggle" aria-label="Switch to dark mode" aria-pressed="false">
+            <button class="dark-toggle" id="darkToggle" aria-label="Dark mode" aria-pressed="false">
                 <svg aria-hidden="true" class="dark-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
                 <svg aria-hidden="true" class="dark-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
             </button>
@@ -112,7 +127,7 @@
                         <span class="dot" data-color="green"></span>
                         <span class="sidebar-link-text">
                             <span class="sidebar-link-name">NGINX Gateway Fabric</span>
-                            <span class="sidebar-link-desc"><span data-version="ngf.release">v2.6.5</span> &middot; Gateway API</span>
+                            <span class="sidebar-link-desc"><span data-version="ngf.release">v2.6.6</span> &middot; Gateway API</span>
                         </span>
                     </button></li>
                 </ul>
@@ -336,7 +351,7 @@
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Latest Helm Chart</span>
-                                <span class="version-pill nic"><a data-version="nic.helm" href="https://github.com/nginx/kubernetes-ingress/tree/main/charts/nginx-ingress" target="_blank" rel="noopener">v2.6.1</a></span>
+                                <span class="version-pill nic"><a data-version="nic.helm" href="https://github.com/nginx/kubernetes-ingress/tree/v5.5.1/charts/nginx-ingress" target="_blank" rel="noopener">v2.6.1</a></span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Custom Resources</span>
@@ -391,7 +406,7 @@
                         <span class="page-hero-badge ngf">
                             <svg aria-hidden="true" width="16" height="16" viewBox="34 5 36 48" fill="none"><path fill="#009639" d="M35.31,39.58c.21.37.52.66.86.86l17.65,10.19c.34.2.75.32,1.17.32s.83-.12,1.17-.32l17.65-10.19c.35-.2.65-.48.86-.86.21-.37.31-.78.31-1.18v-20.38c0-.4-.1-.81-.31-1.18-.21-.37-.52-.66-.86-.86l-17.65-10.19c-.34-.2-.74-.32-1.17-.32s-.83.12-1.17.32l-17.65,10.19c-.35.2-.65.49-.86.86-.21.37-.31.78-.31,1.18v20.38c0,.4.1.8.31,1.18"/><polygon fill="#fff" points="54.87 41.41 43.25 34.46 54.88 27.97 55.37 28.84 45.25 34.49 55.38 40.55 54.87 41.41"/><path fill="#fff" d="M66.51,35.33l-11.38-6.35-.51.3v-12.98l-10.38,6.06-.5-.86,11.89-6.94v12.96l10.88-6.47v14.27ZM56.13,28.39l9.38,5.23v-10.81l-9.38,5.58Z"/><circle fill="#fff" cx="43.99" cy="21.94" r="3"/><circle fill="#fff" cx="66.01" cy="21.94" r="3"/><circle fill="#fff" cx="55.13" cy="15.44" r="3"/><circle fill="#fff" cx="55.13" cy="28.41" r="3"/><circle fill="#fff" cx="44.25" cy="34.48" r="3"/><circle fill="#fff" cx="55.13" cy="40.98" r="3"/><circle fill="#fff" cx="66.01" cy="34.48" r="3"/></svg>
                             Gateway Fabric
-                            <a class="hero-version" data-version="ngf.release" href="https://github.com/nginx/nginx-gateway-fabric/releases/tag/v2.6.5" target="_blank" rel="noopener">v2.6.5</a>
+                            <a class="hero-version" data-version="ngf.release" href="https://github.com/nginx/nginx-gateway-fabric/releases/tag/v2.6.6" target="_blank" rel="noopener">v2.6.6</a>
                         </span>
                         <h1>NGINX Gateway Fabric</h1>
                         <p>Gateway API implementation powered by NGINX. A future-ready, standards-based approach to Kubernetes traffic management with control and data plane separation.</p>
@@ -453,19 +468,19 @@
                         <div class="details-grid">
                             <div class="detail-item">
                                 <span class="detail-label">Latest Version</span>
-                                <span class="version-pill ngf"><a data-version="ngf.release" href="https://github.com/nginx/nginx-gateway-fabric/releases/latest" target="_blank" rel="noopener">v2.6.5</a></span>
+                                <span class="version-pill ngf"><a data-version="ngf.release" href="https://github.com/nginx/nginx-gateway-fabric/releases/latest" target="_blank" rel="noopener">v2.6.6</a></span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Latest Helm Chart</span>
-                                <span class="version-pill ngf"><a data-version="ngf.helm" href="https://github.com/nginx/nginx-gateway-fabric/tree/main/charts/nginx-gateway-fabric" target="_blank" rel="noopener">v2.6.5</a></span>
+                                <span class="version-pill ngf"><a data-version="ngf.helm" href="https://github.com/nginx/nginx-gateway-fabric/tree/v2.6.6/charts/nginx-gateway-fabric" target="_blank" rel="noopener">v2.6.6</a></span>
                             </div>
                             <div class="detail-item">
                                 <span class="detail-label">Supported Resources</span>
                                 <div class="detail-tags">
-                                    <span class="detail-tag"><a href="https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io/v1.Gateway" target="_blank" rel="noopener">Gateway</a></span>
-                                    <span class="detail-tag"><a href="https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io/v1.GatewayClass" target="_blank" rel="noopener">GatewayClass</a></span>
-                                    <span class="detail-tag"><a href="https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io/v1.HTTPRoute" target="_blank" rel="noopener">HTTPRoute</a></span>
-                                    <span class="detail-tag"><a href="https://gateway-api.sigs.k8s.io/references/spec/#gateway.networking.k8s.io/v1.GRPCRoute" target="_blank" rel="noopener">GRPCRoute</a></span>
+                                    <span class="detail-tag"><a href="https://gateway-api.sigs.k8s.io/reference/api-spec/main/spec/#gateway" target="_blank" rel="noopener">Gateway</a></span>
+                                    <span class="detail-tag"><a href="https://gateway-api.sigs.k8s.io/reference/api-spec/main/spec/#gatewayclass" target="_blank" rel="noopener">GatewayClass</a></span>
+                                    <span class="detail-tag"><a href="https://gateway-api.sigs.k8s.io/reference/api-spec/main/spec/#httproute" target="_blank" rel="noopener">HTTPRoute</a></span>
+                                    <span class="detail-tag"><a href="https://gateway-api.sigs.k8s.io/reference/api-spec/main/spec/#grpcroute" target="_blank" rel="noopener">GRPCRoute</a></span>
                                     <span class="detail-tag"><a href="https://docs.nginx.com/nginx-gateway-fabric/traffic-management/tcp-routing/" target="_blank" rel="noopener">TCPRoute</a></span>
                                     <span class="detail-tag"><a href="https://docs.nginx.com/nginx-gateway-fabric/traffic-management/tls-passthrough/" target="_blank" rel="noopener">TLSRoute</a></span>
                                     <span class="detail-tag"><a href="https://docs.nginx.com/nginx-gateway-fabric/traffic-management/udp-routing/" target="_blank" rel="noopener">UDPRoute</a></span>
@@ -510,7 +525,7 @@
                         <div class="code-block"><button class="copy-btn" aria-label="Copy NGF install command">Copy</button><code><span class="comment"># Install via Helm (OCI registry)</span>
 <span class="cmd">helm</span> install nginx-gateway-fabric \
   oci://ghcr.io/nginx/charts/nginx-gateway-fabric \
-  <span class="flag">--version</span> <span class="str" data-version="ngf.helm" data-version-format="bare">2.6.5</span> \
+  <span class="flag">--version</span> <span class="str" data-version="ngf.helm" data-version-format="bare">2.6.6</span> \
   <span class="flag">--namespace</span> nginx-gateway-fabric <span class="flag">--create-namespace</span></code></div>
                     </div>
 
@@ -567,14 +582,14 @@
                     </div>
 
                     <div class="preview-card">
-                        <p>The migration tool is a comprehensive, self-contained HTML application with no external dependencies. It covers every annotation and ConfigMap key from the community controller.</p>
+                        <p>The migration tool is a static HTML application with first-party CSS/JS and no third-party runtime dependencies. It covers every annotation and ConfigMap key from the community controller.</p>
                         <div class="preview-stats">
                             <div class="preview-stat">
                                 <span class="num migration">130+</span>
                                 <span class="label">Annotations</span>
                             </div>
                             <div class="preview-stat">
-                                <span class="num migration">58</span>
+                                <span class="num migration">55+</span>
                                 <span class="label">Mapping Groups</span>
                             </div>
                             <div class="preview-stat">
@@ -681,7 +696,5 @@
     </div>
 
 
-    <script src="assets/js/shared.js"></script>
-    <script src="assets/js/index.js"></script>
 </body>
 </html>
