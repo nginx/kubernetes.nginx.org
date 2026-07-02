@@ -15,7 +15,7 @@
          would warm sockets those requests can never use. -->
     <link rel="preconnect" href="https://www.youtube-nocookie.com">
     <link rel="preconnect" href="https://i.ytimg.com">
-    <link rel="dns-prefetch" href="https://nginxblog-8de1046ff5a84f2c-endpoint.azureedge.net">
+    <link rel="preconnect" href="https://nginxblog-8de1046ff5a84f2c-endpoint.azureedge.net">
     <meta property="og:title" content="NGINX - Networking for Kubernetes">
     <meta property="og:description" content="NGINX on Kubernetes — the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.">
     <meta property="og:url" content="https://kubernetes.nginx.org/">
@@ -47,9 +47,10 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='53' height='60' viewBox='0 0 53 60'%3E%3Cg transform='translate(-7.198 -0.359)'%3E%3Cpath fill='%23009639' d='M7.606,45.181a3.019,3.019,0,0,0,1.134,1.126L31.942,59.702a3.044,3.044,0,0,0,3.084,0L58.229,46.306a3.043,3.043,0,0,0,1.541-2.67V16.846a3.044,3.044,0,0,0-1.542-2.67L35.025,0.779a3.04,3.04,0,0,0-3.082,0L8.741,14.175a3.042,3.042,0,0,0-1.543,2.67V43.637a3.025,3.025,0,0,0,.407,1.544'/%3E%3Cpath fill='%23fff' d='M26.055,40.439a2.984,2.984,0,0,1-5.968,0l.003-20.483a3.111,3.111,0,0,1,3.388-2.899,5.306,5.306,0,0,1,4.067,1.819l.902,1.079L40.914,34.874V20.041a2.984,2.984,0,1,1,5.968,0l-.004,20.481a3.111,3.111,0,0,1-3.388,2.899,5.303,5.303,0,0,1-4.067-1.819L26.054,25.606V40.44Z'/%3E%3C/g%3E%3C/svg%3E">
     <link rel="stylesheet" href="assets/css/shared.css">
     <link rel="stylesheet" href="assets/css/index.css">
-    <!-- Without JS the product pages would all be display:none — stack them so
-         the static content stays readable. -->
-    <noscript><style>.product-page { display: block; }</style></noscript>
+    <!-- Without JS the inactive product pages stay hidden="until-found" — stack
+         them so the static content is readable (display for the boolean-hidden
+         fallback, content-visibility for Chromium's until-found). -->
+    <noscript><style>.product-page[hidden] { display: block; content-visibility: visible; }</style></noscript>
     <script>try{let s=localStorage.getItem('darkMode');if(s==='1'||(s===null&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
     <!-- defer: fetch starts with the first HTML chunk instead of after the whole
          document; execution order (shared before page) and after-parse timing keep
@@ -104,51 +105,51 @@
         <aside class="sidebar" id="sidebar" aria-label="Product navigation">
             <section class="sidebar-section">
                 <ul class="sidebar-nav">
-                    <li><button class="sidebar-link active" data-product="home" aria-current="page">
+                    <li><a class="sidebar-link active" href="#home" data-product="home" aria-current="page">
                         <span class="dot" data-color="green"></span>
                         <span class="sidebar-link-text">
                             <span class="sidebar-link-name">Home</span>
                             <span class="sidebar-link-desc">Overview &amp; Ecosystem</span>
                         </span>
-                    </button></li>
+                    </a></li>
                 </ul>
             </section>
             <section class="sidebar-section" aria-labelledby="sidebar-products-label">
                 <div class="sidebar-label" id="sidebar-products-label">Projects</div>
                 <ul class="sidebar-nav">
-                    <li><button class="sidebar-link" data-product="nginx-ingress-controller">
+                    <li><a class="sidebar-link" href="#nginx-ingress-controller" data-product="nginx-ingress-controller">
                         <span class="dot" data-color="green"></span>
                         <span class="sidebar-link-text">
                             <span class="sidebar-link-name">NGINX Ingress Controller</span>
                             <span class="sidebar-link-desc"><span data-version="nic.release">v5.5.1</span> &middot; Ingress API</span>
                         </span>
-                    </button></li>
-                    <li><button class="sidebar-link" data-product="nginx-gateway-fabric">
+                    </a></li>
+                    <li><a class="sidebar-link" href="#nginx-gateway-fabric" data-product="nginx-gateway-fabric">
                         <span class="dot" data-color="green"></span>
                         <span class="sidebar-link-text">
                             <span class="sidebar-link-name">NGINX Gateway Fabric</span>
                             <span class="sidebar-link-desc"><span data-version="ngf.release">v2.6.6</span> &middot; Gateway API</span>
                         </span>
-                    </button></li>
+                    </a></li>
                 </ul>
             </section>
             <section class="sidebar-section" aria-labelledby="sidebar-tools-label">
                 <div class="sidebar-label" id="sidebar-tools-label">Tools</div>
                 <ul class="sidebar-nav">
-                    <li><button class="sidebar-link" data-product="migration-tool">
+                    <li><a class="sidebar-link" href="#migration-tool" data-product="migration-tool">
                         <span class="dot" data-color="blue"></span>
                         <span class="sidebar-link-text">
                             <span class="sidebar-link-name">Migration Tool</span>
                             <span class="sidebar-link-desc">Ingress NGINX &rarr; NGINX Ingress</span>
                         </span>
-                    </button></li>
-                    <li><button class="sidebar-link" data-product="ingress2gateway">
+                    </a></li>
+                    <li><a class="sidebar-link" href="#ingress2gateway" data-product="ingress2gateway">
                         <span class="dot" data-color="blue"></span>
                         <span class="sidebar-link-text">
                             <span class="sidebar-link-name">ingress2gateway</span>
                             <span class="sidebar-link-desc"><span data-version="i2g.release">v1.1.0</span> &middot; Ingress API &rarr; Gateway API</span>
                         </span>
-                    </button></li>
+                    </a></li>
                 </ul>
             </section>
             <div class="sidebar-divider"></div>
@@ -195,6 +196,12 @@
                         </span>
                         <h1>Networking for Kubernetes</h1>
                         <p>Your hub for NGINX's Kubernetes ecosystem — Ingress controllers, Gateway API implementations, migration tools, and conversion utilities.</p>
+                        <div class="cta-row hero-cta-row">
+                            <a class="cta cta-primary migration" href="ingress-nginx-migration.html">
+                                Migrating from ingress-nginx? Start here
+                                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/></svg>
+                            </a>
+                        </div>
                     </div>
                 </div>
                 <div class="page-body">
@@ -204,12 +211,14 @@
                             <span class="project-card-badge green">Project</span>
                             <h3>NGINX Ingress Controller</h3>
                             <p>Production-grade Ingress controller with advanced traffic management, VirtualServer CRDs, and full observability.</p>
+                            <p class="card-fit">Best if you run Ingress resources today or are migrating from ingress-nginx.</p>
                             <span class="card-link" aria-hidden="true">Learn more &rarr;</span>
                         </a>
                         <a class="project-card" href="#nginx-gateway-fabric" data-navigate="nginx-gateway-fabric">
                             <span class="project-card-badge green">Project</span>
                             <h3>NGINX Gateway Fabric</h3>
                             <p>Gateway API implementation powered by NGINX with control and data plane separation for future-ready traffic management.</p>
+                            <p class="card-fit">Best if you're adopting the Kubernetes Gateway API.</p>
                             <span class="card-link" aria-hidden="true">Learn more &rarr;</span>
                         </a>
                         <a class="project-card" href="#migration-tool" data-navigate="migration-tool">
@@ -237,8 +246,8 @@
                             </div>
                             <div class="feature-card-body">
                                 <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> Featured Video</h3>
-                                <p class="feature-card-eyebrow">CNCF On-Demand</p>
-                                <p>Ingress-NGINX Is Retiring, NGINX Is Not</p>
+                                <p class="feature-card-eyebrow">Ingress-NGINX Is Retiring, NGINX Is Not</p>
+                                <p>CNCF On-Demand webinar</p>
                             </div>
                         </div>
                         <div class="feature-card feature-card-flush" data-yt-id="gJrB3-w2_tM" data-yt-title="Cutting Through the Kubernetes Confusion: NGINX Ingress, Gateway Fabric, and What's Next">
@@ -255,7 +264,7 @@
                             </div>
                         </div>
                         <a class="feature-card feature-card-flush" href="https://blog.nginx.org/blog/the-nginx-kubernetes-open-source-roadmap-first-half-of-2026" target="_blank" rel="noopener">
-                            <img class="feature-card-thumb" src="https://nginxblog-8de1046ff5a84f2c-endpoint.azureedge.net/blobnginxbloga72cde487e/wp-content/uploads/2026/03/image-1.png" alt="NGINX Kubernetes Open Source Roadmap" loading="lazy">
+                            <img class="feature-card-thumb" src="https://nginxblog-8de1046ff5a84f2c-endpoint.azureedge.net/blobnginxbloga72cde487e/wp-content/uploads/2026/03/image-1.png" alt="NGINX Kubernetes Open Source Roadmap" loading="lazy" decoding="async">
                             <div class="feature-card-body">
                                 <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Featured Blog</h3>
                                 <p class="feature-card-eyebrow">The NGINX Kubernetes Open Source Roadmap: First Half of 2026</p>
@@ -264,7 +273,7 @@
                             </div>
                         </a>
                         <a class="feature-card feature-card-flush" href="https://blog.nginx.org/blog/nginx-ingress-controller-v5-4-0-making-migration-easier-than-ever" target="_blank" rel="noopener">
-                            <img class="feature-card-thumb" src="https://nginxblog-8de1046ff5a84f2c-endpoint.azureedge.net/blobnginxbloga72cde487e/wp-content/uploads/2025/03/K8s-blog2.png" alt="NGINX Ingress Controller v5.4.0" loading="lazy">
+                            <img class="feature-card-thumb" src="https://nginxblog-8de1046ff5a84f2c-endpoint.azureedge.net/blobnginxbloga72cde487e/wp-content/uploads/2025/03/K8s-blog2.png" alt="NGINX Ingress Controller v5.4.0" loading="lazy" decoding="async">
                             <div class="feature-card-body">
                                 <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg> Featured Blog</h3>
                                 <p class="feature-card-eyebrow">NGINX Ingress Controller v5.4.0: Making Migration Easier Than Ever</p>
@@ -279,7 +288,7 @@
             <!-- ════════════════════════════════════════════ -->
             <!-- NIC Page                                     -->
             <!-- ════════════════════════════════════════════ -->
-            <div class="product-page" id="page-nginx-ingress-controller">
+            <div class="product-page" id="page-nginx-ingress-controller" hidden="until-found">
                 <div class="page-hero nic">
                     <div class="page-hero-content">
                         <span class="page-hero-badge nic">
@@ -400,7 +409,7 @@
             <!-- ════════════════════════════════════════════ -->
             <!-- NGF Page                                     -->
             <!-- ════════════════════════════════════════════ -->
-            <div class="product-page" id="page-nginx-gateway-fabric">
+            <div class="product-page" id="page-nginx-gateway-fabric" hidden="until-found">
                 <div class="page-hero ngf">
                     <div class="page-hero-content">
                         <span class="page-hero-badge ngf">
@@ -535,7 +544,7 @@
             <!-- ════════════════════════════════════════════ -->
             <!-- Migration Tool Page                          -->
             <!-- ════════════════════════════════════════════ -->
-            <div class="product-page" id="page-migration-tool">
+            <div class="product-page" id="page-migration-tool" hidden="until-found">
                 <div class="page-hero migration">
                     <div class="page-hero-content">
                         <span class="page-hero-badge migration">
@@ -550,7 +559,7 @@
                     <div class="cta-row">
                         <a class="cta cta-primary migration" href="ingress-nginx-migration.html">
                             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/></svg>
-                            Migration Tool
+                            Open the Migration Tool
                         </a>
                     </div>
 
@@ -609,7 +618,7 @@
             <!-- ════════════════════════════════════════════ -->
             <!-- ingress2gateway Page                         -->
             <!-- ════════════════════════════════════════════ -->
-            <div class="product-page" id="page-ingress2gateway">
+            <div class="product-page" id="page-ingress2gateway" hidden="until-found">
                 <div class="page-hero i2g">
                     <div class="page-hero-content">
                         <span class="page-hero-badge i2g">
@@ -663,26 +672,22 @@
 
                     <h2 class="section-heading">Installation</h2>
                     <div class="code-section code-section-flush">
-                        <div class="code-block"><button class="copy-btn" aria-label="Copy ingress2gateway install command">Copy</button><code><span class="comment"># Install with Go</span>
-<span class="cmd">go</span> install github.com/kubernetes-sigs/ingress2gateway<span data-version="i2g.release" data-version-format="atv">@v1.1.0</span>
-
-<span class="comment"># Or install with Homebrew (macOS / Linux)</span>
-<span class="cmd">brew</span> install ingress2gateway
-</code></div>
+                        <div class="code-block"><button class="copy-btn" aria-label="Copy Go install command">Copy</button><code><span class="comment"># Install with Go</span>
+<span class="cmd">go</span> install github.com/kubernetes-sigs/ingress2gateway<span data-version="i2g.release" data-version-format="atv">@v1.1.0</span></code></div>
+                        <div class="code-block"><button class="copy-btn" aria-label="Copy Homebrew install command">Copy</button><code><span class="comment"># Or install with Homebrew (macOS / Linux)</span>
+<span class="cmd">brew</span> install ingress2gateway</code></div>
                     </div>
 
                     <h2 class="section-heading">Usage</h2>
                     <div class="code-section code-section-flush">
-                        <div class="code-block"><button class="copy-btn" aria-label="Copy ingress2gateway usage command">Copy</button><code><span class="comment"># Convert from a YAML file</span>
+                        <div class="code-block"><button class="copy-btn" aria-label="Copy convert-from-file command">Copy</button><code><span class="comment"># Convert from a YAML file</span>
 <span class="cmd">ingress2gateway</span> print \
   <span class="flag">--providers</span>=nginx \
-  <span class="flag">--input-file</span>=<span class="str">my-ingress.yaml</span>
-
-<span class="comment"># Convert from a live cluster (current context)</span>
+  <span class="flag">--input-file</span>=<span class="str">my-ingress.yaml</span></code></div>
+                        <div class="code-block"><button class="copy-btn" aria-label="Copy convert-from-cluster command">Copy</button><code><span class="comment"># Convert from a live cluster (current context)</span>
 <span class="cmd">ingress2gateway</span> print \
-  <span class="flag">--providers</span>=nginx
-
-<span class="comment"># Convert and save to a file</span>
+  <span class="flag">--providers</span>=nginx</code></div>
+                        <div class="code-block"><button class="copy-btn" aria-label="Copy convert-and-save command">Copy</button><code><span class="comment"># Convert and save to a file</span>
 <span class="cmd">ingress2gateway</span> print \
   <span class="flag">--providers</span>=nginx \
   <span class="flag">--input-file</span>=<span class="str">my-ingress.yaml</span> &gt; gateway-resources.yaml</code></div>

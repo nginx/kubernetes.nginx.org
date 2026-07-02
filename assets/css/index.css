@@ -9,8 +9,8 @@
 .sidebar-link .dot[data-color="red"] { background: var(--red); }
 
 /* ── Product Page ── */
-.product-page { display: none; }
-.product-page.active { display: block; }
+/* Inactive pages are hidden via the hidden="until-found" attribute (markup +
+   index.js), not display:none, so browser find-in-page can search them. */
 
 .page-hero { padding: 32px 48px 64px; position: relative; overflow: hidden; }
 .page-hero::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 25%; background: linear-gradient(to bottom, transparent, var(--bg)); pointer-events: none; z-index: 1; }
@@ -36,6 +36,7 @@
 .hero-version:hover { text-decoration: underline; }
 :is(html, body).dark-mode .hero-version { background: rgba(255,255,255,0.1); }
 .page-hero h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 10px; }
+.hero-cta-row { margin-top: 24px; }
 .coming-soon-label { font-weight: 500; opacity: 0.6; }
 .page-hero p { color: var(--text); font-size: 1.05rem; line-height: 1.6; }
 
@@ -69,6 +70,7 @@ a.feature-card:link, a.feature-card:visited { color: inherit; }
 .code-section h2 { font-size: 1rem; font-weight: 700; margin-bottom: 12px; }
 
 .code-block { background: #1a1c25; border-radius: 10px; padding: 20px; overflow-x: auto; border: 1px solid #2a2d38; position: relative; color-scheme: dark; }
+.code-block + .code-block { margin-top: 12px; }
 .code-block code { font-family: var(--mono); font-size: 0.82rem; color: #d4d4d4; line-height: 1.7; white-space: pre; display: block; }
 .code-block .cmd { color: #9cdcfe; }
 .code-block .flag { color: #ce9178; }
@@ -181,6 +183,7 @@ a.feature-card:link, a.feature-card:visited { color: inherit; }
 .project-card p { font-size: 0.86rem; color: var(--text-secondary); line-height: 1.55; }
 .project-card .card-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 12px; font-size: 0.82rem; font-weight: 600; color: var(--green-text); }
 .project-card .card-link.blue { color: var(--blue); }
+.project-card .card-fit { margin-top: 10px; font-size: 0.8rem; font-weight: 600; color: var(--green-text); }
 
 /* ── Video Embed ── */
 .video-embed { position: relative; width: 100%; padding-bottom: 56.25%; border-radius: 10px; overflow: hidden; margin: 20px 0 32px; background: #000; }

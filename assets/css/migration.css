@@ -15,8 +15,8 @@
 .sidebar-subnav .sidebar-link.active .dot { background: var(--green); }
 .sidebar-subnav .sidebar-link-name { font-size: 0.84rem; color: var(--text-secondary); }
 .sidebar-subnav .sidebar-link.active .sidebar-link-name { color: var(--text); }
-.tool-page { display: none; }
-.tool-page.active { display: block; }
+/* Inactive tool pages are hidden via the hidden="until-found" attribute
+   (markup + migration.js), not display:none, so find-in-page can search them. */
 
 /* ── Main Content ── */
 .main-inner { max-width: 1300px; padding: 40px 48px 60px; }
@@ -94,8 +94,20 @@ pre code { background: none; color: inherit; padding: 0; }
 .info-box.warning { background: #fff3e0; border-left: 4px solid var(--orange); color: #bf4000; }
 .info-box.warning a { color: #bf360c; }
 .info-box.warning code { background: rgba(230,81,0,0.1); color: #bf4000; }
+/* Collapsible end-of-maintenance warning (repeats on all three tool pages) */
+.eol-toggle { background: none; border: 1px solid currentColor; border-radius: 6px; color: inherit; font-family: var(--font); font-size: 0.72rem; font-weight: 600; padding: 2px 10px; cursor: pointer; margin-left: 8px; opacity: 0.85; transition: opacity 0.2s; vertical-align: middle; }
+.eol-toggle:hover { opacity: 1; }
+.eol-toggle:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.eol-compact { margin: 0 0 12px; padding: 8px 20px; font-size: 0.82rem; }
 
 .controls { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+/* Keep search/filter reachable while scrolling the ~3000-line mapping sections.
+   Desktop only — on mobile the wrapped controls row would eat too much height. */
+@media (min-width: 901px) {
+    .controls { position: sticky; top: calc(var(--chrome-h) + 4px); z-index: 5; background: var(--surface); padding: 8px 0; margin: -8px 0 20px; }
+    /* Headings below the sticky bar need extra scroll clearance (chrome + bar) */
+    #mappings h3[id], #plus-mappings h3[id], #configmap-mappings h3[id] { scroll-margin-top: calc(var(--chrome-h) + 78px); }
+}
 .controls input[type="search"] { padding: 10px 16px; border: 2px solid var(--border); border-radius: 6px; font-size: 0.9rem; outline: none; transition: border-color 0.2s, box-shadow 0.2s; min-width: 240px; flex: 1; max-width: 400px; }
 .controls select { padding: 10px 12px; border: 2px solid var(--border); border-radius: 6px; font-size: 0.85rem; font-family: var(--font); background: var(--surface); color: var(--text); outline: none; cursor: pointer; transition: border-color 0.2s; }
 .controls select:focus { border-color: var(--green-text); }
@@ -119,6 +131,12 @@ pre code { background: none; color: inherit; padding: 0; }
 .main li::marker { color: var(--green-text); font-weight: 600; }
 .doc-list { padding-left: 40px; }
 .feature-card li strong { color: var(--blue); }
+.checklist-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; font-size: 0.85rem; color: var(--text-secondary); }
+.checklist-progress { font-weight: 600; color: var(--text); }
+.checklist-note { font-size: 0.78rem; }
+.checklist-reset { background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--text-secondary); font-family: var(--font); font-size: 0.78rem; font-weight: 600; padding: 3px 12px; cursor: pointer; transition: background 0.2s, color 0.2s, border-color 0.2s; }
+.checklist-reset:hover { background: var(--bg); color: var(--text); border-color: var(--text-secondary); }
+.checklist-reset:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
 .checklist { list-style: none; padding: 0; }
 .checklist li { display: flex; align-items: baseline; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); cursor: pointer; transition: opacity 0.2s; }
 .checklist li::before { content: '☐'; flex-shrink: 0; font-size: 1.2rem; line-height: 1; color: var(--green-text); transition: transform 0.15s; }

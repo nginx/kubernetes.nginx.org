@@ -138,7 +138,9 @@
         }
 
         /* ── Product Switching ── */
-        function showProductFn(id, pushHash) {
+        // fromFind: the switch was triggered by find-in-page revealing a
+        // hidden="until-found" page — sync state without scrolling or animating.
+        function showProductFn(id, pushHash, fromFind) {
             if (PRODUCTS.indexOf(id) === -1) return;
             if (typeof pushHash === 'undefined') pushHash = true;
 
@@ -153,22 +155,28 @@
                 activeLink.setAttribute('aria-current', 'page');
             }
 
-            // Update pages
+            // Update pages — inactive ones are hidden="until-found" (not
+            // display:none) so browser find-in-page can search their content.
             document.querySelectorAll('.product-page').forEach(function(p) {
                 p.classList.remove('active');
+                p.setAttribute('hidden', 'until-found');
             });
             let page = document.getElementById('page-' + id);
             if (page) {
+                page.removeAttribute('hidden');
                 page.classList.add('active');
-                if (!_skipEntranceAnimation) animatePageEntrance(page);
-                // The activated card/button is now inside a display:none page, which
-                // would drop keyboard focus to <body> — land it on the new page instead.
+                if (!_skipEntranceAnimation && !fromFind) animatePageEntrance(page);
+                // The activated card/link is now inside a hidden page, which would
+                // drop keyboard focus to <body> — land it on the new page instead.
                 // Only for user-initiated switches (pushHash), not load/back-forward.
                 if (pushHash) {
                     page.setAttribute('tabindex', '-1');
                     page.focus({ preventScroll: true });
                 }
             }
+
+            // Tab title / history-entry label per view
+            document.title = (id === 'home' ? '' : PAGE_NAMES[id] + ' — ') + 'NGINX - Networking for Kubernetes';
 
             // Announce for screen readers
             announce('Navigated to ' + PAGE_NAMES[id]);
@@ -188,8 +196,8 @@
             // Close mobile sidebar
             closeSidebar();
 
-            // Scroll to top
-            window.scrollTo(0, 0);
+            // Scroll to top (find-in-page manages its own scroll to the match)
+            if (!fromFind) window.scrollTo(0, 0);
         }
 
         /* ── Entrance Animation ── */
@@ -252,11 +260,21 @@
 
         /* ── Event Listeners ── */
         document.addEventListener('DOMContentLoaded', function() {
-            // Sidebar link click handlers
+            // Sidebar links are real anchors — modifier-clicks open a new tab,
+            // plain clicks use the SPA route (same pattern as the project cards).
             document.querySelectorAll('.sidebar-link[data-product]').forEach(function(link) {
-                link.addEventListener('click', function() {
-                    let product = this.getAttribute('data-product');
-                    showProductFn(product);
+                link.addEventListener('click', function(e) {
+                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button === 1) return;
+                    e.preventDefault();
+                    showProductFn(this.getAttribute('data-product'));
+                });
+            });
+
+            // Chromium fires beforematch when find-in-page reveals a
+            // hidden="until-found" page — sync the SPA state to it.
+            document.querySelectorAll('.product-page').forEach(function(p) {
+                p.addEventListener('beforematch', function() {
+                    showProductFn(p.id.replace('page-', ''), false, true);
                 });
             });
 

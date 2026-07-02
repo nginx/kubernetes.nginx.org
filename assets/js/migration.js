@@ -278,6 +278,7 @@
         let _migrationStrategy = 'crd'; // 'annotation' or 'crd'
 
         function setStrategy(strategy, btn) {
+            if (_migrationStrategy === strategy) return;
             _migrationStrategy = strategy;
             document.querySelectorAll('.strategy-option').forEach(function(b) { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
             btn.classList.add('active');
@@ -287,6 +288,12 @@
                 desc.textContent = strategy === 'annotation'
                     ? 'Swap annotations where possible, use CRDs only when needed'
                     : 'Prefer Policy CRDs and VirtualServer, fall back to annotations when no CRD path exists';
+            }
+            // Results on screen were generated under the previous strategy —
+            // re-run the analysis so they match the toggle.
+            let results = document.getElementById('analyzerResults');
+            if (results && results.querySelector('.analyzer-step, .analyzer-success-banner') && document.getElementById('yamlInput').value.trim()) {
+                analyzeYaml();
             }
         }
         function filterTable(source) {
@@ -312,8 +319,7 @@
             if ((term || anyCategory) && _savedExpanded.length === 0) {
                 document.querySelectorAll('.expandable.expanded').forEach(function(r) { _savedExpanded.push(r); });
             }
-            let totalVisible = 0;
-            let totalRows = 0;
+            let sectionCounts = { 'mappings': { visible: 0, total: 0 }, 'plus-mappings': { visible: 0, total: 0 }, 'configmap-mappings': { visible: 0, total: 0 } };
             document.querySelectorAll('.mapping-table').forEach(function(table) {
                 let visibleCount = 0;
                 let wrapper = table.closest('.table-wrapper');
@@ -329,6 +335,7 @@
                 else if (sectionId === 'plus-mappings') category = categoryPlus;
                 else if (sectionId === 'configmap-mappings') category = categoryCM;
                 let categoryMatch = !category || tableCategory === category;
+                let counts = sectionCounts[sectionId];
                 table.querySelectorAll('tbody tr').forEach(function(row) {
                     if (row.classList.contains('example-row')) {
                         if (term || category) {
@@ -339,13 +346,13 @@
                         }
                         return;
                     }
-                    totalRows++;
+                    if (counts) counts.total++;
                     let textMatch = !term || row.textContent.toLowerCase().includes(term);
                     let match = textMatch && categoryMatch;
                     row.style.display = match ? '' : 'none';
                     if (match) visibleCount++;
                 });
-                totalVisible += visibleCount;
+                if (counts) counts.visible += visibleCount;
                 if (!wrapper) return;
                 let hidden = (term || category) && visibleCount === 0;
                 wrapper.style.display = hidden ? 'none' : '';
@@ -361,19 +368,27 @@
                 let infoBox = wrapper.nextElementSibling;
                 if (infoBox && infoBox.classList && infoBox.classList.contains('info-box')) infoBox.style.display = hidden ? 'none' : '';
             });
-            // Update result count displays
-            let countText = '';
-            let noResults = false;
-            if (term) {
-                countText = totalVisible + ' of ' + totalRows + ' rows';
-                noResults = totalVisible === 0;
+            // Update result counts — each section shows its own tally, so an empty
+            // section with matches elsewhere doesn't read as "3 of 306 rows" while
+            // everything visible is thousands of pixels away in another section.
+            function setCount(el, own, othersVisible) {
+                if (!el) return;
+                let text = '';
+                let noResults = false;
+                if (term) {
+                    text = own.visible + ' of ' + own.total + ' rows';
+                    noResults = own.visible === 0;
+                    if (noResults && othersVisible > 0) {
+                        text += ' — ' + othersVisible + ' match' + (othersVisible !== 1 ? 'es' : '') + ' in other sections';
+                    }
+                }
+                el.textContent = text;
+                el.className = 'search-count' + (noResults ? ' no-results' : '');
             }
-            let countEl = document.getElementById('searchCount');
-            let countElPlus = document.getElementById('searchCountPlus');
-            let countElCM = document.getElementById('searchCountConfigMap');
-            if (countEl) { countEl.textContent = countText; countEl.className = 'search-count' + (noResults ? ' no-results' : ''); }
-            if (countElPlus) { countElPlus.textContent = countText; countElPlus.className = 'search-count' + (noResults ? ' no-results' : ''); }
-            if (countElCM) { countElCM.textContent = countText; countElCM.className = 'search-count' + (noResults ? ' no-results' : ''); }
+            let ossC = sectionCounts['mappings'], plusC = sectionCounts['plus-mappings'], cmC = sectionCounts['configmap-mappings'];
+            setCount(document.getElementById('searchCount'), ossC, plusC.visible + cmC.visible);
+            setCount(document.getElementById('searchCountPlus'), plusC, ossC.visible + cmC.visible);
+            setCount(document.getElementById('searchCountConfigMap'), cmC, ossC.visible + plusC.visible);
             // Restore expanded state when filters are cleared
             if (!term && !anyCategory && _savedExpanded.length > 0) {
                 _savedExpanded.forEach(function(r) {
@@ -423,7 +438,7 @@
                 history.replaceState(null, '', '#' + anchorId);
                 let target = document.getElementById(anchorId);
                 if (target) {
-                    let y = target.getBoundingClientRect().top + window.pageYOffset - chromeHeight() - 12;
+                    let y = target.getBoundingClientRect().top + window.pageYOffset - scrollOffsetFor(target);
                     window.scrollTo({ top: y, behavior: scrollBehavior() });
                 }
             });
@@ -664,6 +679,20 @@
         function chromeHeight() {
             let tb = document.querySelector('.topbar');
             return tb ? Math.round(tb.getBoundingClientRect().bottom) : (document.body.classList.contains('has-banner') ? 87 : 52);
+        }
+
+        // Scroll offset for an anchor target: the fixed chrome plus, on desktop,
+        // the sticky search/filter bar when the target sits below it inside a
+        // mapping section (the bar would otherwise cover the scrolled-to heading).
+        function scrollOffsetFor(target) {
+            let offset = chromeHeight() + 12;
+            let section = target.closest('section');
+            let controls = section && section.querySelector('.controls');
+            if (controls && window.matchMedia('(min-width: 901px)').matches &&
+                (controls.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING)) {
+                offset += controls.offsetHeight + 4;
+            }
+            return offset;
         }
 
         function parseYamlAnnotations(yamlText) {
@@ -2141,7 +2170,7 @@
                             if (sidebarLink) sidebarLink.click();
                             setTimeout(function() {
                                 let target = document.getElementById(entry.mapping.anchor);
-                                if (target) { let y = target.getBoundingClientRect().top + window.pageYOffset - chromeHeight() - 12; window.scrollTo({ top: y, behavior: scrollBehavior() }); }
+                                if (target) { let y = target.getBoundingClientRect().top + window.pageYOffset - scrollOffsetFor(target); window.scrollTo({ top: y, behavior: scrollBehavior() }); }
                             }, 150);
                         });
                         card.appendChild(link);
@@ -2702,12 +2731,22 @@
                 annStatus.style.display = 'none';
             }
         }
+        // Above this size, rebuilding the token spans on every keystroke causes
+        // visible typing lag (a cluster-wide `kubectl get ingress -A -o yaml` dump
+        // easily reaches thousands of lines) — fall back to plain text in the
+        // overlay: the text stays readable, only the coloring is dropped.
+        let HIGHLIGHT_LINE_LIMIT = 1500;
         function updateYamlHighlight() {
             let textarea = document.getElementById('yamlInput');
             let highlight = document.getElementById('yamlHighlight');
             highlight.textContent = '';
             if (textarea.value) {
-                highlight.appendChild(highlightYaml(textarea.value));
+                let lineCount = (textarea.value.match(/\n/g) || []).length + 1;
+                if (lineCount > HIGHLIGHT_LINE_LIMIT) {
+                    highlight.appendChild(document.createTextNode(textarea.value));
+                } else {
+                    highlight.appendChild(highlightYaml(textarea.value));
+                }
                 // Append a trailing newline so the pre height matches textarea with trailing newline
                 highlight.appendChild(document.createTextNode('\n'));
             }
@@ -2766,10 +2805,11 @@
                 let switching = (id !== currentPage);
                 currentPage = id;
 
-                // Toggle tool-page visibility
-                document.querySelectorAll('.tool-page').forEach(function(p) { p.classList.remove('active'); });
+                // Toggle tool-page visibility — inactive pages are hidden="until-found"
+                // (not display:none) so browser find-in-page can search their content.
+                document.querySelectorAll('.tool-page').forEach(function(p) { p.classList.remove('active'); p.setAttribute('hidden', 'until-found'); });
                 let page = document.getElementById('page-' + id);
-                if (page) page.classList.add('active');
+                if (page) { page.removeAttribute('hidden'); page.classList.add('active'); }
 
                 // Update sidebar active states
                 pageLinks.forEach(function(l) { l.classList.remove('active'); l.removeAttribute('aria-current'); });
@@ -2819,6 +2859,15 @@
                 });
             });
 
+            // Chromium fires beforematch when find-in-page reveals a
+            // hidden="until-found" page — sync the tool state to it without
+            // touching the scroll position (the browser jumps to the match).
+            document.querySelectorAll('.tool-page').forEach(function(p) {
+                p.addEventListener('beforematch', function() {
+                    showPage(p.id.replace('page-', ''), { updateHash: false, skipScroll: true });
+                });
+            });
+
             // Map sections to their parent pages
             let sectionPageMap = {
                 overview: 'getting-started', 'why-migrate': 'getting-started', features: 'getting-started', installation: 'getting-started', checklist: 'getting-started', 'phased-migration': 'getting-started', resources: 'getting-started',
@@ -2841,8 +2890,7 @@
                     function scrollToSection() {
                         let target = document.getElementById(sectionId);
                         if (target) {
-                            let topbarH = chromeHeight();
-                            let y = target.getBoundingClientRect().top + window.pageYOffset - topbarH - 12;
+                            let y = target.getBoundingClientRect().top + window.pageYOffset - scrollOffsetFor(target);
                             window.scrollTo({ top: y, behavior: scrollBehavior() });
                         }
                     }
@@ -2855,8 +2903,7 @@
                         requestAnimationFrame(function() {
                             let target = document.getElementById(sectionId);
                             if (target) {
-                                let topbarH = chromeHeight();
-                                let y = target.getBoundingClientRect().top + window.pageYOffset - topbarH - 12;
+                                let y = target.getBoundingClientRect().top + window.pageYOffset - scrollOffsetFor(target);
                                 window.scrollTo({ top: y });
                             }
                         });
@@ -2930,7 +2977,7 @@
                             showPage(owner.id.replace('page-', ''), { updateHash: false, skipScroll: true });
                         }
                         requestAnimationFrame(function() {
-                            let y = target.getBoundingClientRect().top + window.pageYOffset - chromeHeight() - 12;
+                            let y = target.getBoundingClientRect().top + window.pageYOffset - scrollOffsetFor(target);
                             window.scrollTo({ top: y });
                         });
                     }
@@ -2995,6 +3042,13 @@
                 return li.getAttribute('data-id') || String(index);
             }
 
+            let progressEl = document.getElementById('checklistProgress');
+            function updateProgress() {
+                if (!progressEl) return;
+                let done = list.querySelectorAll('li.checked').length;
+                progressEl.textContent = done + ' of ' + items.length + ' complete';
+            }
+
             function toggle(li, index) {
                 let state = loadState();
                 let isChecked = li.classList.toggle('checked');
@@ -3002,6 +3056,7 @@
                 let k = keyFor(li, index);
                 if (isChecked) { state[k] = true; } else { delete state[k]; }
                 saveState(state);
+                updateProgress();
             }
 
             // Restore saved state
@@ -3011,6 +3066,20 @@
                     items[i].classList.add('checked');
                     items[i].setAttribute('aria-checked', 'true');
                 }
+            }
+            updateProgress();
+
+            let resetBtn = document.getElementById('checklistReset');
+            if (resetBtn) {
+                resetBtn.addEventListener('click', function() {
+                    try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* storage blocked */ }
+                    for (let i = 0; i < items.length; i++) {
+                        items[i].classList.remove('checked');
+                        items[i].setAttribute('aria-checked', 'false');
+                    }
+                    updateProgress();
+                    announce('Checklist reset');
+                });
             }
 
             // Click and keyboard handlers
@@ -3026,5 +3095,54 @@
                 e.preventDefault();
                 toggle(li, Array.prototype.indexOf.call(items, li));
             });
+        })();
+
+        // Collapsible end-of-maintenance warning — the same banner repeats at the
+        // top of all three tool pages, so remember the reader's choice and show a
+        // one-line version instead of pushing them past two paragraphs every visit.
+        (function() {
+            let KEY = 'eolWarningCollapsed';
+            let banners = document.querySelectorAll('.eol-warning');
+            if (!banners.length) return;
+            function readCollapsed() { try { return localStorage.getItem(KEY) === '1'; } catch (e) { return false; } }
+            function writeCollapsed(v) { try { localStorage.setItem(KEY, v ? '1' : '0'); } catch (e) { /* storage blocked */ } }
+            let pairs = [];
+            function apply(collapsed) {
+                pairs.forEach(function(pair) {
+                    pair.banner.style.display = collapsed ? 'none' : '';
+                    pair.compact.style.display = collapsed ? '' : 'none';
+                });
+            }
+            banners.forEach(function(banner) {
+                let hideBtn = document.createElement('button');
+                hideBtn.type = 'button';
+                hideBtn.className = 'eol-toggle';
+                hideBtn.textContent = 'Hide';
+                hideBtn.setAttribute('aria-label', 'Collapse the end-of-maintenance warning');
+                banner.appendChild(document.createTextNode(' '));
+                banner.appendChild(hideBtn);
+
+                let compact = document.createElement('div');
+                compact.className = 'info-box warning eol-compact';
+                compact.style.display = 'none';
+                let strong = document.createElement('strong');
+                strong.textContent = 'ingress-nginx has reached end of maintenance';
+                compact.appendChild(strong);
+                compact.appendChild(document.createTextNode(' — this tool migrates you to the F5 NGINX Ingress Controller. '));
+                let showBtn = document.createElement('button');
+                showBtn.type = 'button';
+                showBtn.className = 'eol-toggle';
+                showBtn.textContent = 'Details';
+                showBtn.setAttribute('aria-label', 'Expand the end-of-maintenance warning');
+                compact.appendChild(showBtn);
+                banner.parentNode.insertBefore(compact, banner.nextSibling);
+                pairs.push({ banner: banner, compact: compact });
+
+                // Hand keyboard focus to the counterpart control so it doesn't
+                // drop to <body> when the focused button's container hides.
+                hideBtn.addEventListener('click', function() { writeCollapsed(true); apply(true); showBtn.focus(); });
+                showBtn.addEventListener('click', function() { writeCollapsed(false); apply(false); hideBtn.focus(); });
+            });
+            if (readCollapsed()) apply(true);
         })();
     })();
