@@ -16,7 +16,7 @@
 .sidebar-subnav .sidebar-link-name { font-size: 0.84rem; color: var(--text-secondary); }
 .sidebar-subnav .sidebar-link.active .sidebar-link-name { color: var(--text); }
 /* Inactive tool pages are hidden via the hidden="until-found" attribute
-   (markup + migration.js), not display:none, so find-in-page can search them. */
+   (markup + migration-core.js), not display:none, so find-in-page can search them. */
 
 /* ── Main Content ── */
 .main-inner { max-width: 1300px; padding: 40px 48px 60px; }

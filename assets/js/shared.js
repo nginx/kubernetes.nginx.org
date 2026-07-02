@@ -1,6 +1,6 @@
 /* shared.js — chrome behavior shared by index.html and ingress-nginx-migration.html:
    dark-mode toggle, sidebar drawer, copy-to-clipboard, copyright year.
-   Loaded before the per-page script (index.js / migration.js), which call these
+   Loaded before the per-page scripts (index.js / migration-*.js), which call these
    as globals. Classic script (not a module) so the functions stay global and
    resolve from each page's IIFE. */
 'use strict';

@@ -23,19 +23,20 @@ CSS and JS are split into external files under `assets/` (shared chrome + per-pa
 assets/
   css/  shared.css        # chrome: design tokens, reset, topbar, sidebar, event banner, dark mode, layout, accessibility
         index.css         # landing-page-only styles (hero, feature/project grids, compat tables, CTAs, code blocks)
-        migration.css     # migration-tool-only styles (analyzer UI, mapping/reference tables, badges, checklist, print)
+        migration.css     # migration-tool styles shared by all migration pages (analyzer UI, mapping/reference tables, badges, checklist, print)
   js/   shared.js         # chrome behavior: dark-mode toggle, sidebar drawer, copy-to-clipboard, copyright year (globals)
         index.js          # landing-page behavior: version auto-fetch, SPA product switching, entrance animation, YouTube
-        migration.js      # migration-tool behavior: YAML analyzer, ANNOTATION_MAPPINGS, reference tables, checklist
+        migration-core.js           # source-agnostic migration-tool engine: analyzer orchestration/rendering, table filtering, page nav, checklist; defines window.MigrationTool (NIC target versions + shared utils)
+        migration-ingress-nginx.js  # ingress-nginx SOURCE module: INGRESS_NGINX_VERSION, ANNOTATION_MAPPINGS, parsers, CRD generators, sample presets; defines window.MIGRATION_SOURCE
   img/  icon.svg, icon-512.png, apple-touch-icon.{svg,png}, og-image.{svg,png}
 ```
 
-Loading rules (both pages): `shared.css` is linked before the page CSS; `shared.js` is loaded before the page JS (the page scripts are IIFEs that call shared.js globals like `closeSidebar` / `copyToClipboard`). Asset paths are **relative** (`assets/css/…`, `assets/js/…`, no leading `/`) so they resolve identically locally, in PR previews, and in production. The inline `<head>` dark-mode flash-prevention `<script>` and the page-specific JSON-LD stay inline; classic (non-module) scripts keep functions global.
+Loading rules (all pages): `shared.css` is linked before the page CSS; `shared.js` is loaded before the page JS (the page scripts are IIFEs that call shared.js globals like `closeSidebar` / `copyToClipboard`). Migration pages load **three** scripts in this exact order: `shared.js` → `migration-<source>.js` → `migration-core.js`. The source module must load before the core (the core reads `window.MIGRATION_SOURCE` at top level); source modules never touch the DOM and may dereference `MigrationTool.*` only inside function bodies (call time), never at top level. Asset paths are **relative** (`assets/css/…`, `assets/js/…`, no leading `/`) so they resolve identically locally, in PR previews, and in production. The inline `<head>` dark-mode flash-prevention `<script>` and the page-specific JSON-LD stay inline; classic (non-module) scripts keep functions global.
 
 ## Key Files
 
 - `index.html` — **The live landing page** served via GitHub Pages. Hub page linking to all four projects/tools above. Styles/scripts live in `assets/css/{shared,index}.css` and `assets/js/{shared,index}.js`.
-- `ingress-nginx-migration.html` — **The live migration tool** at `https://kubernetes.nginx.org/ingress-nginx-migration.html`. Interactive YAML analyzer, 130+ annotation mappings, CRD migration examples, and ConfigMap migration guidance. Styles/scripts live in `assets/css/{shared,migration}.css` and `assets/js/{shared,migration}.js`.
+- `ingress-nginx-migration.html` — **The live migration tool** at `https://kubernetes.nginx.org/ingress-nginx-migration.html`. Interactive YAML analyzer, 130+ annotation mappings, CRD migration examples, and ConfigMap migration guidance. Styles live in `assets/css/{shared,migration}.css`; scripts are `assets/js/shared.js` + `assets/js/migration-ingress-nginx.js` + `assets/js/migration-core.js` (in that order).
 
 ## Workflow
 
@@ -147,7 +148,8 @@ When updating the sites for a new release, update **all** of the following.
 
 **Migration tool:**
 
-- Update the `NIC_VERSION` and `INGRESS_NGINX_VERSION` constants at the **top of `assets/js/migration.js`** — these are the single source of truth for the Version Reference banners (3 instances), the standalone `kubectl apply` example, and every `crdInstall` URL inside `ANNOTATION_MAPPINGS` (also in `assets/js/migration.js`). Banner text and release-tag links are populated from these constants at `DOMContentLoaded`.
+- Update the NIC target versions in the `MigrationTool.NIC` block at the **top of `assets/js/migration-core.js`** (`VERSION`, `HELM_VERSION` — the install commands and release URL derive from them). This is the single source of truth for the NIC side of the Version Reference banners, the standalone `kubectl apply` example, and the analyzer's CRD-install references on **every** migration page.
+- Update the `INGRESS_NGINX_VERSION` constant at the **top of `assets/js/migration-ingress-nginx.js`** (source-controller side of the banner; the release link derives from it). Banner text and release-tag links are populated from these constants at `DOMContentLoaded` via `data-*` attributes.
 - Update the static fallback text inside the `data-*-version` spans / `data-*-release-link` anchors in `ingress-nginx-migration.html` (so no-JS users see the correct version before the JS runs).
 
 #### NGINX Gateway Fabric (NGF) release

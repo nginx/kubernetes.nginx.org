@@ -51,10 +51,13 @@
     <noscript><style>.tool-page[hidden] { display: block; content-visibility: visible; }</style></noscript>
     <script>try{let s=localStorage.getItem('darkMode');if(s==='1'||(s===null&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
     <!-- defer: fetch starts with the first HTML chunk instead of after the whole
-         document; execution order (shared before page) and after-parse timing keep
-         the classic-script/globals convention working. -->
+         document; execution order and after-parse timing keep the
+         classic-script/globals convention working. Load order matters:
+         shared.js (chrome globals) → migration-ingress-nginx.js (defines
+         window.MIGRATION_SOURCE) → migration-core.js (the shared engine). -->
     <script defer src="assets/js/shared.js"></script>
-    <script defer src="assets/js/migration.js"></script>
+    <script defer src="assets/js/migration-ingress-nginx.js"></script>
+    <script defer src="assets/js/migration-core.js"></script>
 </head>
 <body>
     <noscript><div class="noscript-warning">This tool requires JavaScript for the config analyzer, navigation, and interactive features.</div></noscript>
