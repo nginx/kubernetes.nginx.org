@@ -261,7 +261,7 @@
                         <li><strong>Basic Auth:</strong> Username/password authentication via htpasswd</li>
                         <li><strong>JWT Validation:</strong> Validate JSON Web Tokens (Plus)</li>
                         <li><strong>OIDC:</strong> Native OpenID Connect integration (Plus)</li>
-                        <li><strong>API Key Auth:</strong> Authenticate via API keys in headers/query (Plus)</li>
+                        <li><strong>API Key Auth:</strong> Authenticate via API keys in headers/query</li>
                         <li><strong>mTLS:</strong> Client certificate verification (ingress) and backend TLS (egress)</li>
                         <li><strong>WAF:</strong> F5 WAF for NGINX web application firewall (Plus)</li>
                     </ul>
@@ -489,16 +489,24 @@ spec:
                                     <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code>annotations:
   nginx.ingress.kubernetes.io/denylist-source-range: "192.168.1.100"
   nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,172.16.0.0/12"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code># 1. Create the AccessControl Policy
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code># 1. Create two AccessControl Policies — NIC requires exactly one of
+#    allow or deny per Policy, so they become two separate Policies.
 apiVersion: k8s.nginx.org/v1
 kind: Policy
 metadata:
-  name: access-control
+  name: access-control-allow
 spec:
   accessControl:
     allow:  # whitelist-source-range
       - 10.0.0.0/8
       - 172.16.0.0/12
+---
+apiVersion: k8s.nginx.org/v1
+kind: Policy
+metadata:
+  name: access-control-deny
+spec:
+  accessControl:
     deny:  # denylist-source-range
       - 192.168.1.100
 ---
@@ -507,7 +515,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
-    nginx.org/policies: "access-control"
+    nginx.org/policies: "access-control-allow,access-control-deny"
 # ... rest of Ingress spec</code></pre></div>
                                 </div>
                                 <div class="info-box note"><strong>New in v5.4.0:</strong> AccessControl policies can now be referenced directly from Ingress resources using the <code>nginx.org/policies</code> annotation. This is the simplest migration path — you stay on Ingress resources.</div>
@@ -517,16 +525,24 @@ metadata:
                                     <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code>annotations:
   nginx.ingress.kubernetes.io/denylist-source-range: "192.168.1.100"
   nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,172.16.0.0/12"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code># 1. Create the AccessControl Policy
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code># 1. Create two AccessControl Policies (allow and deny — NIC requires
+#    exactly one of allow or deny per Policy)
 apiVersion: k8s.nginx.org/v1
 kind: Policy
 metadata:
-  name: access-control
+  name: access-control-allow
 spec:
   accessControl:
     allow:  # whitelist-source-range
       - 10.0.0.0/8
       - 172.16.0.0/12
+---
+apiVersion: k8s.nginx.org/v1
+kind: Policy
+metadata:
+  name: access-control-deny
+spec:
+  accessControl:
     deny:  # denylist-source-range
       - 192.168.1.100
 ---
@@ -538,7 +554,8 @@ metadata:
 spec:
   host: app.example.com
   policies:
-    - name: access-control
+    - name: access-control-allow
+    - name: access-control-deny
   upstreams:
     - name: backend
       service: backend-svc
@@ -750,7 +767,7 @@ spec:
   externalAuth:
     authURI: "/auth"  # auth-url (path)
     authServiceName: "default/auth-svc"  # auth-url (service)
-    authSigninURI: "https://auth.example.com/login"  # auth-signin
+    authSigninURI: "/login"  # auth-signin (path only — NIC authSigninURI is relative)
     authSnippets: |  # auth-snippet
       proxy_set_header X-Original-URI $request_uri;
 ---
@@ -763,7 +780,7 @@ metadata:
     nginx.org/policies: "external-auth"
 # ... rest of Ingress spec</code></pre></div>
                                 </div>
-                                <div class="info-box note"><strong>New in v5.5.0:</strong> The <code>externalAuth</code> Policy CRD can be referenced directly from Ingress resources using the <code>nginx.org/policies</code> annotation. This is the simplest migration path — you stay on Ingress resources. <code>auth-url</code> is split into <code>authURI</code> (path) and <code>authServiceName</code> (<code>&lt;namespace&gt;/&lt;service&gt;</code>). The community's <code>auth-method</code>, <code>auth-response-headers</code>, <code>auth-cache-duration</code>, <code>auth-cache-key</code>, <code>auth-proxy-set-headers</code>, <code>auth-request-redirect</code>, and <code>auth-signin-redirect-param</code> annotations have no dedicated Policy fields — express these through <code>authSnippets</code> when needed. If you are not adopting a Policy, place the same directives directly in <code>nginx.org/location-snippets</code> alongside the <code>auth_request</code> directive instead.</div>
+                                <div class="info-box note"><strong>New in v5.5.0:</strong> The <code>externalAuth</code> Policy CRD can be referenced directly from Ingress resources using the <code>nginx.org/policies</code> annotation. This is the simplest migration path — you stay on Ingress resources. <code>auth-url</code> is split into <code>authURI</code> (path) and <code>authServiceName</code> (<code>&lt;namespace&gt;/&lt;service&gt;</code>). The community's <code>auth-method</code>, <code>auth-response-headers</code>, <code>auth-cache-duration</code>, <code>auth-cache-key</code>, <code>auth-proxy-set-headers</code>, <code>auth-request-redirect</code>, and <code>auth-signin-redirect-param</code> annotations have no dedicated Policy fields — express these through <code>authSnippets</code> when needed. If you are not adopting a Policy, place the same directives directly in <code>nginx.org/location-snippets</code> alongside the <code>auth_request</code> directive instead. NIC's <code>authSigninURI</code> is a <em>relative</em> URI (validated <code>^/.*$</code>): a full <code>auth-signin</code> URL is reduced to its path, and a sign-in page on a different host cannot be expressed by this field.</div>
                             </div>
                             <div class="approach-content" data-approach="vs-policy">
                                 <div class="comparison">
@@ -782,7 +799,7 @@ spec:
   externalAuth:
     authURI: "/auth"  # auth-url (path)
     authServiceName: "default/auth-svc"  # auth-url (service)
-    authSigninURI: "https://auth.example.com/login"  # auth-signin
+    authSigninURI: "/login"  # auth-signin (path only — NIC authSigninURI is relative)
     authSnippets: |  # auth-snippet
       proxy_set_header X-Original-URI $request_uri;
 ---
@@ -878,6 +895,44 @@ annotations:
 # No migration action needed for this annotation.</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> The community controller supports global external authentication via ConfigMap keys (<code>global-auth-url</code>, etc.). The <code>enable-global-auth: "false"</code> annotation opts an Ingress out of this global setting. The F5 NGINX Ingress Controller does not have global external auth — authentication is always configured per-resource (via the <code>externalAuth</code>/<code>oidc</code>/<code>jwt</code> Policy CRDs or <code>location-snippets</code>). This annotation can be safely removed during migration.</div>
+                        </div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Authentication (API Key) -->
+            <h3 id="authentication-api-key">Authentication (API Key)</h3>
+            <div class="table-wrapper">
+                <table class="mapping-table" aria-labelledby="authentication-api-key"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
+                    <tbody>
+                        <tr class="expandable">
+                            <td>No direct equivalent</td>
+                            <td><span class="badge badge-policy">Policy CRD</span> <code>apiKey</code></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="comparison">
+                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># No direct equivalent
+# Requires custom Lua or external service</code></pre></div>
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: v1
+kind: Secret
+metadata:
+  name: api-keys
+type: nginx.org/apikey
+data:
+  client1: YXBpa2V5MTIzNDU=
+---
+apiVersion: k8s.nginx.org/v1
+kind: Policy
+metadata:
+  name: api-key-auth
+spec:
+  apiKey:
+    clientSecret: api-keys
+    suppliedIn:
+      header: [X-API-Key]
+      query: [api_key]</code></pre></div>
+                            </div>
+                                <div class="info-box note"><strong>Note:</strong> The <code>apiKey</code> Policy works with NGINX Open Source &mdash; unlike the <code>jwt</code>, <code>oidc</code>, and <code>waf</code> Policies, it is <strong>not</strong> gated on NGINX Plus. Attach it to a VirtualServer or VirtualServerRoute via <code>spec.policies</code> (the <code>apiKey</code> Policy is not attachable to an Ingress via <code>nginx.org/policies</code>).</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -1519,17 +1574,17 @@ spec:
     - name: backend
       service: backend-svc
       port: 80
-    - name: error-backend  # default-backend
-      service: error-svc
-      port: 80
   routes:
     - path: /
       action:
         pass: backend
       errorPages:  # custom-http-errors
         - codes: [404, 500, 502]
-          pass: error-backend</code></pre></div>
+          return:
+            code: 503
+            body: "Service Unavailable"</code></pre></div>
                             </div>
+                            <div class="info-box warning"><strong>No error-Service proxying:</strong> NIC <code>errorPages</code> can only <code>return</code> a canned response or <code>redirect</code> to a URL — they cannot pass the intercepted error to a <code>default-backend</code> Service the way the community controller does. To serve custom error pages from a Service, host them behind their own VirtualServer and <code>redirect</code> to it.</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -1885,6 +1940,7 @@ metadata:
 data:
   access-log-off: "true"</code></pre></div>
                             </div>
+                            <div class="info-box note"><strong>Note:</strong> The community <code>enable-access-log</code> annotation is <em>per-Ingress</em> (disable access logging for a single Ingress), but NIC's <code>access-log-off</code> is a <strong>global</strong> ConfigMap key applied to the whole controller — there is no per-Ingress equivalent.</div>
                         </div></td></tr>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/enable-rewrite-log</code></td>
@@ -2310,9 +2366,9 @@ data:
                             <div class="comparison">
                                 <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code>annotations:
   nginx.ingress.kubernetes.io/opentelemetry-trust-incoming-span: "true"</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code># No per-Ingress equivalent.
-# The F5 NGINX Ingress Controller always trusts
-# incoming trace context when tracing is enabled.
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code># No per-Ingress equivalent. NIC does not set otel_trace_context,
+# so the ngx_otel_module default applies and incoming trace
+# context is NOT propagated by default (community default: trust).
 # To enable tracing globally:
 apiVersion: v1
 kind: ConfigMap
@@ -2322,7 +2378,7 @@ data:
   otel-trace-in-http: "true"
   otel-exporter-endpoint: "otel-collector:4317"</code></pre></div>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> The community controller's <code>opentelemetry-trust-incoming-span</code> enables per-Ingress control over whether to trust incoming trace context (W3C Trace Context propagation). The F5 NGINX Ingress Controller does not have a per-Ingress equivalent — when tracing is enabled via ConfigMap, incoming trace context is always propagated. This annotation can be safely removed during migration.</div>
+                            <div class="info-box note"><strong>Note:</strong> The community controller's <code>opentelemetry-trust-incoming-span</code> (default <code>true</code>) enables per-Ingress control over whether to trust incoming trace context (W3C Trace Context propagation). The F5 NGINX Ingress Controller has no per-Ingress equivalent, and it does not set <code>otel_trace_context</code> — so the <code>ngx_otel_module</code> default applies and incoming trace context is <strong>not</strong> propagated by default (a behavior difference from the community default). The annotation can be removed during migration.</div>
                         </div></td></tr>
                         <tr class="expandable">
                             <td>No direct equivalent</td>
@@ -2510,8 +2566,8 @@ spec:
                                     <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code>annotations:
   nginx.ingress.kubernetes.io/limit-burst-multiplier: "5"
   nginx.ingress.kubernetes.io/limit-connections: "5"
-  nginx.ingress.kubernetes.io/limit-rate: "100k"
-  nginx.ingress.kubernetes.io/limit-rate-after: "1m"
+  nginx.ingress.kubernetes.io/limit-rate: "100"
+  nginx.ingress.kubernetes.io/limit-rate-after: "1024"
   nginx.ingress.kubernetes.io/limit-rpm: "300"
   nginx.ingress.kubernetes.io/limit-rps: "10"
   nginx.ingress.kubernetes.io/limit-whitelist: "10.0.0.0/8,172.16.0.0/12"</code></pre></div>
@@ -2523,7 +2579,7 @@ spec:
   nginx.org/location-snippets: |  # limit-connections / limit-rate / limit-rate-after
     limit_conn addr 5;  # limit-connections
     limit_rate 100k;  # limit-rate
-    limit_rate_after 1m;  # limit-rate-after
+    limit_rate_after 1024k;  # limit-rate-after (community value is kilobytes)
     # limit-whitelist → use geo module or map in server-snippets</code></pre></div>
                                 </div>
                             </div>
@@ -2532,8 +2588,8 @@ spec:
                                     <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code>annotations:
   nginx.ingress.kubernetes.io/limit-burst-multiplier: "5"
   nginx.ingress.kubernetes.io/limit-connections: "5"
-  nginx.ingress.kubernetes.io/limit-rate: "100k"
-  nginx.ingress.kubernetes.io/limit-rate-after: "1m"
+  nginx.ingress.kubernetes.io/limit-rate: "100"
+  nginx.ingress.kubernetes.io/limit-rate-after: "1024"
   nginx.ingress.kubernetes.io/limit-rpm: "300"
   nginx.ingress.kubernetes.io/limit-rps: "10"
   nginx.ingress.kubernetes.io/limit-whitelist: "10.0.0.0/8,172.16.0.0/12"</code></pre></div>
@@ -2549,7 +2605,7 @@ spec:
     rejectCode: 429
     zoneSize: 10M</code></pre></div>
                                 </div>
-                                <div class="info-box note"><strong>Note:</strong> The rateLimit Policy CRD covers <code>limit-rps</code> and <code>limit-burst-multiplier</code>. The community annotations <code>limit-connections</code>, <code>limit-rate</code>, <code>limit-rate-after</code>, <code>limit-rpm</code>, and <code>limit-whitelist</code> have no Policy CRD equivalents — use <code>location-snippets</code> for those (see the Annotation Approach).</div>
+                                <div class="info-box note"><strong>Note:</strong> The rateLimit Policy CRD covers <code>limit-rps</code>, <code>limit-rpm</code> (as <code>rate</code> in <code>r/m</code>), and <code>limit-burst-multiplier</code>. The community annotations <code>limit-connections</code>, <code>limit-rate</code>, <code>limit-rate-after</code>, and <code>limit-whitelist</code> have no Policy CRD equivalents — use <code>location-snippets</code> for those (see the Annotation Approach).</div>
                             </div>
                         </div></td></tr>
                         <tr class="expandable">
@@ -2618,7 +2674,7 @@ spec:
     - path: /
       action:
         redirect:
-          url: https://new.example.com${request_uri}  # permanent-redirect
+          url: https://new.example.com  # permanent-redirect (redirects to the exact URL; no path appended)
           code: 308  # permanent-redirect-code
   # temporal-redirect + temporal-redirect-code:
   # - path: /maintenance
@@ -3450,43 +3506,6 @@ spec:
         statusMatch: "200-399"
       slowStart: 30s  # slow-start</code></pre>
                                 <div class="info-box note"><strong>Note:</strong> The VirtualServer CRD provides the most granular control over active health checks. Active health checks and <code>slowStart</code> require NGINX Plus. For passive health checks (OSS), see <a href="#passive-health-checks">Passive Health Checks</a> in OSS Mappings.</div>
-                            </div>
-                        </div></td></tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- API Key Authentication -->
-            <h3 id="api-key-authentication">API Key Authentication</h3>
-            <div class="table-wrapper">
-                <table class="mapping-table" aria-labelledby="api-key-authentication"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
-                    <tbody>
-                        <tr class="expandable">
-                            <td>No direct equivalent</td>
-                            <td><span class="badge badge-policy">Policy CRD</span> <span class="badge badge-plus">Plus</span> <code>apiKey</code></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># No direct equivalent
-# Requires custom Lua or external service</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller (Plus)</h4><pre><code>apiVersion: v1
-kind: Secret
-metadata:
-  name: api-keys
-type: nginx.org/apikey
-data:
-  client1: YXBpa2V5MTIzNDU=
----
-apiVersion: k8s.nginx.org/v1
-kind: Policy
-metadata:
-  name: api-key-auth
-spec:
-  apiKey:
-    clientSecret: api-keys
-    suppliedIn:
-      header: [X-API-Key]
-      query: [api_key]</code></pre></div>
                             </div>
                         </div></td></tr>
                     </tbody>

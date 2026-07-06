@@ -111,7 +111,7 @@
             // OpenTelemetry
             { community: ["enable-opentelemetry"], nic: "ConfigMap otel-exporter-endpoint, otel-trace-in-http, otel-service-name", type: "configmap", category: "OpenTelemetry", anchor: "opentelemetry", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { configMap: { "enable-opentelemetry": { key: "otel-trace-in-http", transform: "direct" } } } },
-            { community: ["opentelemetry-trust-incoming-span"], nic: "No direct equivalent — incoming trace context is propagated whenever tracing is enabled; this annotation can be safely removed during migration", type: "unsupported", category: "OpenTelemetry", anchor: "opentelemetry", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["opentelemetry-trust-incoming-span"], nic: "No direct equivalent — NIC does not set otel_trace_context, so incoming trace context is not propagated by default (unlike the community default); there is no per-Ingress toggle, so this annotation can be removed during migration", type: "unsupported", category: "OpenTelemetry", anchor: "opentelemetry", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: {} },
             // Proxy Settings
             { community: ["proxy-next-upstream", "proxy-next-upstream-timeout", "proxy-next-upstream-tries"], nic: "Annotations nginx.org/proxy-next-upstream* — or — VirtualServer CRD upstreams[].next-upstream*", type: "annotation", category: "Proxy Settings", anchor: "proxy-settings", section: "oss", dualApproach: true, plusRequired: false,
@@ -123,7 +123,7 @@
             { community: ["from-to-www-redirect", "permanent-redirect", "permanent-redirect-code", "temporal-redirect", "temporal-redirect-code"], nic: "VirtualServer CRD action.redirect", type: "virtualserver", category: "Redirects", anchor: "redirects", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { crdKind: "VirtualServer", crdInstall: true, templateFn: "generateRedirectVirtualServer" } },
             // Rewrites
-            { community: ["app-root", "rewrite-target", "use-regex"], nic: "nginx.org/rewrite-target, nginx.org/rewrites, nginx.org/app-root — or — VirtualServer CRD rewritePath", type: "virtualserver", category: "Rewrites", anchor: "rewrites", section: "oss", dualApproach: true, plusRequired: false,
+            { community: ["app-root", "rewrite-target", "use-regex"], nic: "nginx.org/rewrite-target, nginx.org/app-root — or — VirtualServer CRD rewritePath", type: "virtualserver", category: "Rewrites", anchor: "rewrites", section: "oss", dualApproach: true, plusRequired: false,
               nicMapping: { annotations: { "rewrite-target": { key: "nginx.org/rewrite-target", transform: "direct" }, "app-root": { key: "nginx.org/app-root", transform: "direct" } }, crdKind: "VirtualServer", crdInstall: true, templateFn: "generateRewriteVirtualServer" } },
             { community: ["proxy-redirect-from", "proxy-redirect-to"], nic: "Annotations nginx.org/proxy-redirect-from, nginx.org/proxy-redirect-to", type: "annotation", category: "Rewrites", anchor: "rewrites", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { annotations: { "proxy-redirect-from": { key: "nginx.org/proxy-redirect-from", transform: "direct" }, "proxy-redirect-to": { key: "nginx.org/proxy-redirect-to", transform: "direct" } } } },
@@ -441,14 +441,20 @@
                 return lines.join('\n');
             },
             generateCORSPolicy: function(found) {
-                let origin = getAnnotationValue(found, 'cors-allow-origin') || '*';
+                let originExplicit = getAnnotationValue(found, 'cors-allow-origin');
+                let origin = originExplicit || '*';
                 let methods = getAnnotationValue(found, 'cors-allow-methods') || 'GET, POST, OPTIONS';
                 let headers = getAnnotationValue(found, 'cors-allow-headers') || 'Content-Type, Authorization';
                 let creds = getAnnotationValue(found, 'cors-allow-credentials');
                 let expose = getAnnotationValue(found, 'cors-expose-headers');
                 let maxAge = getAnnotationValue(found, 'cors-max-age') || '86400';
                 let lines = ['apiVersion: k8s.nginx.org/v1', 'kind: Policy', 'metadata:', '  name: cors-policy', 'spec:', '  cors:', '    allowOrigin:'];
-                origin.split(',').forEach(function(o) { lines.push('      - "' + o.trim() + '"'); });
+                if (!originExplicit && creds === 'true') {
+                    // NIC rejects allowOrigin "*" together with allowCredentials: true (CORS spec).
+                    lines.push('      - "# TODO: set an explicit origin (\'*\' is invalid with allowCredentials: true)"');
+                } else {
+                    origin.split(',').forEach(function(o) { lines.push('      - "' + o.trim() + '"'); });
+                }
                 lines.push('    allowMethods:');
                 methods.split(',').forEach(function(m) { lines.push('      - "' + m.trim() + '"'); });
                 lines.push('    allowHeaders:');
@@ -600,7 +606,13 @@
                     }
                 }
                 let lines = ['apiVersion: k8s.nginx.org/v1', 'kind: Policy', 'metadata:', '  name: external-auth-policy', 'spec:', '  externalAuth:', '    authURI: "' + authURI + '"  # auth-url (path)', '    authServiceName: "' + serviceName + '"  # auth-url (service)'];
-                if (signin) lines.push('    authSigninURI: "' + signin + '"  # auth-signin');
+                if (signin) {
+                    // NIC authSigninURI is a RELATIVE URI (validated ^/.*$); the community
+                    // auth-signin is typically a full URL — strip scheme+host, keep the path.
+                    let signinPath = String(signin).replace(/^https?:\/\/[^\/]+/, '') || '/signin';
+                    if (signinPath[0] !== '/') signinPath = '/' + signinPath;
+                    lines.push('    authSigninURI: "' + signinPath + '"  # auth-signin (path only — NIC authSigninURI is relative, ^/.*$)');
+                }
                 if (snippet) {
                     lines.push('    authSnippets: |  # auth-snippet');
                     snippet.split('\n').forEach(function(l) { lines.push('      ' + l.trim()); });

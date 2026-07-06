@@ -47,6 +47,11 @@ Loading rules (all pages): `shared.css` is linked before the page CSS; `shared.j
 ### Migration tool (`ingress-nginx-migration.html`)
 
 - The live migration tool is `ingress-nginx-migration.html`, linked from the landing page with a relative path (`href="ingress-nginx-migration.html"`) so the link resolves identically when opened locally, in PR previews, and in production. Do not change it to an absolute FQDN — that only works in production and breaks local testing.
+- The page runs on the shared engine: the source module (`migration-ingress-nginx.js`) supplies mapping data + `parseInput`/`buildPlan`; `migration-core.js` owns rendering/nav/checklist. **The analyzer's mappings (`ANNOTATION_MAPPINGS` in the source module) and the static reference tables in the HTML must stay in agreement in both directions:** editing a mapping (or its generator) means updating the matching reference-table row — **including the example YAML in the expanded panel, which must match what the corresponding generator emits** — and editing a reference row whose construct the analyzer handles (there is a matching `ANNOTATION_MAPPINGS` entry) means updating the mapping/generator to match. **Exception:** reference rows for NIC-only features with no community equivalent (the left cell reads "No direct equivalent") have no analyzer counterpart, so editing them needs no JS change — e.g. the `apiKey` Policy row, since the community controller has no API-key annotation for the analyzer to map. A recurring bug is a hand-written example drifting from its still-correct generator; treat the generator as the source of truth and fix the example to match it.
+
+#### Verifying analyzer changes (there is no build system or test suite)
+
+The analyzer is pure data — the source module's `parseInput` → `buildPlan` returns a plain `MigrationPlan` object with no DOM. Test generator/mapping edits in Node by loading `assets/js/migration-ingress-nginx.js` + `assets/js/migration-core.js` under a hand-rolled `window`/`document` stub (its `createElement`/`getElementById`/etc. return a chainable no-op element) and calling `MIGRATION_SOURCE.analyzer.parseInput`/`buildPlan` on the sample presets. **Load-bearing gotcha:** `buildPlan` runs each generator in a `try/catch` that only `console.warn`s on failure, so a broken generator **silently drops its resource** from the output instead of throwing — capturing `console.warn` (count > 0, not a thrown exception) is the only way to detect it. `node --check` catches syntax only. Also sanity-check generated `k8s.nginx.org/v1` field names against the `json:` tags in `nginx/kubernetes-ingress/pkg/apis/configuration/v1/types.go` to catch invalid CRD fields.
 
 #### Migration tool ordering and structure rules
 
@@ -54,6 +59,7 @@ Loading rules (all pages): `shared.css` is linked before the page CSS; `shared.j
 - **"No direct equivalent" rows** (NIC-only annotations) go at the end of their category table, after all community-to-NIC mappings.
 - **NIC-only annotations must not be bundled** into community mapping rows. If an NIC annotation has no community equivalent, it gets its own "No direct equivalent" row — never grouped into an existing row that maps community annotations.
 - **Within a single row**, when multiple annotations are listed on either side, they should be in alphabetical order.
+- **Collapsed cells stay terse** — the always-visible mapping cells (both columns of a `tr.expandable`) show only badges + `<code>` + a short blurb (≤ ~6 words of prose, e.g. `No direct equivalent`, `Not applicable`, `No direct equivalent (use <code>basicAuth</code>)`). Never put a full explanatory sentence, caveat, or workaround in a collapsed cell. Any such explanation belongs in the expanded panel (`tr.example-row`) as an `info-box` banner: `info-box warning` for hard "no equivalent / no replacement" cases (bold lead-in like `<strong>No direct equivalent:</strong>`), `info-box note` for softer guidance. A `warning` added alongside an existing `note` precedes it.
 
 ## Shared UI Elements
 
@@ -130,6 +136,15 @@ Prefer GitHub MCP tools over WebFetch for documentation sites.
 
 When bumping the referenced version, audit the release notes to identify genuinely new features and update accordingly — but do not pre-document features from versions that haven't shipped yet.
 
+### Bidirectional accuracy (guard against staleness, not just fabrication)
+
+The rule above catches **fabrication** (documenting something that doesn't exist). It does NOT catch **staleness** — describing a construct that *does* exist with outdated semantics, wrong defaults/status codes, or an incomplete field set. Both are accuracy failures, and staleness is the more dangerous because "does it exist?" checks pass right over it. When documenting or reviewing **any** construct (mapping row, generator, note), verify all four — against the tagged source in both repos, never from memory (adversarial intuition about these constructs is wrong roughly half the time):
+
+1. **Exists** — the annotation/field exists in the pinned version (the rule above).
+2. **Semantics match** — the behavior, status codes, defaults, and value formats the tool states match the pinned source. (E.g. the community `auth-signin` accepts a full URL, but NIC's externalAuth `authSigninURI` is a **relative** URI — CRD pattern `^/.*$` — so the tool must strip the scheme/host, not pass the URL through.)
+3. **Complete** — the tool has not omitted fields/sub-options that exist in the pinned version and that a migrator would hit. (E.g. NIC's `accessControl` Policy is allow **xor** deny — validation requires *exactly one* of `allow`/`deny` — so a source rule needing both becomes two Policies; collapsing it into one silently drops half the intent.)
+4. **NIC side checked both ways** — NIC-side claims are neither overstated (e.g. "no HTTP fallback-service field" when VirtualServer/VirtualServerRoute upstreams have `backup`/`backupPort`) nor understated, and any Plus-only NIC capability (e.g. `least_time`, ExternalName upstream services) is labeled as such.
+
 ### Release update checklist
 
 When updating the sites for a new release, update **all** of the following.
@@ -149,7 +164,7 @@ When updating the sites for a new release, update **all** of the following.
 **Migration tool:**
 
 - Update the NIC target versions in the `MigrationTool.NIC` block at the **top of `assets/js/migration-core.js`** (`VERSION`, `HELM_VERSION` — the install commands and release URL derive from them). This is the single source of truth for the NIC side of the Version Reference banners, the standalone `kubectl apply` example, and the analyzer's CRD-install references on **every** migration page.
-- Update the `INGRESS_NGINX_VERSION` constant at the **top of `assets/js/migration-ingress-nginx.js`** (source-controller side of the banner; the release link derives from it). Banner text and release-tag links are populated from these constants at `DOMContentLoaded` via `data-*` attributes.
+- Update the `INGRESS_NGINX_VERSION` constant at the **top of `assets/js/migration-ingress-nginx.js`** (source-controller side of the banner; the release link derives from it). Banner text and release-tag links are populated from these constants at `DOMContentLoaded` via `data-*` attributes. Note: `kubernetes/ingress-nginx` was archived (Mar 2026) and `controller-v1.15.1` is its final release, so this constant should not need bumping again.
 - Update the static fallback text inside the `data-*-version` spans / `data-*-release-link` anchors in `ingress-nginx-migration.html` (so no-JS users see the correct version before the JS runs).
 
 #### NGINX Gateway Fabric (NGF) release

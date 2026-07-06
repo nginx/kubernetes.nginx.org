@@ -11,7 +11,7 @@
             'home': 'Home',
             'nginx-ingress-controller': 'NGINX Ingress Controller',
             'nginx-gateway-fabric': 'NGINX Gateway Fabric',
-            'migration-tool': 'Migration Tool',
+            'migration-tool': 'Ingress-NGINX Migration',
             'ingress2gateway': 'ingress2gateway'
         };
 
