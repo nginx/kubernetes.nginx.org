@@ -11,13 +11,14 @@
        lives in MigrationTool.NIC at the top of migration-core.js). */
     (function() {
         'use strict';
-        // Bump when updating the Version Reference (see the release checklist in CLAUDE.md).
+        // Bump when updating the Version Reference (see the release-update skill).
         const INGRESS_NGINX_VERSION = 'v1.15.1';
         const INGRESS_NGINX_RELEASE_URL = 'https://github.com/kubernetes/ingress-nginx/releases/tag/controller-' + INGRESS_NGINX_VERSION;
 
         // Thin call-time delegates to the shared core utilities — migration-core.js
         // loads after this file, so MigrationTool must only be dereferenced inside
         // function bodies, never at top level.
+        function splitDocuments(yamlText) { return MigrationTool.util.splitDocuments(yamlText); }
         function stripInlineComment(s) { return MigrationTool.util.stripInlineComment(s); }
         function sanitizeSnippetValue(value) { return MigrationTool.util.sanitizeSnippetValue(value); }
         function formatYamlKV(indent, key, value) { return MigrationTool.util.formatYamlKV(indent, key, value); }
@@ -201,9 +202,9 @@
 
         function parseYamlAnnotations(yamlText) {
             let results = [];
-            // Normalize CRLF/CR so line-by-line parsing never trips on a trailing \r.
-            yamlText = yamlText.replace(/\r\n?/g, '\n');
-            let docs = yamlText.split(/^---\s*$/m);
+            // The shared splitter also normalizes CRLF/CR, so line-by-line
+            // parsing below never trips on a trailing \r.
+            let docs = splitDocuments(yamlText);
             docs.forEach(function(doc, docIndex) {
                 let lines = doc.split('\n');
                 let inAnnotations = false;
@@ -336,8 +337,7 @@
         // Extract Ingress spec fields (host, service, port, path, tls, name) from YAML text
         function parseIngressSpec(yamlText) {
             let specs = [];
-            yamlText = yamlText.replace(/\r\n?/g, '\n');
-            let docs = yamlText.split(/^---\s*$/m);
+            let docs = splitDocuments(yamlText);
             docs.forEach(function(doc) {
                 let spec = { host: null, serviceName: null, servicePort: null, path: null, tlsSecret: null, ingressName: null };
                 let lines = doc.split('\n');
