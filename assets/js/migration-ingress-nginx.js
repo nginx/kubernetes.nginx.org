@@ -981,7 +981,7 @@
 
                 steps.push({
                     id: 'analyzer-step-1',
-                    title: 'Swap Annotations',
+                    title: 'Swap annotations',
                     countText: migration.annotationSwaps.length + ' annotation' + (migration.annotationSwaps.length !== 1 ? 's' : ''),
                     countCls: '',
                     desc: 'Replace community annotations with their F5 NGINX Ingress Controller equivalents. Copy this annotations block into your Ingress metadata.',
@@ -1002,7 +1002,7 @@
 
                 steps.push({
                     id: 'analyzer-step-2',
-                    title: 'ConfigMap Changes',
+                    title: 'ConfigMap changes',
                     countText: migration.configMapChanges.length + ' entr' + (migration.configMapChanges.length !== 1 ? 'ies' : 'y'),
                     countCls: 'configmap',
                     desc: 'These settings are configured via the NGINX ConfigMap instead of annotations. Update your nginx-config ConfigMap with these entries.',
@@ -1062,7 +1062,7 @@
 
                 steps.push({
                     id: 'analyzer-step-3',
-                    title: 'CRD Resources',
+                    title: 'CRD resources',
                     countText: migration.crdResources.length + ' resource' + (migration.crdResources.length !== 1 ? 's' : ''),
                     countCls: 'crd',
                     desc: 'These features require Custom Resource Definitions. Install the CRDs first, then apply the generated resources.',
@@ -1081,7 +1081,7 @@
                 let unsupCount = 0;
                 migration.unsupportedEntries.forEach(function(e) { unsupCount += e.foundAnnotations.length; });
                 unsupported = {
-                    title: 'Unsupported Annotations',
+                    title: 'Unsupported annotations',
                     countText: unsupCount + ' annotation' + (unsupCount !== 1 ? 's' : ''),
                     desc: 'These annotations are recognized but have no direct equivalent in the F5 NGINX Ingress Controller. Review each one and take the recommended action.',
                     cards: migration.unsupportedEntries.map(function(entry) {
@@ -1100,7 +1100,7 @@
             let unrecognizedSection = null;
             if (unrecognized.length > 0) {
                 unrecognizedSection = {
-                    title: 'Unrecognized Annotations',
+                    title: 'Unrecognized annotations',
                     desc: 'These annotations were not found in the migration database. They may be custom, deprecated, or not yet mapped.',
                     items: unrecognized.map(function(u) {
                         let key = 'nginx.ingress.kubernetes.io/' + u.annotation;
@@ -1297,8 +1297,8 @@
                 analyzeEmpty: { title: 'No input.', message: 'Paste a Kubernetes Ingress YAML manifest to analyze.' },
                 noFindings: { title: 'No community NGINX annotations found.', message: 'Make sure your YAML contains annotations with the nginx.ingress.kubernetes.io/ prefix.' },
                 emptyStateLead: 'Paste your Ingress YAML above and click Analyze',
-                emptyStateHint: 'Drag & drop a .yaml file, or try "Load Sample" for an example',
-                pageNames: { 'getting-started': 'Getting Started', analyzer: 'Config Analyzer', reference: 'Reference Guide' }
+                emptyStateHint: 'Drag & drop a .yaml file, or try "Load sample" for an example',
+                pageNames: { 'getting-started': 'Getting started', analyzer: 'Config analyzer', reference: 'Reference guide' }
             },
             versionBindings: [
                 { attr: 'data-ingress-nginx-version', text: INGRESS_NGINX_VERSION },

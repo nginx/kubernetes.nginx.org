@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#009639" media="(prefers-color-scheme: light)">
-    <meta name="theme-color" content="#1a1c25" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#0F1E57" media="(prefers-color-scheme: dark)">
     <meta name="color-scheme" content="light dark">
     <meta name="description" content="Migrate from Kubernetes Ingress NGINX (ingress-nginx) to the F5 NGINX Ingress Controller: config analyzer, 130+ annotation mappings, and CRD migration examples.">
     <meta name="keywords" content="NGINX, Ingress, Kubernetes, Migration, Controller, CRD, VirtualServer, Policy">
@@ -43,6 +43,12 @@
     }
     </script>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='53' height='60' viewBox='0 0 53 60'%3E%3Cg transform='translate(-7.198 -0.359)'%3E%3Cpath fill='%23009639' d='M7.606,45.181a3.019,3.019,0,0,0,1.134,1.126L31.942,59.702a3.044,3.044,0,0,0,3.084,0L58.229,46.306a3.043,3.043,0,0,0,1.541-2.67V16.846a3.044,3.044,0,0,0-1.542-2.67L35.025,0.779a3.04,3.04,0,0,0-3.082,0L8.741,14.175a3.042,3.042,0,0,0-1.543,2.67V43.637a3.025,3.025,0,0,0,.407,1.544'/%3E%3Cpath fill='%23fff' d='M26.055,40.439a2.984,2.984,0,0,1-5.968,0l.003-20.483a3.111,3.111,0,0,1,3.388-2.899,5.306,5.306,0,0,1,4.067,1.819l.902,1.079L40.914,34.874V20.041a2.984,2.984,0,1,1,5.968,0l-.004,20.481a3.111,3.111,0,0,1-3.388,2.899,5.303,5.303,0,0,1-4.067-1.819L26.054,25.606V40.44Z'/%3E%3C/g%3E%3C/svg%3E">
+    <!-- The site's only webfont. Preloaded because the @font-face that requests it lives
+         inside shared.css, so the browser cannot discover it until that stylesheet has
+         downloaded and parsed. crossorigin is required even though the file is same-origin:
+         fonts are always fetched in CORS mode, and omitting it fetches the file twice. -->
+    <link rel="preload" href="assets/fonts/InterVariable-subset.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="assets/css/tokens.css">
     <link rel="stylesheet" href="assets/css/shared.css">
     <link rel="stylesheet" href="assets/css/migration.css">
     <!-- Without JS the inactive tool pages stay hidden="until-found" — stack them
@@ -71,19 +77,22 @@
                 <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
             </button>
             <a class="topbar-brand" href="index.html">
-                <svg aria-hidden="true" width="28" height="28" viewBox="0 0 53 60"><g transform="translate(-7.198 -0.359)"><path fill="#009639" d="M7.606,45.181a3.019,3.019,0,0,0,1.134,1.126L31.942,59.702a3.044,3.044,0,0,0,3.084,0L58.229,46.306a3.043,3.043,0,0,0,1.541-2.67V16.846a3.044,3.044,0,0,0-1.542-2.67L35.025,0.779a3.04,3.04,0,0,0-3.082,0L8.741,14.175a3.042,3.042,0,0,0-1.543,2.67V43.637a3.025,3.025,0,0,0,.407,1.544"/><path fill="#fff" d="M26.055,40.439a2.984,2.984,0,0,1-5.968,0l.003-20.483a3.111,3.111,0,0,1,3.388-2.899,5.306,5.306,0,0,1,4.067,1.819l.902,1.079L40.914,34.874V20.041a2.984,2.984,0,1,1,5.968,0l-.004,20.481a3.111,3.111,0,0,1-3.388,2.899,5.303,5.303,0,0,1-4.067-1.819L26.054,25.606V40.44Z"/></g></svg>
-                <span>NGINX <span class="sub">Ingress Migration Tool</span></span>
+                <img class="brand-logo brand-logo-light" src="assets/img/nginx-logo.svg" alt="NGINX, sponsored by F5" width="106" height="30">
+                <img class="brand-logo brand-logo-dark" src="assets/img/nginx-logo-dark.svg" alt="NGINX, sponsored by F5" width="106" height="30">
             </a>
-            <span class="mobile-breadcrumb" id="mobileBreadcrumb">Getting Started</span>
+            <div class="topbar-heading">
+                <span class="topbar-eyebrow">Ingress Migration Tool</span>
+                <span class="mobile-breadcrumb" id="mobileBreadcrumb">Getting started</span>
+            </div>
         </div>
         <div class="topbar-right">
             <a class="topbar-link hide-mobile" href="https://nginx.org" target="_blank" rel="noopener" aria-label="Visit nginx.org">
                 <svg aria-hidden="true" class="nginx-glyph" viewBox="0 0 53 60"><g transform="translate(-7.198 -0.359)"><path fill="#009639" d="M7.606,45.181a3.019,3.019,0,0,0,1.134,1.126L31.942,59.702a3.044,3.044,0,0,0,3.084,0L58.229,46.306a3.043,3.043,0,0,0,1.541-2.67V16.846a3.044,3.044,0,0,0-1.542-2.67L35.025,0.779a3.04,3.04,0,0,0-3.082,0L8.741,14.175a3.042,3.042,0,0,0-1.543,2.67V43.637a3.025,3.025,0,0,0,.407,1.544"/><path fill="#fff" d="M26.055,40.439a2.984,2.984,0,0,1-5.968,0l.003-20.483a3.111,3.111,0,0,1,3.388-2.899,5.306,5.306,0,0,1,4.067,1.819l.902,1.079L40.914,34.874V20.041a2.984,2.984,0,1,1,5.968,0l-.004,20.481a3.111,3.111,0,0,1-3.388,2.899,5.303,5.303,0,0,1-4.067-1.819L26.054,25.606V40.44Z"/></g></svg>
-                nginx.org
+                <span class="topbar-link-label">nginx.org</span>
             </a>
             <a class="topbar-link" href="https://github.com/nginx/kubernetes.nginx.org" target="_blank" rel="noopener" aria-label="Contribute on GitHub">
                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-                Contribute
+                <span class="topbar-link-label">Contribute</span>
             </a>
             <button class="dark-toggle" id="darkToggle" aria-label="Dark mode" aria-pressed="false">
                 <svg aria-hidden="true" class="dark-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
@@ -105,40 +114,40 @@
                         <button class="sidebar-link active" data-page="getting-started" aria-expanded="true" aria-controls="subnav-getting-started">
                             <span class="dot"></span>
                             <span class="sidebar-link-text">
-                                <span class="sidebar-link-name">Getting Started</span>
-                                <span class="sidebar-link-desc">Tool Overview &amp; Migration Strategy</span>
+                                <span class="sidebar-link-name">Getting started</span>
+                                <span class="sidebar-link-desc">Tool overview &amp; migration strategy</span>
                             </span>
                         </button>
                         <ul class="sidebar-subnav open" id="subnav-getting-started">
                             <li><button class="sidebar-link" data-section="overview"><span class="dot"></span><span class="sidebar-link-name">Overview</span></button></li>
-                            <li><button class="sidebar-link" data-section="why-migrate"><span class="dot"></span><span class="sidebar-link-name">Why Migrate?</span></button></li>
-                            <li><button class="sidebar-link" data-section="phased-migration"><span class="dot"></span><span class="sidebar-link-name">Phased Migration</span></button></li>
-                            <li><button class="sidebar-link" data-section="features"><span class="dot"></span><span class="sidebar-link-name">CRDs Summary</span></button></li>
+                            <li><button class="sidebar-link" data-section="why-migrate"><span class="dot"></span><span class="sidebar-link-name">Why migrate?</span></button></li>
+                            <li><button class="sidebar-link" data-section="phased-migration"><span class="dot"></span><span class="sidebar-link-name">Phased migration</span></button></li>
+                            <li><button class="sidebar-link" data-section="features"><span class="dot"></span><span class="sidebar-link-name">CRDs summary</span></button></li>
                             <li><button class="sidebar-link" data-section="installation"><span class="dot"></span><span class="sidebar-link-name">Installing CRDs</span></button></li>
-                            <li><button class="sidebar-link" data-section="checklist"><span class="dot"></span><span class="sidebar-link-name">Migration Checklist</span></button></li>
-                            <li><button class="sidebar-link" data-section="resources"><span class="dot"></span><span class="sidebar-link-name">Additional Resources</span></button></li>
+                            <li><button class="sidebar-link" data-section="checklist"><span class="dot"></span><span class="sidebar-link-name">Migration checklist</span></button></li>
+                            <li><button class="sidebar-link" data-section="resources"><span class="dot"></span><span class="sidebar-link-name">Additional resources</span></button></li>
                         </ul>
                     </li>
                     <li><button class="sidebar-link" data-page="analyzer">
                         <span class="dot"></span>
                         <span class="sidebar-link-text">
-                            <span class="sidebar-link-name">Config Analyzer</span>
-                            <span class="sidebar-link-desc">Analyze, Assess &amp; Migrate</span>
+                            <span class="sidebar-link-name">Config analyzer</span>
+                            <span class="sidebar-link-desc">Analyze, assess &amp; migrate</span>
                         </span>
                     </button></li>
                     <li>
                         <button class="sidebar-link" data-page="reference" aria-expanded="false" aria-controls="subnav-reference">
                             <span class="dot"></span>
                             <span class="sidebar-link-text">
-                                <span class="sidebar-link-name">Reference Guide</span>
+                                <span class="sidebar-link-name">Reference guide</span>
                                 <span class="sidebar-link-desc">Annotations &amp; ConfigMaps</span>
                             </span>
                         </button>
                         <ul class="sidebar-subnav" id="subnav-reference">
-                            <li><button class="sidebar-link" data-section="differences"><span class="dot"></span><span class="sidebar-link-name">Key Differences</span></button></li>
-                            <li><button class="sidebar-link" data-section="mappings"><span class="dot"></span><span class="sidebar-link-name">NGINX Mappings</span></button></li>
-                            <li><button class="sidebar-link" data-section="plus-mappings"><span class="dot"></span><span class="sidebar-link-name">NGINX Plus Mappings</span></button></li>
-                            <li><button class="sidebar-link" data-section="configmap-mappings"><span class="dot"></span><span class="sidebar-link-name">ConfigMap Mappings</span></button></li>
+                            <li><button class="sidebar-link" data-section="differences"><span class="dot"></span><span class="sidebar-link-name">Key differences</span></button></li>
+                            <li><button class="sidebar-link" data-section="mappings"><span class="dot"></span><span class="sidebar-link-name">NGINX mappings</span></button></li>
+                            <li><button class="sidebar-link" data-section="plus-mappings"><span class="dot"></span><span class="sidebar-link-name">NGINX Plus mappings</span></button></li>
+                            <li><button class="sidebar-link" data-section="configmap-mappings"><span class="dot"></span><span class="sidebar-link-name">ConfigMap mappings</span></button></li>
                         </ul>
                     </li>
                 </ul>
@@ -163,11 +172,12 @@
                 </a>
                 <a class="sidebar-ext" href="https://community.nginx.org" target="_blank" rel="noopener">
                     <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-                    Community
+                    Community forum
                 </a>
             </div>
             <div class="sidebar-copyright">
                 &copy; <span id="copyright-year">2026</span> F5, Inc. All rights reserved.
+                <div class="sidebar-trademark">NGINX is a registered trademark of F5, Inc.</div>
                 <div class="sidebar-tagline">Created with AI. Maintained by humans.</div>
             </div>
         </aside>
@@ -178,21 +188,21 @@
         <div class="main-inner">
 
         <div class="tool-page active" id="page-getting-started">
-        <div class="info-box warning eol-warning" style="margin: 0 0 12px;"><strong>Warning:</strong> The community-maintained <code>kubernetes/ingress-nginx</code> project has <a href="https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/" target="_blank" rel="noopener">reached end of maintenance</a>. <strong><span data-ingress-nginx-version>v1.15.1</span> (March 19, 2026) is the final release</strong> — it will receive no further releases, bugfixes, or security patches. The F5 NGINX Ingress Controller (<code>nginx/kubernetes-ingress</code>) is actively maintained and is the recommended migration target.</div>
-        <div class="info-box note" style="margin: 0 0 24px;"><strong>Version Reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Kubernetes Ingress NGINX (Ingress-NGINX) <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.5.1" target="_blank" rel="noopener">F5 NGINX Ingress Controller <span data-nic-version>v5.5.1</span></a>.</div>
+        <div class="info-box warning eol-warning" style="margin: 0 0 var(--space-2x);"><strong>Warning:</strong> The community-maintained <code>kubernetes/ingress-nginx</code> project has <a href="https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/" target="_blank" rel="noopener">reached end of maintenance</a>. <strong><span data-ingress-nginx-version>v1.15.1</span> (March 19, 2026) is the final release</strong> — it will receive no further releases, bugfixes, or security patches. The F5 NGINX Ingress Controller (<code>nginx/kubernetes-ingress</code>) is actively maintained and is the recommended migration target.</div>
+        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Kubernetes Ingress NGINX (Ingress-NGINX) <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.5.1" target="_blank" rel="noopener">F5 NGINX Ingress Controller <span data-nic-version>v5.5.1</span></a>.</div>
 
         <section id="overview">
             <h2 id="migration-overview">Overview</h2>
             <p>This interactive guide helps you migrate from the community-maintained Kubernetes Ingress NGINX (Ingress-NGINX) controller (<code>kubernetes/ingress-nginx</code>) to the F5 NGINX Ingress Controller (<code>nginx/kubernetes-ingress</code>). It covers 130+ annotation mappings, ConfigMap key translations, and CRD migration examples across three tabs:</p>
             <ul class="doc-list">
-                <li><strong>Getting Started</strong> — Background on why to migrate, CRD overviews, installation, and a migration checklist</li>
-                <li><strong>Ingress NGINX Config Analyzer</strong> — Paste an Ingress manifest and get automatic migration suggestions with ready-to-use YAML</li>
-                <li><strong>Reference Guide</strong> — Complete annotation and ConfigMap mapping tables with side-by-side examples</li>
+                <li><strong>Getting started</strong> — Background on why to migrate, CRD overviews, installation, and a migration checklist</li>
+                <li><strong>Ingress NGINX config analyzer</strong> — Paste an Ingress manifest and get automatic migration suggestions with ready-to-use YAML</li>
+                <li><strong>Reference guide</strong> — Complete annotation and ConfigMap mapping tables with side-by-side examples</li>
             </ul>
         </section>
 
         <section id="why-migrate">
-            <h2 id="why-migrate-heading">Why Migrate?</h2>
+            <h2 id="why-migrate-heading">Why migrate?</h2>
             <p>The two controllers take fundamentally different approaches to configuring NGINX in Kubernetes.</p>
 
             <ul class="doc-list">
@@ -200,7 +210,7 @@
                 <li><strong>F5 NGINX Ingress Controller</strong> is <strong>CRD-native</strong> — it uses Custom Resource Definitions (VirtualServer, Policy, TransportServer) as its primary config model, providing structured, schema-validated YAML with IDE autocompletion.</li>
             </ul>
 
-            <p style="margin-top: 24px;">While the F5 NGINX Ingress Controller still supports annotations for common settings, CRDs unlock capabilities that annotations cannot express:</p>
+            <p style="margin-top: var(--space-3x);">While the F5 NGINX Ingress Controller still supports annotations for common settings, CRDs unlock capabilities that annotations cannot express:</p>
             <ul class="doc-list">
                 <li><strong>Schema validation</strong> — Kubernetes validates CRD fields at apply time, catching misconfigurations before they reach NGINX</li>
                 <li><strong>Structured configuration</strong> — Nested YAML objects replace long annotation strings, making complex routing, traffic splitting, and security policies readable and maintainable</li>
@@ -211,24 +221,24 @@
         </section>
 
         <section id="phased-migration">
-            <h2 id="phased-migration-strategy">Phased Migration Strategy</h2>
+            <h2 id="phased-migration-strategy">Phased migration strategy</h2>
             <p>Rather than performing a "big bang" cutover, F5 recommends a phased migration that allows you to validate each workload before decommissioning the community controller. Both controllers can run side-by-side in the same cluster using separate <code>IngressClass</code> resources.</p>
             <ol class="doc-list">
                 <li><strong>Deploy side-by-side</strong> — Install the F5 NGINX Ingress Controller alongside the community controller using a distinct <code>IngressClass</code> (e.g., <code>nginx-nic</code>). This ensures existing traffic is unaffected.</li>
                 <li><strong>Migrate service-by-service</strong> — Update each Ingress resource's <code>ingressClassName</code> to point to the new controller. Convert annotations as described in the Reference Guide, validate routing and TLS behavior, and promote to production before moving on to the next service.</li>
                 <li><strong>Decommission</strong> — After all workloads have been migrated and validated, remove the community controller deployment, its <code>IngressClass</code>, and any unused ConfigMaps.</li>
             </ol>
-            <div class="info-box tip"><strong>Tip:</strong> Use the <a href="#analyzer" data-action="showPage" data-page="analyzer">Ingress NGINX Config Analyzer</a> tab to process each Ingress manifest during step 2. It will flag unsupported annotations and generate the equivalent F5 NGINX Ingress Controller configuration.</div>
+            <div class="info-box tip"><strong>Tip:</strong> Use the <a href="#analyzer" data-action="showPage" data-page="analyzer">Ingress NGINX config analyzer</a> tab to process each Ingress manifest during step 2. It will flag unsupported annotations and generate the equivalent F5 NGINX Ingress Controller configuration.</div>
         </section>
 
         <!-- CRD Features Summary -->
         <section id="features">
-            <h2 id="crd-features">CRDs Summary</h2>
+            <h2 id="crd-features">CRDs summary</h2>
             <p>The F5 NGINX Ingress Controller uses Custom Resource Definitions (CRDs) to extend Kubernetes with NGINX-specific configuration. CRDs provide type-safe, validated configuration that goes beyond what standard Ingress annotations can offer.</p>
 
             <div class="feature-grid">
                 <div class="feature-card">
-                    <h3><span class="badge badge-virtualserver" style="margin:0 8px 0 0; font-size: 0.95rem; padding: 4px 12px;">VirtualServer CRD</span></h3>
+                    <h3><span class="badge badge-virtualserver" style="margin:0 var(--space-base) 0 0; font-size: var(--fs-body-lg); line-height: var(--lh-body-lg); padding: var(--space-small) var(--space-2x);">VirtualServer CRD</span></h3>
                     <p class="description">The primary CRD for configuring HTTP/HTTPS load balancing. It replaces Ingress resources and provides advanced traffic management capabilities with full validation.</p>
                     <ul>
                         <li><strong>Traffic Splitting:</strong> Route percentages of traffic to different backends for canary/blue-green deployments</li>
@@ -242,7 +252,7 @@
                 </div>
 
                 <div class="feature-card">
-                    <h3><span class="badge badge-virtualserverroute" style="margin:0 8px 0 0; font-size: 0.95rem; padding: 4px 12px;">VirtualServerRoute CRD</span></h3>
+                    <h3><span class="badge badge-virtualserverroute" style="margin:0 var(--space-base) 0 0; font-size: var(--fs-body-lg); line-height: var(--lh-body-lg); padding: var(--space-small) var(--space-2x);">VirtualServerRoute CRD</span></h3>
                     <p class="description">Enables delegation of route configuration to different namespaces. Allows teams to manage their own routing rules while maintaining centralized control over the domain.</p>
                     <ul>
                         <li><strong>Cross-Namespace Routing:</strong> Reference services in different namespaces</li>
@@ -253,7 +263,7 @@
                 </div>
 
                 <div class="feature-card">
-                    <h3><span class="badge badge-policy" style="margin:0 8px 0 0; font-size: 0.95rem; padding: 4px 12px;">Policy CRD</span></h3>
+                    <h3><span class="badge badge-policy" style="margin:0 var(--space-base) 0 0; font-size: var(--fs-body-lg); line-height: var(--lh-body-lg); padding: var(--space-small) var(--space-2x);">Policy CRD</span></h3>
                     <p class="description">Reusable security and traffic policies that can be attached to VirtualServers or specific routes. Policies enable consistent security controls across multiple applications.</p>
                     <ul>
                         <li><strong>Rate Limiting:</strong> Limit request rates by IP, header, or custom key</li>
@@ -268,7 +278,7 @@
                 </div>
 
                 <div class="feature-card">
-                    <h3><span class="badge badge-transportserver" style="margin:0 8px 0 0; font-size: 0.95rem; padding: 4px 12px;">TransportServer CRD</span></h3>
+                    <h3><span class="badge badge-transportserver" style="margin:0 var(--space-base) 0 0; font-size: var(--fs-body-lg); line-height: var(--lh-body-lg); padding: var(--space-small) var(--space-2x);">TransportServer CRD</span></h3>
                     <p class="description">Configures TCP/UDP load balancing for non-HTTP protocols. Essential for databases, message queues, gaming servers, and other Layer 4 applications.</p>
                     <ul>
                         <li><strong>TCP Load Balancing:</strong> MySQL, PostgreSQL, Redis, custom TCP services</li>
@@ -280,7 +290,7 @@
                 </div>
 
                 <div class="feature-card">
-                    <h3><span class="badge badge-globalconfiguration" style="margin:0 8px 0 0; font-size: 0.95rem; padding: 4px 12px;">GlobalConfiguration CRD</span></h3>
+                    <h3><span class="badge badge-globalconfiguration" style="margin:0 var(--space-base) 0 0; font-size: var(--fs-body-lg); line-height: var(--lh-body-lg); padding: var(--space-small) var(--space-2x);">GlobalConfiguration CRD</span></h3>
                     <p class="description">Cluster-wide configuration for the F5 NGINX Ingress Controller. Defines global listeners for TCP/UDP and TLS passthrough that TransportServers can reference.</p>
                     <ul>
                         <li><strong>TCP/UDP Listeners:</strong> Define ports for non-HTTP traffic</li>
@@ -296,14 +306,14 @@
             <h2 id="installing-crds">Installing CRDs</h2>
             <p>CRDs can be installed via Helm or manually using manifests, depending on your deployment method. See the <a href="https://docs.nginx.com/nginx-ingress-controller/installation/" target="_blank" rel="noopener">F5 NGINX Ingress Controller installation docs</a> for full instructions.</p>
             <div class="install-box"><h3>Helm (example)</h3>
-                <p style="margin: 0 0 12px; font-size: 0.9rem;">If you install the F5 NGINX Ingress Controller via Helm, CRDs are included automatically. To ensure they are enabled:</p>
+                <p style="margin: 0 0 var(--space-2x); font-size: var(--fs-body); line-height: var(--lh-body);">If you install the F5 NGINX Ingress Controller via Helm, CRDs are included automatically. To ensure they are enabled:</p>
                 <pre><code data-nic-helm-install>helm install nginx-ingress oci://ghcr.io/nginx/charts/nginx-ingress --version 2.6.1 --set controller.enableCustomResources=true</code></pre>
-                <p style="margin: 12px 0 0; font-size: 0.85rem; opacity: 0.8;">The <code>controller.enableCustomResources</code> flag is <code>true</code> by default. If you previously disabled it, re-enable it to use CRD resources. See the <a href="https://docs.nginx.com/nginx-ingress-controller/install/helm/" target="_blank" rel="noopener">Helm installation guide</a> for details.</p>
+                <p style="margin: var(--space-2x) 0 0; font-size: var(--fs-caption); line-height: var(--lh-caption); opacity: 0.8;">The <code>controller.enableCustomResources</code> flag is <code>true</code> by default. If you previously disabled it, re-enable it to use CRD resources. See the <a href="https://docs.nginx.com/nginx-ingress-controller/install/helm/" target="_blank" rel="noopener">Helm installation guide</a> for details.</p>
             </div>
             <div class="install-box"><h3>Manifests (example)</h3>
-                <p style="margin: 0 0 12px; font-size: 0.9rem;">If you deploy using manifests, install CRDs manually before deploying the controller:</p>
+                <p style="margin: 0 0 var(--space-2x); font-size: var(--fs-body); line-height: var(--lh-body);">If you deploy using manifests, install CRDs manually before deploying the controller:</p>
                 <pre><code data-nic-crd-install>kubectl apply -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/v5.5.1/deploy/crds.yaml</code></pre>
-                <p style="margin: 12px 0 0; font-size: 0.85rem; opacity: 0.8;">Replace the version number with your target controller version. See the <a href="https://docs.nginx.com/nginx-ingress-controller/install/manifests/" target="_blank" rel="noopener">manifest installation guide</a> for the full step-by-step process.</p>
+                <p style="margin: var(--space-2x) 0 0; font-size: var(--fs-caption); line-height: var(--lh-caption); opacity: 0.8;">Replace the version number with your target controller version. See the <a href="https://docs.nginx.com/nginx-ingress-controller/install/manifests/" target="_blank" rel="noopener">manifest installation guide</a> for the full step-by-step process.</p>
             </div>
             <div class="info-box note"><strong>Note:</strong> The <code>crds.yaml</code> file contains all CRDs (VirtualServer, VirtualServerRoute, Policy, TransportServer, GlobalConfiguration) in a single manifest.</div>
             <div class="info-box note"><strong>Note:</strong> Replace version numbers with your target controller version.</div>
@@ -311,7 +321,7 @@
 
         <!-- Checklist -->
         <section id="checklist">
-            <h2 id="migration-checklist">Migration Checklist</h2>
+            <h2 id="migration-checklist">Migration checklist</h2>
             <div class="checklist-meta">
                 <span class="checklist-progress" id="checklistProgress" aria-live="polite"></span>
                 <span class="checklist-note">Progress is saved in your browser.</span>
@@ -346,24 +356,24 @@
         <!-- Phased Migration Strategy -->
         <!-- Resources -->
         <section id="resources">
-            <h2 id="additional-resources">Additional Resources</h2>
+            <h2 id="additional-resources">Additional resources</h2>
             <ul class="doc-list">
                 <li><a href="https://docs.nginx.com/nginx-ingress-controller/" target="_blank" rel="noopener noreferrer">F5 NGINX Ingress Controller Documentation</a></li>
                 <li><a href="https://docs.nginx.com/nginx-ingress-controller/configuration/virtualserver-and-virtualserverroute-resources/" target="_blank" rel="noopener noreferrer">VirtualServer Reference</a></li>
-                <li><a href="https://docs.nginx.com/nginx-ingress-controller/configuration/policy-resource/" target="_blank" rel="noopener noreferrer">Policy Reference</a></li>
+                <li><a href="https://docs.nginx.com/nginx-ingress-controller/configuration/policy-resource/" target="_blank" rel="noopener noreferrer">Policy reference</a></li>
                 <li><a href="https://docs.nginx.com/nginx-ingress-controller/configuration/transportserver-resource/" target="_blank" rel="noopener noreferrer">TransportServer Reference</a></li>
-                <li><a href="https://github.com/nginx/kubernetes-ingress" target="_blank" rel="noopener noreferrer">GitHub Repository</a></li>
+                <li><a href="https://github.com/nginx/kubernetes-ingress" target="_blank" rel="noopener noreferrer">GitHub repository</a></li>
                 <li><a href="https://github.com/nginx/kubernetes.nginx.org" target="_blank" rel="noopener noreferrer">Contribute to This Tool</a></li>
             </ul>
         </section>
         </div><!-- /.tool-page #page-getting-started -->
 
         <div class="tool-page" id="page-analyzer" hidden="until-found">
-        <div class="info-box warning eol-warning" style="margin: 0 0 12px;"><strong>Warning:</strong> The community-maintained <code>kubernetes/ingress-nginx</code> project has <a href="https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/" target="_blank" rel="noopener">reached end of maintenance</a>. <strong><span data-ingress-nginx-version>v1.15.1</span> (March 19, 2026) is the final release</strong> — it will receive no further releases, bugfixes, or security patches. The F5 NGINX Ingress Controller (<code>nginx/kubernetes-ingress</code>) is actively maintained and is the recommended migration target.</div>
-        <div class="info-box note" style="margin: 0 0 24px;"><strong>Version Reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Kubernetes Ingress NGINX (Ingress-NGINX) <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.5.1" target="_blank" rel="noopener">F5 NGINX Ingress Controller <span data-nic-version>v5.5.1</span></a>.</div>
+        <div class="info-box warning eol-warning" style="margin: 0 0 var(--space-2x);"><strong>Warning:</strong> The community-maintained <code>kubernetes/ingress-nginx</code> project has <a href="https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/" target="_blank" rel="noopener">reached end of maintenance</a>. <strong><span data-ingress-nginx-version>v1.15.1</span> (March 19, 2026) is the final release</strong> — it will receive no further releases, bugfixes, or security patches. The F5 NGINX Ingress Controller (<code>nginx/kubernetes-ingress</code>) is actively maintained and is the recommended migration target.</div>
+        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Kubernetes Ingress NGINX (Ingress-NGINX) <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.5.1" target="_blank" rel="noopener">F5 NGINX Ingress Controller <span data-nic-version>v5.5.1</span></a>.</div>
         <!-- YAML Migration Analyzer -->
         <section id="analyzer">
-            <h2 id="yaml-analyzer">Ingress NGINX Config Analyzer</h2>
+            <h2 id="yaml-analyzer">Ingress NGINX config analyzer</h2>
             <p>Paste a Kubernetes Ingress YAML manifest that uses Kubernetes Ingress NGINX (Ingress-NGINX) annotations to get migration suggestions for the F5 NGINX Ingress Controller.</p>
             <div class="analyzer-drop-zone" id="dropZone">
                 <div class="analyzer-drop-overlay"><span class="analyzer-drop-label">Drop YAML file here</span></div>
@@ -397,23 +407,23 @@ spec:
                 <button class="btn btn-primary" data-action="analyzeYaml">Analyze YAML</button>
                 <button class="btn btn-secondary" data-action="clearAnalyzer">Clear</button>
                 <div class="sample-dropdown">
-                    <button class="btn btn-secondary sample-dropdown-btn" data-action="toggleSampleDropdown" aria-expanded="false" aria-haspopup="true" aria-controls="sampleDropdown">Load Sample</button>
+                    <button class="btn btn-secondary sample-dropdown-btn" data-action="toggleSampleDropdown" aria-expanded="false" aria-haspopup="true" aria-controls="sampleDropdown">Load sample</button>
                     <div class="sample-dropdown-menu" id="sampleDropdown" role="menu" aria-label="Sample YAML presets">
                         <div class="sample-dropdown-item" role="menuitem" tabindex="0" data-action="loadSampleYaml" data-preset="simple">
-                            <div class="sample-title"><span class="sample-badge simple">Simple</span> Basic Proxy</div>
+                            <div class="sample-title"><span class="sample-badge simple">Simple</span> Basic proxy</div>
                             <div class="sample-desc">SSL redirect, timeouts, body size — annotation-only migration</div>
                         </div>
                         <div class="sample-dropdown-item" role="menuitem" tabindex="0" data-action="loadSampleYaml" data-preset="moderate">
-                            <div class="sample-title"><span class="sample-badge moderate">Moderate</span> Production App</div>
+                            <div class="sample-title"><span class="sample-badge moderate">Moderate</span> Production app</div>
                             <div class="sample-desc">HTTPS backend, load balancing, ConfigMap settings — annotations + ConfigMap</div>
                         </div>
                         <div class="sample-dropdown-item" role="menuitem" tabindex="0" data-action="loadSampleYaml" data-preset="advanced">
-                            <div class="sample-title"><span class="sample-badge advanced">Advanced</span> Complex Stack</div>
+                            <div class="sample-title"><span class="sample-badge advanced">Advanced</span> Complex stack</div>
                             <div class="sample-desc">mTLS, session affinity, rate limiting, ConfigMap — annotations + ConfigMap + CRDs</div>
                         </div>
                     </div>
                 </div>
-                <span style="font-size:0.78rem;color:var(--text-secondary);margin-left:4px;align-self:center;">Ctrl+Enter to analyze &middot; in the editor, Tab indents &mdash; press Esc then Tab to move focus</span>
+                <span style="font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--text-secondary);margin-left:var(--space-small);align-self:center;">Ctrl+Enter to analyze &middot; in the editor, Tab indents &mdash; press Esc then Tab to move focus</span>
             </div>
             <div id="analyzerLiveStatus" aria-live="polite" class="sr-only"></div>
             <div id="analyzerResults" role="region" aria-label="Analysis results"></div>
@@ -422,36 +432,36 @@ spec:
         </div><!-- /.tool-page #page-analyzer -->
 
         <div class="tool-page" id="page-reference" hidden="until-found">
-        <div class="info-box warning eol-warning" style="margin: 0 0 12px;"><strong>Warning:</strong> The community-maintained <code>kubernetes/ingress-nginx</code> project has <a href="https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/" target="_blank" rel="noopener">reached end of maintenance</a>. <strong><span data-ingress-nginx-version>v1.15.1</span> (March 19, 2026) is the final release</strong> — it will receive no further releases, bugfixes, or security patches. The F5 NGINX Ingress Controller (<code>nginx/kubernetes-ingress</code>) is actively maintained and is the recommended migration target.</div>
-        <div class="info-box note" style="margin: 0 0 24px;"><strong>Version Reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Kubernetes Ingress NGINX (Ingress-NGINX) <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.5.1" target="_blank" rel="noopener">F5 NGINX Ingress Controller <span data-nic-version>v5.5.1</span></a>.</div>
+        <div class="info-box warning eol-warning" style="margin: 0 0 var(--space-2x);"><strong>Warning:</strong> The community-maintained <code>kubernetes/ingress-nginx</code> project has <a href="https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/" target="_blank" rel="noopener">reached end of maintenance</a>. <strong><span data-ingress-nginx-version>v1.15.1</span> (March 19, 2026) is the final release</strong> — it will receive no further releases, bugfixes, or security patches. The F5 NGINX Ingress Controller (<code>nginx/kubernetes-ingress</code>) is actively maintained and is the recommended migration target.</div>
+        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Kubernetes Ingress NGINX (Ingress-NGINX) <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.5.1" target="_blank" rel="noopener">F5 NGINX Ingress Controller <span data-nic-version>v5.5.1</span></a>.</div>
         <!-- Key Differences -->
         <section id="differences">
-            <h2 id="key-differences">Key Differences</h2>
+            <h2 id="key-differences">Key differences</h2>
             <div class="table-wrapper">
                 <table class="diff-table" aria-labelledby="key-differences">
                     <thead><tr><th scope="col">Aspect</th><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr><td>Repository</td><td><code>kubernetes/ingress-nginx</code></td><td><code>nginx/kubernetes-ingress</code></td></tr>
-                        <tr><td>Annotation Prefix</td><td><code>nginx.ingress.kubernetes.io/</code></td><td><code>nginx.org/</code> or <code>nginx.com/</code> or <code>appprotect.f5.com/</code></td></tr>
-                        <tr><td>ConfigMap Name</td><td><code>ingress-nginx-controller</code></td><td><code>nginx-config</code></td></tr>
-                        <tr><td>CRD Support</td><td>None</td><td>VirtualServer, VirtualServerRoute, Policy, TransportServer, GlobalConfiguration</td></tr>
+                        <tr><td>Annotation prefix</td><td><code>nginx.ingress.kubernetes.io/</code></td><td><code>nginx.org/</code> or <code>nginx.com/</code> or <code>appprotect.f5.com/</code></td></tr>
+                        <tr><td>ConfigMap name</td><td><code>ingress-nginx-controller</code></td><td><code>nginx-config</code></td></tr>
+                        <tr><td>CRD support</td><td>None</td><td>VirtualServer, VirtualServerRoute, Policy, TransportServer, GlobalConfiguration</td></tr>
                         <tr><td>NGINX Plus Support</td><td>No</td><td>Yes (with <code>nginx.com/</code> annotations)</td></tr>
                     </tbody>
                 </table>
             </div>
-            <div class="info-box note" style="margin: 20px 0 0;"><strong>Note:</strong> Many Kubernetes Ingress NGINX (Ingress-NGINX) capabilities that do not have direct F5 NGINX Ingress Controller annotations or CRDs can still be achieved through NGINX configuration snippets (via either snippet annotations or VirtualServer/VirtualServerRoute CRDs). We recommend that users proceed with caution when using snippets, as they inject raw NGINX configuration and are intended for more advanced use cases.</div>
-            <div class="info-box note" style="margin: 12px 0 0;"><strong>New in v5.4.0 &mdash; Policy CRDs on Ingress objects:</strong> Policy CRDs (e.g. <code>accessControl</code>, <code>cors</code>) can now be referenced directly from Ingress resources using the <code>nginx.org/policies</code> annotation &mdash; no VirtualServer required. This is the recommended migration path for features that support it. Look for the <strong>(Recommended)</strong> tab in the mapping examples.</div>
-            <div class="info-box note" style="margin: 12px 0 0;"><strong>New in v5.5.0 &mdash; ExternalAuth Policy and expanded Policy CRDs on Ingress:</strong> A brand new <code>externalAuth</code> Policy CRD provides an OSS-capable replacement for the community's generic <code>auth_request</code> annotations (<code>auth-url</code>, <code>auth-signin</code>, <code>auth-snippet</code>) &mdash; the headline migration win of this release. The <code>ingressMTLS</code>, <code>egressMTLS</code>, and <code>waf</code> (Plus, via <code>nginx.com/policies</code>) Policy CRDs can now also be attached directly to Ingress resources. New direct annotation mappings arrived for <code>proxy-redirect-from</code>/<code>proxy-redirect-to</code>, alongside a new inline <code>nginx.org/add-header</code> (plus <code>nginx.org/add-header-inherit</code>) for response header injection.</div>
+            <div class="info-box note" style="margin: var(--space-2hx) 0 0;"><strong>Note:</strong> Many Kubernetes Ingress NGINX (Ingress-NGINX) capabilities that do not have direct F5 NGINX Ingress Controller annotations or CRDs can still be achieved through NGINX configuration snippets (via either snippet annotations or VirtualServer/VirtualServerRoute CRDs). We recommend that users proceed with caution when using snippets, as they inject raw NGINX configuration and are intended for more advanced use cases.</div>
+            <div class="info-box note" style="margin: var(--space-2x) 0 0;"><strong>New in v5.4.0 &mdash; Policy CRDs on Ingress objects:</strong> Policy CRDs (e.g. <code>accessControl</code>, <code>cors</code>) can now be referenced directly from Ingress resources using the <code>nginx.org/policies</code> annotation &mdash; no VirtualServer required. This is the recommended migration path for features that support it. Look for the <strong>(Recommended)</strong> tab in the mapping examples.</div>
+            <div class="info-box note" style="margin: var(--space-2x) 0 0;"><strong>New in v5.5.0 &mdash; ExternalAuth Policy and expanded Policy CRDs on Ingress:</strong> A brand new <code>externalAuth</code> Policy CRD provides an OSS-capable replacement for the community's generic <code>auth_request</code> annotations (<code>auth-url</code>, <code>auth-signin</code>, <code>auth-snippet</code>) &mdash; the headline migration win of this release. The <code>ingressMTLS</code>, <code>egressMTLS</code>, and <code>waf</code> (Plus, via <code>nginx.com/policies</code>) Policy CRDs can now also be attached directly to Ingress resources. New direct annotation mappings arrived for <code>proxy-redirect-from</code>/<code>proxy-redirect-to</code>, alongside a new inline <code>nginx.org/add-header</code> (plus <code>nginx.org/add-header-inherit</code>) for response header injection.</div>
         </section>
 
         <!-- OSS Mappings -->
         <section id="mappings">
-            <h2>NGINX Mappings</h2>
+            <h2>NGINX mappings</h2>
             <p>These features are available in both NGINX Open Source and NGINX Plus editions. All items are annotations unless otherwise indicated with a badge (e.g. <span class="badge badge-configmap">ConfigMap</span>, <span class="badge badge-policy">Policy CRD</span>, <span class="badge badge-virtualserver">VirtualServer CRD</span>). Community annotations use the <code>nginx.ingress.kubernetes.io/</code> prefix; F5 NGINX Ingress Controller annotations use <code>nginx.org/</code>.</p>
 
-            <div class="info-box tip" style="margin: 20px 0;">
+            <div class="info-box tip" style="margin: var(--space-2hx) 0;">
                 <strong>How to Read the Mappings</strong>
-                <ul style="margin: 10px 0 0 20px;">
+                <ul style="margin: var(--space-base) 0 0 var(--space-2hx);">
                     <li><strong>Annotation-to-annotation rows <span style="color: var(--green-text);">▶</span>:</strong> Direct mappings where you change the annotation name/prefix. Click to expand and see before/after Ingress YAML examples.</li>
                     <li><strong>CRD-based rows <span style="color: var(--green-text);">▶</span>:</strong> Annotations that map to a CRD (VirtualServer, Policy, or TransportServer). Click to expand for full CRD examples with installation instructions.</li>
                     <li><strong>Grouped annotations:</strong> Related annotations that work together are grouped in a single expandable row, showing how they map to a unified configuration.</li>
@@ -462,16 +472,16 @@ spec:
             <div class="controls">
                 <input type="search" id="searchInput" placeholder="Search annotations..." data-filter-source="oss" aria-label="Search annotations">
                 <select id="categoryFilter" data-filter-source="oss" aria-label="Filter by category">
-                    <option value="">All Categories</option>
+                    <option value="">All categories</option>
                 </select>
                 <span id="searchCount" class="search-count" aria-live="polite"></span>
-                <button class="btn btn-primary" data-action="expandAllExamples">Expand All</button>
-                <button class="btn btn-secondary" data-action="collapseAllExamples">Collapse All</button>
+                <button class="btn btn-primary" data-action="expandAllExamples">Expand all</button>
+                <button class="btn btn-secondary" data-action="collapseAllExamples">Collapse all</button>
             </div>
 
 
             <!-- Access Control -->
-            <h3 id="access-control">Access Control</h3>
+            <h3 id="access-control">Access control</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="access-control"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -481,7 +491,7 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="ingress-policy">Policy + Ingress (Recommended)</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="ingress-policy">Policy + Ingress (recommended)</button>
                                 <button class="approach-tab" data-action="switchApproach" data-approach="vs-policy">Policy + VirtualServer</button>
                             </div>
                             <div class="approach-content active" data-approach="ingress-policy">
@@ -574,8 +584,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -614,7 +624,7 @@ spec:
             </div>
 
             <!-- Authentication - Basic -->
-            <h3 id="authentication-basic">Authentication (Basic)</h3>
+            <h3 id="authentication-basic">Authentication (basic)</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="authentication-basic"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -624,8 +634,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -687,8 +697,8 @@ spec:
             </div>
 
             <!-- Authentication (External) -->
-            <h3 id="authentication-external">Authentication (External)</h3>
-            <div class="info-box note" style="margin: 0 0 12px;"><strong>New in v5.5.0 &mdash; ExternalAuth Policy:</strong> The new <code>externalAuth</code> Policy CRD is the recommended migration path for the community's generic <code>auth_request</code> pattern (<code>auth-url</code>, <code>auth-signin</code>, <code>auth-snippet</code>). Unlike the <code>oidc</code> Policy (Plus-only, native OIDC), <code>externalAuth</code> works in NGINX OSS and Plus and can be attached directly to Ingress, VirtualServer, and VirtualServerRoute resources via <code>nginx.org/policies</code>. For native OIDC, see the <a href="#oidc-authentication">OIDC Authentication</a> section in Plus Mappings.</div>
+            <h3 id="authentication-external">Authentication (external)</h3>
+            <div class="info-box note" style="margin: 0 0 var(--space-2x);"><strong>New in v5.5.0 &mdash; ExternalAuth Policy:</strong> The new <code>externalAuth</code> Policy CRD is the recommended migration path for the community's generic <code>auth_request</code> pattern (<code>auth-url</code>, <code>auth-signin</code>, <code>auth-snippet</code>). Unlike the <code>oidc</code> Policy (Plus-only, native OIDC), <code>externalAuth</code> works in NGINX OSS and Plus and can be attached directly to Ingress, VirtualServer, and VirtualServerRoute resources via <code>nginx.org/policies</code>. For native OIDC, see the <a href="#oidc-authentication">OIDC authentication</a> section in Plus Mappings.</div>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="authentication-external"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -698,8 +708,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -747,7 +757,7 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="ingress-policy">Policy + Ingress (Recommended)</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="ingress-policy">Policy + Ingress (recommended)</button>
                                 <button class="approach-tab" data-action="switchApproach" data-approach="vs-policy">Policy + VirtualServer</button>
                             </div>
                             <div class="approach-content active" data-approach="ingress-policy">
@@ -830,8 +840,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -901,7 +911,7 @@ annotations:
             </div>
 
             <!-- Authentication (API Key) -->
-            <h3 id="authentication-api-key">Authentication (API Key)</h3>
+            <h3 id="authentication-api-key">Authentication (API key)</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="authentication-api-key"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -949,8 +959,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -981,8 +991,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -1013,8 +1023,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -1045,8 +1055,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -1077,8 +1087,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -1112,8 +1122,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -1156,8 +1166,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -1197,7 +1207,7 @@ spec:
             </div>
 
             <!-- Canary / Traffic Splitting -->
-            <h3 id="canary-traffic-splitting">Canary / Traffic Splitting</h3>
+            <h3 id="canary-traffic-splitting">Canary / traffic splitting</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="canary-traffic-splitting"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -1256,7 +1266,7 @@ spec:
             </div>
 
             <!-- Configuration Snippets -->
-            <h3 id="configuration-snippets">Configuration Snippets</h3>
+            <h3 id="configuration-snippets">Configuration snippets</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="configuration-snippets"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -1266,8 +1276,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -1309,8 +1319,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -1388,7 +1398,7 @@ spec:
             </div>
 
             <!-- CORS / Header Manipulation -->
-            <h3 id="cors">CORS / Header Manipulation</h3>
+            <h3 id="cors">CORS / header manipulation</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="cors"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -1398,9 +1408,9 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="policy">Policy CRD (Recommended)</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="policy">Policy CRD (recommended)</button>
                                 <button class="approach-tab" data-action="switchApproach" data-approach="crd-headers">CRD responseHeaders</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Snippet Approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Snippet approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -1554,7 +1564,7 @@ spec:
             </div>
 
             <!-- Error Handling -->
-            <h3 id="error-handling">Error Handling</h3>
+            <h3 id="error-handling">Error handling</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="error-handling"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -1601,8 +1611,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -1786,7 +1796,7 @@ data:
             </div>
 
             <!-- Ingress Configuration -->
-            <h3 id="ingress-configuration">Ingress Configuration</h3>
+            <h3 id="ingress-configuration">Ingress configuration</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="ingress-configuration"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -1811,7 +1821,7 @@ annotations:
             </div>
 
             <!-- Load Balancing -->
-            <h3 id="load-balancing">Load Balancing</h3>
+            <h3 id="load-balancing">Load balancing</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="load-balancing"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -1821,8 +1831,8 @@ annotations:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -1854,8 +1864,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -1886,8 +1896,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -1948,8 +1958,8 @@ data:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -1989,7 +1999,7 @@ spec:
             </div>
 
             <!-- Request Mirroring -->
-            <h3 id="mirroring">Request Mirroring</h3>
+            <h3 id="mirroring">Request mirroring</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="mirroring"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -1999,8 +2009,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -2057,7 +2067,7 @@ spec:
             </div>
 
             <!-- mTLS (Client) -->
-            <h3 id="mtls-client">mTLS (Client Certificate Verification)</h3>
+            <h3 id="mtls-client">mTLS (client certificate verification)</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="mtls-client"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -2067,7 +2077,7 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="ingress-policy">Policy + Ingress (Recommended)</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="ingress-policy">Policy + Ingress (recommended)</button>
                                 <button class="approach-tab" data-action="switchApproach" data-approach="vs-policy">Policy + VirtualServer</button>
                             </div>
                             <div class="approach-content active" data-approach="ingress-policy">
@@ -2155,8 +2165,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -2200,7 +2210,7 @@ spec:
             </div>
 
             <!-- mTLS (Backend) -->
-            <h3 id="mtls-backend">mTLS (Backend/Egress)</h3>
+            <h3 id="mtls-backend">mTLS (backend/egress)</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="mtls-backend"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -2210,7 +2220,7 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="ingress-policy">Policy + Ingress (Recommended)</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="ingress-policy">Policy + Ingress (recommended)</button>
                                 <button class="approach-tab" data-action="switchApproach" data-approach="vs-policy">Policy + VirtualServer</button>
                             </div>
                             <div class="approach-content active" data-approach="ingress-policy">
@@ -2406,7 +2416,7 @@ data:
             </div>
 
             <!-- Passive Health Checks -->
-            <h3 id="passive-health-checks">Passive Health Checks</h3>
+            <h3 id="passive-health-checks">Passive health checks</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="passive-health-checks"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -2416,8 +2426,8 @@ data:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -2430,7 +2440,7 @@ annotations:
   nginx.org/fail-timeout: "30s"
   nginx.org/max-fails: "3"</code></pre></div>
                                 </div>
-                                <div class="info-box note"><strong>Note:</strong> The community controller has no passive health check tuning — its load balancer does not support <code>max_fails</code>/<code>fail_timeout</code>, and upstream failures are handled through <code>proxy-next-upstream</code> retries (see <a href="#proxy-settings">Proxy Settings</a>). The F5 NGINX Ingress Controller adds per-upstream passive health checks via the <code>nginx.org/max-fails</code> and <code>nginx.org/fail-timeout</code> annotations.</div>
+                                <div class="info-box note"><strong>Note:</strong> The community controller has no passive health check tuning — its load balancer does not support <code>max_fails</code>/<code>fail_timeout</code>, and upstream failures are handled through <code>proxy-next-upstream</code> retries (see <a href="#proxy-settings">Proxy settings</a>). The F5 NGINX Ingress Controller adds per-upstream passive health checks via the <code>nginx.org/max-fails</code> and <code>nginx.org/fail-timeout</code> annotations.</div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
                                 <div class="comparison">
@@ -2448,7 +2458,7 @@ spec:
       fail-timeout: 30s
       max-fails: 3</code></pre></div>
                                 </div>
-                                <div class="info-box note"><strong>Note:</strong> The VirtualServer CRD allows passive health check settings per upstream. For active health checks that proactively probe endpoints, see <a href="#active-health-checks">Active Health Checks</a> in Plus Mappings.</div>
+                                <div class="info-box note"><strong>Note:</strong> The VirtualServer CRD allows passive health check settings per upstream. For active health checks that proactively probe endpoints, see <a href="#active-health-checks">Active health checks</a> in Plus Mappings.</div>
                             </div>
                         </div></td></tr>
                     </tbody>
@@ -2456,7 +2466,7 @@ spec:
             </div>
 
             <!-- Proxy Settings -->
-            <h3 id="proxy-settings">Proxy Settings</h3>
+            <h3 id="proxy-settings">Proxy settings</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="proxy-settings"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -2466,8 +2476,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -2508,8 +2518,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -2548,7 +2558,7 @@ spec:
             </div>
 
             <!-- Rate Limiting -->
-            <h3 id="rate-limiting">Rate Limiting</h3>
+            <h3 id="rate-limiting">Rate limiting</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="rate-limiting"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -2558,8 +2568,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -2702,8 +2712,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -2749,8 +2759,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -2823,7 +2833,7 @@ spec:
             </div>
 
             <!-- Route Delegation -->
-            <h3 id="route-delegation">Route Delegation</h3>
+            <h3 id="route-delegation">Route delegation</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="route-delegation"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -2833,8 +2843,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -2916,7 +2926,7 @@ spec:
             </div>
 
             <!-- Session Affinity -->
-            <h3 id="session-affinity">Session Affinity / Sticky Sessions</h3>
+            <h3 id="session-affinity">Session affinity / sticky sessions</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="session-affinity"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -2926,8 +2936,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -3034,8 +3044,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -3145,8 +3155,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="crd">CRD Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="crd">CRD approach</button>
                             </div>
                             <div class="approach-content active" data-approach="annotation">
                                 <div class="comparison">
@@ -3186,7 +3196,7 @@ spec:
                                 </div>
                             </div>
                             <div class="info-box tip"><strong>Important distinction:</strong>
-                                <ul style="margin: 8px 0 0 20px;">
+                                <ul style="margin: var(--space-base) 0 0 var(--space-2hx);">
                                     <li><code>nginx.org/redirect-to-https</code> checks the <code>X-Forwarded-Proto</code> header before redirecting. Use this when TLS terminates at a load balancer in front of NGINX.</li>
                                     <li><code>nginx.org/ssl-redirect</code> performs an unconditional redirect for all incoming HTTP traffic. Use this when NGINX handles TLS termination directly. Default: <code>true</code>.</li>
                                 </ul>
@@ -3223,7 +3233,7 @@ spec:
             </div>
 
             <!-- TCP/UDP -->
-            <h3 id="tcp-udp">TCP/UDP Load Balancing</h3>
+            <h3 id="tcp-udp">TCP/UDP load balancing</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="tcp-udp"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -3278,8 +3288,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -3310,8 +3320,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -3342,8 +3352,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -3373,7 +3383,7 @@ spec:
             </div>
 
             <!-- Upstream Configuration -->
-            <h3 id="upstream-configuration">Upstream Configuration</h3>
+            <h3 id="upstream-configuration">Upstream configuration</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="upstream-configuration"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -3383,8 +3393,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -3439,12 +3449,12 @@ spec:
 
         <!-- Plus Mappings -->
         <section id="plus-mappings">
-            <h2>NGINX Plus Mappings</h2>
+            <h2>NGINX Plus mappings</h2>
             <p>These features require an NGINX Plus subscription and provide enterprise-grade capabilities. Most Plus features use CRD-based configuration—click the expandable rows <span style="color: var(--green-text);">▶</span> to see full examples. All items are annotations unless otherwise indicated with a badge. Community annotations use the <code>nginx.ingress.kubernetes.io/</code> prefix; F5 NGINX Ingress Controller Plus annotations use the <code>nginx.com/</code> prefix (or <code>appprotect.f5.com/</code> for F5 WAF for NGINX).</p>
 
-            <div class="info-box tip" style="margin: 20px 0;">
+            <div class="info-box tip" style="margin: var(--space-2hx) 0;">
                 <strong>How to Read the Mappings</strong>
-                <ul style="margin: 10px 0 0 20px;">
+                <ul style="margin: var(--space-base) 0 0 var(--space-2hx);">
                     <li><strong>Annotation-to-annotation rows <span style="color: var(--green-text);">▶</span>:</strong> Direct mappings where you change the annotation name/prefix. Click to expand and see before/after Ingress YAML examples.</li>
                     <li><strong>CRD-based rows <span style="color: var(--green-text);">▶</span>:</strong> Annotations that map to a CRD (VirtualServer, Policy, or TransportServer). Click to expand for full CRD examples with installation instructions.</li>
                     <li><strong>Grouped annotations:</strong> Related annotations that work together are grouped in a single expandable row, showing how they map to a unified configuration.</li>
@@ -3455,16 +3465,16 @@ spec:
             <div class="controls">
                 <input type="search" id="searchInputPlus" placeholder="Search annotations..." data-filter-source="plus" aria-label="Search Plus annotations">
                 <select id="categoryFilterPlus" data-filter-source="plus" aria-label="Filter by category">
-                    <option value="">All Categories</option>
+                    <option value="">All categories</option>
                 </select>
                 <span id="searchCountPlus" class="search-count" aria-live="polite"></span>
-                <button class="btn btn-primary" data-action="expandAllExamples">Expand All</button>
-                <button class="btn btn-secondary" data-action="collapseAllExamples">Collapse All</button>
+                <button class="btn btn-primary" data-action="expandAllExamples">Expand all</button>
+                <button class="btn btn-secondary" data-action="collapseAllExamples">Collapse all</button>
             </div>
 
 
             <!-- Active Health Checks -->
-            <h3 id="active-health-checks">Active Health Checks</h3>
+            <h3 id="active-health-checks">Active health checks</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="active-health-checks"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -3474,8 +3484,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <pre><code>annotations:
@@ -3483,7 +3493,7 @@ spec:
   nginx.com/health-checks-mandatory: "true"
   nginx.com/health-checks-mandatory-queue: "5"
   nginx.com/slow-start: "30s"</code></pre>
-                                <div class="info-box note"><strong>Note:</strong> Active health checks proactively probe upstream endpoints at configurable intervals, rather than waiting for client requests to fail. These require NGINX Plus. For more granular control (custom paths, intervals, status matching), use the VirtualServer CRD approach. For passive health checks (OSS), see <a href="#passive-health-checks">Passive Health Checks</a> in OSS Mappings.</div>
+                                <div class="info-box note"><strong>Note:</strong> Active health checks proactively probe upstream endpoints at configurable intervals, rather than waiting for client requests to fail. These require NGINX Plus. For more granular control (custom paths, intervals, status matching), use the VirtualServer CRD approach. For passive health checks (OSS), see <a href="#passive-health-checks">Passive health checks</a> in OSS Mappings.</div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
                                 <pre><code>apiVersion: k8s.nginx.org/v1
@@ -3505,7 +3515,7 @@ spec:
         port: 8080
         statusMatch: "200-399"
       slowStart: 30s  # slow-start</code></pre>
-                                <div class="info-box note"><strong>Note:</strong> The VirtualServer CRD provides the most granular control over active health checks. Active health checks and <code>slowStart</code> require NGINX Plus. For passive health checks (OSS), see <a href="#passive-health-checks">Passive Health Checks</a> in OSS Mappings.</div>
+                                <div class="info-box note"><strong>Note:</strong> The VirtualServer CRD provides the most granular control over active health checks. Active health checks and <code>slowStart</code> require NGINX Plus. For passive health checks (OSS), see <a href="#passive-health-checks">Passive health checks</a> in OSS Mappings.</div>
                             </div>
                         </div></td></tr>
                     </tbody>
@@ -3513,7 +3523,7 @@ spec:
             </div>
 
             <!-- JWT Authentication -->
-            <h3 id="jwt-authentication">JWT Authentication</h3>
+            <h3 id="jwt-authentication">JWT authentication</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="jwt-authentication"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -3523,8 +3533,8 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content" data-approach="annotation">
                                 <div class="comparison">
@@ -3561,8 +3571,8 @@ spec:
             </div>
 
             <!-- External Authentication & OIDC -->
-            <h3 id="oidc-authentication">OIDC Authentication</h3>
-            <div class="info-box note" style="margin: 0 0 12px;"><strong>Looking for generic <code>auth_request</code> (non-OIDC) migration?</strong> Use the new <code>externalAuth</code> Policy CRD documented in the <a href="#authentication-external">Authentication (External)</a> section &mdash; it works in NGINX OSS and Plus. The <code>oidc</code> Policy below is specifically for native OIDC flows (no oauth2-proxy required) and requires NGINX Plus.</div>
+            <h3 id="oidc-authentication">OIDC authentication</h3>
+            <div class="info-box note" style="margin: 0 0 var(--space-2x);"><strong>Looking for generic <code>auth_request</code> (non-OIDC) migration?</strong> Use the new <code>externalAuth</code> Policy CRD documented in the <a href="#authentication-external">Authentication (external)</a> section &mdash; it works in NGINX OSS and Plus. The <code>oidc</code> Policy below is specifically for native OIDC flows (no oauth2-proxy required) and requires NGINX Plus.</div>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="oidc-authentication"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -3603,14 +3613,14 @@ spec:
     scope: "openid+profile+email"
     tokenEndpoint: "https://idp.example.com/token"  # auth-url</code></pre></div>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> Native OIDC support eliminates the need for oauth2-proxy sidecar. The community <code>auth-url</code>/<code>auth-signin</code> pattern uses the <code>auth_request</code> module (typically with oauth2-proxy) and supports any external auth service, not just OIDC. The community annotations <code>auth-cache-duration</code>, <code>auth-cache-key</code>, <code>auth-method</code>, <code>auth-proxy-set-headers</code>, <code>auth-request-redirect</code>, <code>auth-response-headers</code>, and <code>auth-signin-redirect-param</code> have no direct OIDC Policy equivalents — the Policy manages these concerns internally. If you need generic external auth (non-OIDC), prefer the new <code>externalAuth</code> Policy CRD (v5.5.0+, OSS-capable) documented in the <a href="#authentication-external">Authentication (External)</a> section, or fall back to <code>nginx.org/location-snippets</code> with the <code>auth_request</code> directive.</div>
+                            <div class="info-box note"><strong>Note:</strong> Native OIDC support eliminates the need for oauth2-proxy sidecar. The community <code>auth-url</code>/<code>auth-signin</code> pattern uses the <code>auth_request</code> module (typically with oauth2-proxy) and supports any external auth service, not just OIDC. The community annotations <code>auth-cache-duration</code>, <code>auth-cache-key</code>, <code>auth-method</code>, <code>auth-proxy-set-headers</code>, <code>auth-request-redirect</code>, <code>auth-response-headers</code>, and <code>auth-signin-redirect-param</code> have no direct OIDC Policy equivalents — the Policy manages these concerns internally. If you need generic external auth (non-OIDC), prefer the new <code>externalAuth</code> Policy CRD (v5.5.0+, OSS-capable) documented in the <a href="#authentication-external">Authentication (external)</a> section, or fall back to <code>nginx.org/location-snippets</code> with the <code>auth_request</code> directive.</div>
                         </div></td></tr>
                     </tbody>
                 </table>
             </div>
 
             <!-- WAF -->
-            <h3 id="waf">WAF (Web Application Firewall)</h3>
+            <h3 id="waf">WAF (web application firewall)</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="waf"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -3620,9 +3630,9 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="ingress-policy">Policy + Ingress (Recommended)</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="ingress-policy">Policy + Ingress (recommended)</button>
                                 <button class="approach-tab" data-action="switchApproach" data-approach="vs-policy">Policy + VirtualServer</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation approach</button>
                             </div>
                             <div class="approach-content active" data-approach="ingress-policy">
                                 <pre><code># 1. Create the WAF Policy
@@ -3703,7 +3713,7 @@ spec:
 
         <!-- ConfigMap Mappings -->
         <section id="configmap-mappings">
-            <h2>ConfigMap Mappings</h2>
+            <h2>ConfigMap mappings</h2>
             <p>Both the community and F5 NGINX Ingress Controllers use a Kubernetes ConfigMap for global NGINX settings. Many keys share the same name, but some are renamed or have different semantics. The keys listed below are community ConfigMap keys that have an equivalent F5 NGINX Ingress Controller ConfigMap key.</p>
             <div class="info-box tip"><strong>Tip:</strong> A significant number of ConfigMap keys are identical between the two controllers — you can migrate those without any changes. The tables below highlight both the identical keys and the ones that need renaming or adjustment.</div>
             <div class="info-box note"><strong>ConfigMap naming:</strong> The community controller typically uses a ConfigMap named <code>ingress-nginx-controller</code>. The F5 NGINX Ingress Controller uses <code>nginx-config</code> by default (configurable via <code>--configmap</code> flag). Remember to update the ConfigMap name in your deployment.</div>
@@ -3711,15 +3721,15 @@ spec:
             <div class="controls">
                 <input type="search" id="searchInputConfigMap" placeholder="Search ConfigMap keys..." data-filter-source="configmap" aria-label="Search ConfigMap keys">
                 <select id="categoryFilterConfigMap" data-filter-source="configmap" aria-label="Filter by category">
-                    <option value="">All Categories</option>
+                    <option value="">All categories</option>
                 </select>
                 <span id="searchCountConfigMap" class="search-count" aria-live="polite"></span>
-                <button class="btn btn-primary" data-action="expandAllExamples">Expand All</button>
-                <button class="btn btn-secondary" data-action="collapseAllExamples">Collapse All</button>
+                <button class="btn btn-primary" data-action="expandAllExamples">Expand all</button>
+                <button class="btn btn-secondary" data-action="collapseAllExamples">Collapse all</button>
             </div>
 
             <!-- Identical Keys -->
-            <h3 id="configmap-identical">Identical Keys</h3>
+            <h3 id="configmap-identical">Identical keys</h3>
             <p>These keys have the same name and semantics in both controllers. No changes are needed when migrating.</p>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="configmap-identical"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
@@ -4169,7 +4179,7 @@ data:
             </div>
 
             <!-- Proxy & Buffering -->
-            <h3 id="configmap-proxy-buffering">Proxy &amp; Buffering</h3>
+            <h3 id="configmap-proxy-buffering">Proxy &amp; buffering</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="configmap-proxy-buffering"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -4402,7 +4412,7 @@ data:
             </div>
 
             <!-- Network / Real IP -->
-            <h3 id="configmap-network">Network / Real IP</h3>
+            <h3 id="configmap-network">Network / real IP</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="configmap-network"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -4454,7 +4464,7 @@ data:
             </div>
 
             <!-- Worker & Performance -->
-            <h3 id="configmap-worker">Worker &amp; Performance</h3>
+            <h3 id="configmap-worker">Worker &amp; performance</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="configmap-worker"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -4503,7 +4513,7 @@ data:
             </div>
 
             <!-- Upstream & Load Balancing -->
-            <h3 id="configmap-upstream">Upstream &amp; Load Balancing</h3>
+            <h3 id="configmap-upstream">Upstream &amp; load balancing</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="configmap-upstream"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -4553,7 +4563,7 @@ data:
             </div>
 
             <!-- Keepalive & Timeouts -->
-            <h3 id="configmap-keepalive">Keepalive &amp; Timeouts</h3>
+            <h3 id="configmap-keepalive">Keepalive &amp; timeouts</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="configmap-keepalive"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -4603,7 +4613,7 @@ data:
             </div>
 
             <!-- Server & Hash Configuration -->
-            <h3 id="configmap-server">Server &amp; Hash Configuration</h3>
+            <h3 id="configmap-server">Server &amp; hash configuration</h3>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="configmap-server"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -4863,7 +4873,7 @@ data:
             </div>
 
             <!-- Snippet-Based Keys -->
-            <h3 id="configmap-snippets-required">Snippet-Based Keys</h3>
+            <h3 id="configmap-snippets-required">Snippet-based keys</h3>
             <p>These community ConfigMap keys have no direct equivalent in the F5 NGINX Ingress Controller. Use <code>main-snippets</code>, <code>http-snippets</code>, or <code>server-snippets</code> in the NIC ConfigMap to inject the equivalent NGINX directives.</p>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="configmap-snippets-required"><thead><tr><th scope="col">Kubernetes Ingress NGINX (Ingress-NGINX)</th><th scope="col">F5 NGINX Ingress Controller</th></tr></thead>

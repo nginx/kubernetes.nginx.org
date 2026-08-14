@@ -984,12 +984,12 @@
                     groupDiv.appendChild(spacer);
                 }
                 let catLabel = document.createElement('div');
-                catLabel.style.cssText = 'font-size:0.82rem;color:var(--text-secondary);margin-bottom:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
+                catLabel.style.cssText = 'font-size:var(--fs-caption);line-height:var(--lh-caption);color:var(--text-secondary);margin-bottom:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
                 catLabel.appendChild(document.createTextNode(item.category));
                 if (item.plusRequired) {
                     let plusBadge = document.createElement('span');
                     plusBadge.className = 'plus-indicator';
-                    plusBadge.textContent = 'Plus Required';
+                    plusBadge.textContent = 'Plus required';
                     catLabel.appendChild(plusBadge);
                 }
                 if (item.dualSuffix) catLabel.appendChild(document.createTextNode(item.dualSuffix));
@@ -1060,7 +1060,7 @@
 
             // Complexity indicator
             let complexityLevel = plan.banner.complexity;
-            let complexityLabels = { simple: 'Simple Migration', moderate: 'Moderate Migration', advanced: 'Advanced Migration' };
+            let complexityLabels = { simple: 'Simple migration', moderate: 'Moderate migration', advanced: 'Advanced migration' };
             let complexityFilled = { simple: 1, moderate: 2, advanced: 3 };
             let complexBadge = document.createElement('span');
             complexBadge.className = 'analyzer-complexity ' + complexityLevel;
@@ -1138,7 +1138,7 @@
                 nInfo.textContent = 'i';
                 let tInfo = document.createElement('h3');
                 tInfo.className = 'analyzer-step-title';
-                tInfo.textContent = 'Informational Notes';
+                tInfo.textContent = 'Informational notes';
                 let cInfo = document.createElement('span');
                 cInfo.className = 'analyzer-step-count';
                 cInfo.textContent = plan.infoNotes.length + ' note' + (plan.infoNotes.length !== 1 ? 's' : '');
@@ -1154,7 +1154,7 @@
                     annCode.textContent = note.code;
                     card.appendChild(annCode);
                     let msg = document.createElement('div');
-                    msg.style.cssText = 'margin-top: 6px; font-size: 0.88rem;';
+                    msg.style.cssText = 'margin-top: 6px; font-size: var(--fs-body); line-height: var(--lh-body);';
                     msg.textContent = note.message;
                     card.appendChild(msg);
                     stepInfo.appendChild(card);
@@ -1200,14 +1200,14 @@
                     annCode.textContent = cardData.code;
                     card.appendChild(annCode);
                     let desc = document.createElement('div');
-                    desc.style.cssText = 'margin-top: 6px; font-size: 0.88rem;';
+                    desc.style.cssText = 'margin-top: 6px; font-size: var(--fs-body); line-height: var(--lh-body);';
                     desc.textContent = cardData.desc;
                     card.appendChild(desc);
                     if (cardData.anchor) {
                         let link = document.createElement('a');
                         link.href = '#' + cardData.anchor;
-                        link.style.cssText = 'font-size: 0.82rem; margin-top: 4px; display: inline-block;';
-                        link.textContent = 'See Reference Guide →';
+                        link.style.cssText = 'font-size: var(--fs-caption); line-height: var(--lh-caption); margin-top: 4px; display: inline-block;';
+                        link.textContent = 'See reference guide →';
                         link.addEventListener('click', function(e) {
                             e.preventDefault();
                             let sidebarLink = document.querySelector('.sidebar-link[data-section="' + cardData.sidebarSection + '"]');
@@ -1235,9 +1235,7 @@
                 h4.textContent = plan.unrecognized.title;
                 unrecSection.appendChild(h4);
                 let desc = document.createElement('p');
-                desc.style.fontSize = '0.9rem';
-                desc.style.color = 'var(--text-secondary)';
-                desc.style.marginBottom = '10px';
+                desc.className = 'analyzer-unrecognized-desc';
                 desc.textContent = plan.unrecognized.desc;
                 unrecSection.appendChild(desc);
                 plan.unrecognized.items.forEach(function(u) {
@@ -1253,13 +1251,11 @@
                     unrecSection.appendChild(uCard);
                 });
                 let contributeP = document.createElement('p');
-                contributeP.style.fontSize = '0.85rem';
-                contributeP.style.marginTop = '10px';
+                contributeP.className = 'analyzer-contribute';
                 let contributeLink = document.createElement('a');
                 contributeLink.href = 'https://github.com/nginx/kubernetes.nginx.org';
                 contributeLink.target = '_blank';
                 contributeLink.rel = 'noopener noreferrer';
-                contributeLink.style.color = 'var(--green-text)';
                 contributeLink.textContent = 'Contribute a mapping on GitHub →';
                 contributeP.appendChild(contributeLink);
                 unrecSection.appendChild(contributeP);
@@ -1291,12 +1287,12 @@
                 clipSvg.appendChild(rect1);
                 clipSvg.appendChild(path1);
                 copyAllBtn.appendChild(clipSvg);
-                copyAllBtn.appendChild(document.createTextNode('Copy All Migration YAML'));
+                copyAllBtn.appendChild(document.createTextNode('Copy all migration YAML'));
                 copyAllBtn.addEventListener('click', function() {
                     function restoreLabel() {
                         copyAllBtn.textContent = '';
                         copyAllBtn.appendChild(clipSvg);
-                        copyAllBtn.appendChild(document.createTextNode('Copy All Migration YAML'));
+                        copyAllBtn.appendChild(document.createTextNode('Copy all migration YAML'));
                         copyAllBtn.classList.remove('copied');
                     }
                     function onCopied() {
@@ -1407,7 +1403,7 @@
                 editPath2.setAttribute('d', 'M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z');
                 editSvg.appendChild(editPath); editSvg.appendChild(editPath2);
                 editBtn.appendChild(editSvg);
-                editBtn.appendChild(document.createTextNode('Edit YAML & Re-Analyze'));
+                editBtn.appendChild(document.createTextNode('Edit YAML & re-analyze'));
                 editBtn.addEventListener('click', function() {
                     // Switch to analyzer page
                     let analyzerPageLink = document.querySelector('.sidebar-link[data-page="analyzer"]');
@@ -1519,7 +1515,7 @@
             requestAnimationFrame(function() {
                 el.scrollIntoView({ behavior: scrollBehavior() });
                 el.style.transition = 'background-color 0.3s';
-                el.style.backgroundColor = document.documentElement.classList.contains('dark-mode') ? 'rgba(255,249,196,0.1)' : '#fff9c4';
+                el.style.backgroundColor = document.documentElement.classList.contains('dark-mode') ? 'rgba(255,211,166,0.12)' : '#FFE4C4';
                 setTimeout(function() {
                     el.style.backgroundColor = '';
                     setTimeout(function() { el.style.transition = ''; }, 300);
@@ -1734,10 +1730,23 @@
                 closeSidebar();
             }
 
-            // Page link click handlers
+            // Page link click handlers. Re-clicking the already-active parent
+            // acts as a disclosure toggle (collapse/expand its subnav, chevron
+            // follows via aria-expanded) instead of re-navigating; switching
+            // pages via showPage() always reopens the active page's subnav.
             pageLinks.forEach(function(link) {
                 link.addEventListener('click', function() {
-                    showPage(this.getAttribute('data-page'));
+                    let id = this.getAttribute('data-page');
+                    if (id === currentPage && this.hasAttribute('aria-controls')) {
+                        let subnav = document.getElementById(this.getAttribute('aria-controls'));
+                        if (subnav) {
+                            let nowOpen = !subnav.classList.contains('open');
+                            subnav.classList.toggle('open', nowOpen);
+                            this.setAttribute('aria-expanded', nowOpen ? 'true' : 'false');
+                            return;
+                        }
+                    }
+                    showPage(id);
                 });
             });
 

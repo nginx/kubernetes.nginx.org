@@ -21,7 +21,7 @@ function initDarkMode() {
 function updateThemeColorMeta() {
     let isDark = document.documentElement.classList.contains('dark-mode') || document.body.classList.contains('dark-mode');
     document.querySelectorAll('meta[name="theme-color"]').forEach(function(m) {
-        m.setAttribute('content', isDark ? '#1a1c25' : '#009639');
+        m.setAttribute('content', isDark ? '#0F1E57' : '#FFFFFF');
     });
 }
 

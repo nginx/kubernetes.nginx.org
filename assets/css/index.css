@@ -1,240 +1,619 @@
-/* index.css — styles specific to the landing page (index.html).
-   Shared chrome (topbar, sidebar, banner, dark-mode tokens, layout) lives in
-   shared.css, which must be linked before this file. */
+/* index.css — the landing page (index.html).
+   =========================================================================
+   Loaded after tokens.css and shared.css. Chrome, buttons, info boxes, code
+   blocks and status dots live in shared.css; what remains here is the
+   landing page's own furniture — heroes, card grids, key details, tables.
 
-/* ── Sidebar dot colors (landing-page nav) ── */
-.sidebar-link .dot[data-color="green"] { background: var(--green); }
-.sidebar-link .dot[data-color="blue"] { background: var(--blue); }
-.sidebar-link .dot[data-color="teal"] { background: var(--teal); }
-.sidebar-link .dot[data-color="red"] { background: var(--red); }
+   Every value resolves to a token in tokens.css. The one thing to know when
+   editing: F5DS pairs a fixed leading with each size, so any rule that sets
+   font-size must restate the paired --lh-*.
 
-/* ── Product Page ── */
-/* Inactive pages are hidden via the hidden="until-found" attribute (markup +
-   index.js), not display:none, so browser find-in-page can search them. */
+   ── What changed visually, and why ────────────────────────────────────────
+   The heroes used to carry a diagonal gradient wash plus a tiled hexagon
+   watermark. Both are gone. The console has no hero art at all, and a gradient
+   was the strongest remaining marketing-page cue on the site; a flat tint band
+   keeps each section distinguishable while reading as a product surface. The
+   eyebrow badge and the hero's structure are kept — that part is this site's,
+   not the console's, and dropping it would have been a rebuild rather than a
+   restyle.
 
-.page-hero { padding: 32px 48px 64px; position: relative; overflow: hidden; }
-.page-hero::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 25%; background: linear-gradient(to bottom, transparent, var(--bg)); pointer-events: none; z-index: 1; }
-.page-hero::before { content: ''; position: absolute; inset: 0; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='43.3' height='75'%3E%3Cpath d='M0 12.5L21.65 0L43.3 12.5L43.3 37.5L21.65 50L0 37.5Z M21.65 50L21.65 75' fill='none' stroke='%23fff' stroke-width='2.4'/%3E%3C/svg%3E"); }
-.page-hero.nic, .page-hero.ngf { background: linear-gradient(135deg, #e8f5e9, #f1f8e9); }
-.page-hero.migration, .page-hero.i2g { background: linear-gradient(135deg, #e3f2fd, #e8eaf6); }
-.page-hero.blogs { background: linear-gradient(135deg, #e0f2f1, #e0f7fa); }
-.page-hero.videos { background: linear-gradient(135deg, #ffebee, #fce4ec); }
-:is(html, body).dark-mode .page-hero.nic, :is(html, body).dark-mode .page-hero.ngf { background: linear-gradient(135deg, #0d1f10, #131f0d); }
-:is(html, body).dark-mode .page-hero.migration, :is(html, body).dark-mode .page-hero.i2g { background: linear-gradient(135deg, #0a1929, #0d1540); }
-:is(html, body).dark-mode .page-hero.blogs { background: linear-gradient(135deg, #0a1a1b, #0a1c1e); }
-:is(html, body).dark-mode .page-hero.videos { background: linear-gradient(135deg, #1f0a0a, #1e0a10); }
-:is(html, body).dark-mode .page-hero::before { opacity: 0.04; }
-.page-hero-content { position: relative; max-width: 900px; z-index: 2; }
-.page-hero-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; margin-bottom: 16px; min-height: 28px; }
-.page-hero-badge.nic, .page-hero-badge.ngf { background: rgba(0,150,57,0.15); color: #005f23; }
-.page-hero-badge.migration, .page-hero-badge.i2g { background: rgba(0,114,176,0.15); color: #004f80; }
-:is(html, body).dark-mode .page-hero-badge.nic, :is(html, body).dark-mode .page-hero-badge.ngf { color: var(--green-text); }
-:is(html, body).dark-mode .page-hero-badge.migration, :is(html, body).dark-mode .page-hero-badge.i2g { color: var(--blue); }
-.page-hero-badge.blogs { background: rgba(0,131,143,0.15); color: var(--teal); }
-.page-hero-badge.videos { background: rgba(198,40,40,0.15); color: var(--red); }
-.hero-version { display: inline-block; padding: 2px 7px; border-radius: 8px; font-size: 0.68rem; font-weight: 700; font-family: var(--mono); margin-left: 4px; color: inherit; text-decoration: none; background: rgba(0,0,0,0.12); transition: background 0.15s; }
-.hero-version:hover { text-decoration: underline; }
-:is(html, body).dark-mode .hero-version { background: rgba(255,255,255,0.1); }
-.page-hero h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 10px; }
-.hero-cta-row { margin-top: 24px; }
-.coming-soon-label { font-weight: 500; opacity: 0.6; }
-.page-hero p { color: var(--text); font-size: 1.05rem; line-height: 1.6; }
+   Cards used to rest on a shadow and strengthen on hover. They are now
+   border-only at rest, which is what the console does on its own landing
+   pages, reserving shadow for surfaces that genuinely float. There is still no
+   hover lift: F5DS's `Elevate Up` is a Motion-page catalogue entry rather than
+   a mandate, and a page of cards rising at once is a lot of motion for a
+   documentation site.
+   ========================================================================= */
 
-.page-body { padding: 0 48px 60px; max-width: 1000px; }
+/* ── Sidebar accent rails ─────────────────────────────────────────────────
+   The hidden .dot spans carry each item's product colour; the active item's
+   left rail (shared.css ::before, green by default) picks it up via :has().
+   The teal and red rules are dormant — they belong to the blogs and videos
+   sections, which are built but not currently linked. Check `git log -S`
+   before deleting anything here as unused. */
+.sidebar-link.active:has(.dot[data-color="blue"])::before { background: var(--blue); }
+.sidebar-link.active:has(.dot[data-color="teal"])::before { background: var(--java); }
+.sidebar-link.active:has(.dot[data-color="red"])::before { background: var(--pomegranate); }
 
-/* ── Section Headings ── */
-.section-heading { font-size: 1.25rem; font-weight: 700; margin-bottom: 16px; margin-top: 36px; padding-bottom: 8px; border-bottom: 2px solid var(--border); }
+/* Matching text colour, so the active item's rail and label agree. */
+.sidebar-link.active:has(.dot[data-color="blue"]) { color: var(--blue-text); }
+.sidebar-link.active:has(.dot[data-color="teal"]) { color: var(--java-text); }
+.sidebar-link.active:has(.dot[data-color="red"])  { color: var(--pomegranate-text); }
+
+
+/* ── Product page ─────────────────────────────────────────────────────────
+   Inactive pages are hidden via the hidden="until-found" attribute (markup +
+   index.js), not display:none, so browser find-in-page can still search them. */
+
+.page-hero {
+    position: relative;
+    overflow: hidden;          /* the pattern layer must not escape the section */
+    padding: var(--space-6x) var(--space-6x) var(--space-5x);
+    background: var(--surface);
+}
+/* A flat tint per section. Each is a 10–16% wash of the section's own hue over
+   the surface, which is enough to tell the pages apart without reading as
+   decoration. The edges are softened by ::after below rather than by making
+   these gradients, so the hue stays a single token per section. */
+.page-hero.home,
+.page-hero.nic,
+.page-hero.ngf       { background: var(--green-tint); }
+.page-hero.migration,
+.page-hero.i2g       { background: var(--blue-tint); }
+.page-hero.blogs     { background: var(--java-tint); }
+.page-hero.videos    { background: var(--pomegranate-tint); }
+
+/* Every soft edge, in one overlay. Two layers of the page background painted
+   back over the tint: downward, so the band dissolves into the page instead of
+   ending on a border; and rightward from the navigation, so the tint ramps up
+   out of the sidebar rather than starting at full strength against it. It
+   covers the whole hero (inset: 0, not bottom-only) because the left wash needs
+   the full height. z-index 1 puts it above ::before — so the lattice fades with
+   the colour rather than staying crisp over a fading band — and below
+   .page-hero-content at z-index 2, which is what keeps it off the CTA. */
+.page-hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    background: linear-gradient(to bottom, transparent 72%, var(--bg) 100%),
+                linear-gradient(to right, var(--bg) 0, transparent 22%);
+}
+
+.page-hero-content { position: relative; z-index: 2; max-width: 900px; }
+
+/* ── The hexagon lattice — the landing hero, and nowhere else ─────────────
+   Carried over from the pre-F5DS design, where it was the page's strongest
+   NGINX signal. F5DS has no background-texture class (see the deviations table
+   in CLAUDE.md), so this is a deliberate departure, confined to the front door:
+   the section heroes below get the same edge treatment without the motif, which
+   keeps the reference pages quiet.
+
+   Two intersecting masks. The horizontal one concentrates the lattice on the
+   right, where the hero is empty, and clears it from behind the headline and
+   CTA — so no text ever sits on texture and no contrast pairing changes. The
+   vertical one feathers the top and bottom. Together they mean the tile has no
+   hard edge on any side; the right simply runs off the viewport. */
+.page-hero.home::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--pattern-hex);
+    -webkit-mask-image: linear-gradient(to right, transparent 0, transparent 26%, #000 78%),
+                        linear-gradient(to bottom, transparent 0, #000 16%, #000 64%, transparent 100%);
+            mask-image: linear-gradient(to right, transparent 0, transparent 26%, #000 78%),
+                        linear-gradient(to bottom, transparent 0, #000 16%, #000 64%, transparent 100%);
+    -webkit-mask-composite: source-in;
+            mask-composite: intersect;
+}
+/* Non-negotiable: at full strength the white strokes cut straight through the
+   headline on a dark page. The pre-F5DS design clamped to 0.04; the mask here
+   already removes the lattice from behind the copy, so it tolerates more. */
+:is(html, body).dark-mode .page-hero.home::before { opacity: 0.10; }
+
+/* ── Section heroes: the same diagonal, carried without the motif ─────────
+   A light wash on the same 105deg angle as the landing lattice, so the two tie
+   together as one system rather than the home page looking unrelated. Their
+   bottom dissolve also starts higher than the landing hero's, because these
+   heroes are shorter and a late start leaves a visible band edge. */
+.page-hero.nic::before,
+.page-hero.ngf::before,
+.page-hero.migration::before,
+.page-hero.i2g::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(105deg, transparent 20%, var(--hero-wash) 62%, transparent 100%);
+}
+.page-hero.nic::after,
+.page-hero.ngf::after,
+.page-hero.migration::after,
+.page-hero.i2g::after {
+    background: linear-gradient(to bottom, transparent 60%, var(--bg) 100%),
+                linear-gradient(to right, var(--bg) 0, transparent 22%);
+}
+
+/* Hero eyebrow. Labelled typographically rather than with a container — a
+   filled capsule is off-idiom, and the pill radius is reserved for tags and
+   badges. Every eyebrow carries its section hue; it is the page's first colour
+   cue, ahead of the CTA and the sidebar rail. */
+.page-hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-base);
+    font-family: var(--font-display);
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    font-weight: 700;
+    color: var(--text);
+    padding-bottom: var(--space-base);
+    margin-bottom: var(--space-2x);
+    border-bottom: 1px solid var(--border);
+}
+.page-hero-badge.home,
+.page-hero-badge.nic,
+.page-hero-badge.ngf       { color: var(--green-deep); }
+.page-hero-badge.migration,
+.page-hero-badge.i2g       { color: var(--blue-text); }
+.page-hero-badge.blogs     { color: var(--java-text); }
+.page-hero-badge.videos    { color: var(--pomegranate-text); }
+:is(html, body).dark-mode .page-hero-badge.home,
+:is(html, body).dark-mode .page-hero-badge.nic,
+:is(html, body).dark-mode .page-hero-badge.ngf { color: var(--green-text); }
+
+/* The version chip beside the eyebrow. Pill radius is legitimate: F5DS permits
+   it for Tags and Badges, which this is. */
+.hero-version {
+    display: inline-block;
+    margin-left: var(--space-small);
+    padding: 0 var(--space-base);
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    font-weight: 500;
+    color: inherit;
+    text-decoration: none;
+    transition: border-color var(--dur-colour) linear;
+}
+.hero-version:hover { border-color: currentColor; text-decoration: underline; }
+
+.page-hero h1 {
+    font-family: var(--font-display);
+    font-size: var(--fs-h1);
+    line-height: var(--lh-h1);
+    font-weight: 700;
+    margin-bottom: var(--space-base);
+}
+.page-hero p {
+    font-size: var(--fs-body-lg);
+    line-height: var(--lh-body-lg);
+    color: var(--text-secondary);
+}
+.hero-cta-row { margin-top: var(--space-3x); }
+.coming-soon-label { font-weight: 500; color: var(--text-secondary); }
+
+.page-body { padding: var(--space-5x) var(--space-6x) var(--space-8x); max-width: 1140px; }
+
+/* The product and tool pages open with a CTA row, and three spacing values were
+   stacking under the hero: its 40px bottom padding, this block's 40px top
+   padding, and .cta-row's own 32px top margin — 113px measured. That margin is
+   meant to separate a CTA row from content above it inside the body; as the
+   first child there is no content above it, only padding, so it double-counted.
+   Zeroing it and easing the top padding brings the row to 64px under the hero. */
+.page-body > .cta-row:first-child { margin-top: 0; }
+.page-body:has(> .cta-row:first-child) { padding-top: var(--space-3x); }
+/* Content-area link colour, scoped so it cannot override the chrome. Card
+   anchors are excluded so they keep `inherit`. */
+.page-body a:link:not(.cta):not(.feature-card):not(.project-card) { color: var(--blue-text); }
+.page-body a:visited:not(.cta):not(.feature-card):not(.project-card) { color: var(--blue-text); }
+.page-body a:hover:not(.cta):not(.feature-card):not(.project-card) { color: var(--blue-deep); }
+
+
+/* ── Section headings ─────────────────────────────────────────────────────── */
+
+.section-heading {
+    font-family: var(--font-display);
+    font-size: var(--fs-h2);
+    line-height: var(--lh-h2);
+    font-weight: 700;
+    margin-top: var(--space-5x);
+    margin-bottom: var(--space-2x);
+    padding-bottom: var(--space-base);
+    border-bottom: 1px solid var(--border);
+}
 .section-heading:first-child { margin-top: 0; }
 .section-heading-plain { border: none; padding-bottom: 0; }
 
-/* ── Feature Grid ── */
-.feature-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 20px 0 32px; }
-.feature-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s; }
-.feature-card:hover { border-color: var(--text-secondary); transform: translateY(-2px); box-shadow: var(--shadow); }
-.feature-card .feature-title { font-size: 0.92rem; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
-.feature-card h3 svg { flex-shrink: 0; opacity: 0.7; }
-.feature-card p { font-size: 0.84rem; color: var(--text-secondary); line-height: 1.5; }
-/* Variant: card whose first child is media (video/image) and content sits in a body block. */
+
+/* ── Card grids ───────────────────────────────────────────────────────────
+   16px gutter is F5DS's published grid gutter. 20px card padding is its
+   "between page content or panels" step, which is what the console's own
+   annotated cards measure. */
+
+/* Two per row, not auto-fill. Auto-fill gave three columns on a wide viewport,
+   which left the fourth card alone on its own row — both of these grids hold
+   four items, so a 2x2 block reads far better than 3+1. */
+.feature-grid, .project-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2x);
+    margin: var(--space-2hx) 0 var(--space-4x);
+}
+
+.feature-card, .project-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-2hx);
+    transition: border-color var(--dur-colour) linear,
+                box-shadow var(--dur-elev) linear;
+}
+.feature-card:hover, .project-card:hover {
+    border-color: var(--border-control);
+    box-shadow: var(--elev-1);
+}
+
+.feature-card .feature-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-base);
+    font-family: var(--font-display);
+    font-size: var(--fs-body-lg);
+    line-height: var(--lh-body-lg);
+    font-weight: 500;
+    margin-bottom: var(--space-base);
+}
+.feature-card h3 svg { flex-shrink: 0; color: var(--green-text); }
+.feature-card p { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-secondary); }
+
+/* Variant: card whose first child is media and whose content sits in a body
+   block below it. */
 .feature-card-flush { padding: 0; overflow: hidden; }
-.feature-card-flush .video-embed { margin: 0; border-radius: 10px 10px 0 0; }
-.feature-card-flush > .feature-card-body { padding: 16px; }
-.feature-card-flush .feature-card-eyebrow { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
-a.feature-card { text-decoration: none; color: inherit; }
-a.feature-card:link, a.feature-card:visited { color: inherit; }
+.feature-card-flush .video-embed { margin: 0; border-radius: var(--radius) var(--radius) 0 0; }
+.feature-card-flush > .feature-card-body { padding: var(--space-2x); }
+.feature-card-flush .feature-card-eyebrow {
+    font-family: var(--font-display);
+    font-size: var(--fs-body-lg);
+    line-height: var(--lh-body-lg);
+    font-weight: 500;
+    margin-bottom: var(--space-base);
+}
+a.feature-card, a.feature-card:link, a.feature-card:visited { text-decoration: none; color: inherit; }
 .feature-card-thumb { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; }
-.feature-card-cta { display: inline-flex; align-items: center; gap: 4px; margin-top: 12px; font-size: 0.82rem; font-weight: 600; color: var(--green-text); }
+.feature-card-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-small);
+    margin-top: var(--space-2x);
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    font-weight: 500;
+    color: var(--blue-text);
+}
 
-/* ── Code Block ── */
-.code-section { margin: 28px 0; }
+.project-card { display: block; text-align: left; text-decoration: none; color: inherit; }
+.project-card:link, .project-card:visited { color: inherit; }
+/* Category eyebrow: typographic rather than a filled capsule, for the same
+   reason as the hero eyebrow. */
+.project-card-badge {
+    display: block;
+    font-family: var(--font-display);
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    font-weight: 700;
+    padding-bottom: var(--space-base);
+    margin-bottom: var(--space-base);
+    border-bottom: 1px solid var(--border);
+}
+.project-card-badge.green { color: var(--green-text); }
+.project-card-badge.blue  { color: var(--blue-text); }
+.project-card h3 {
+    font-family: var(--font-display);
+    font-size: var(--fs-body-lg);
+    line-height: var(--lh-body-lg);
+    font-weight: 500;
+    margin-bottom: var(--space-base);
+}
+.project-card p { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-secondary); }
+.project-card .card-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-small);
+    margin-top: var(--space-2x);
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    font-weight: 500;
+    color: var(--blue-text);
+}
+.project-card .card-link.blue { color: var(--blue-text); }
+.project-card .card-fit {
+    margin-top: var(--space-base);
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    font-weight: 500;
+    color: var(--green-text);
+}
+
+
+/* ── Code section ─────────────────────────────────────────────────────────
+   The block itself, its syntax tokens and the copy button are in shared.css. */
+.code-section { margin: var(--space-3hx) 0; }
 .code-section-flush { margin-top: 0; }
-.code-section h2 { font-size: 1rem; font-weight: 700; margin-bottom: 12px; }
+.code-section h2 {
+    font-size: var(--fs-body-lg);
+    line-height: var(--lh-body-lg);
+    font-weight: 500;
+    margin-bottom: var(--space-base);
+}
+.code-block + .code-block { margin-top: var(--space-2x); }
+.code-accent { background: var(--blue-tint); color: var(--blue); }
 
-.code-block { background: #1a1c25; border-radius: 10px; padding: 20px; overflow-x: auto; border: 1px solid #2a2d38; position: relative; color-scheme: dark; }
-.code-block + .code-block { margin-top: 12px; }
-.code-block code { font-family: var(--mono); font-size: 0.82rem; color: #d4d4d4; line-height: 1.7; white-space: pre; display: block; }
-.code-block .cmd { color: #9cdcfe; }
-.code-block .flag { color: #ce9178; }
-.code-block .comment { color: #6a9955; }
-.code-block .str { color: #ce9178; }
-.code-accent { background: rgba(0,114,176,0.1); color: var(--blue); }
 
-/* ── Copy Button ── */
-.copy-btn { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: #9ca3af; padding: 6px 12px; border-radius: 6px; font-size: 0.72rem; font-family: var(--font); cursor: pointer; transition: background 0.2s, color 0.2s, border-color 0.2s; z-index: 2; min-height: 28px; }
-.copy-btn:hover { background: rgba(255,255,255,0.18); color: #d4d4d4; }
-.copy-btn:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
-.copy-btn.copied { background: rgba(76,175,80,0.3); color: #66bb6a; border-color: rgba(76,175,80,0.4); }
+/* ── CTAs ─────────────────────────────────────────────────────────────────
+   Geometry and the primary/secondary variants live in shared.css. What remains
+   here is the per-section colour: each page leads with its own hue, so the
+   primary fill is overridden per section. The hero CTAs take M-40 as their most
+   prominent action; F5DS says use that size sparingly. */
+.cta-row { margin-top: var(--space-4x); }
+.cta-primary.nic, .cta-primary.ngf { background: var(--green-dark); border-color: var(--green-dark); }
+.cta-primary.nic:hover, .cta-primary.ngf:hover { background: var(--green-deep); border-color: var(--green-deep); }
+.cta-primary.migration, .cta-primary.i2g { background: var(--blue-text); border-color: var(--blue-text); color: var(--n0); }
+.cta-primary.migration:hover, .cta-primary.i2g:hover { background: var(--blue-deep); border-color: var(--blue-deep); }
+.cta-primary.blogs { background: var(--java-text); border-color: var(--java-text); color: var(--n0); }
+.cta-primary.videos { background: var(--pomegranate-text); border-color: var(--pomegranate-text); color: var(--n0); }
+.cta-disabled { border: 1px solid var(--border); }
 
-/* ── CTA Row ── */
-.cta-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 32px; }
-.cta { display: inline-flex; align-items: center; gap: 8px; padding: 10px 22px; border-radius: 8px; font-size: 0.88rem; font-weight: 600; text-decoration: none; transition: background 0.2s, border-color 0.2s, color 0.2s; }
-.cta:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
-.cta-primary { color: #fff; }
-.cta-primary.nic, .cta-primary.ngf { background: var(--green-dark); }
-.cta-primary.nic:hover, .cta-primary.ngf:hover { background: #005523; }
-.cta-primary.migration, .cta-primary.i2g { background: var(--blue-dark); }
-.cta-primary.migration:hover, .cta-primary.i2g:hover { background: #004a75; }
-:is(html, body).dark-mode .cta-primary.nic, :is(html, body).dark-mode .cta-primary.ngf { background: var(--green); color: #0a1a0e; }
-:is(html, body).dark-mode .cta-primary.nic:hover, :is(html, body).dark-mode .cta-primary.ngf:hover { background: #28b84c; }
-:is(html, body).dark-mode .cta-primary.migration, :is(html, body).dark-mode .cta-primary.i2g { background: var(--blue); color: #0a1929; }
-:is(html, body).dark-mode .cta-primary.migration:hover, :is(html, body).dark-mode .cta-primary.i2g:hover { background: #4090e0; }
-.cta-primary.blogs { background: var(--teal); }
-.cta-primary.blogs:hover { background: var(--teal-dark); }
-.cta-primary.videos { background: var(--red); }
-.cta-primary.videos:hover { background: var(--red-dark); }
-:is(html, body).dark-mode .cta-primary.blogs { background: var(--teal); color: #0a1a1b; }
-:is(html, body).dark-mode .cta-primary.blogs:hover { background: #3dbcc9; }
-:is(html, body).dark-mode .cta-primary.videos { background: var(--red); color: #1f0a0a; }
-:is(html, body).dark-mode .cta-primary.videos:hover { background: #e07a9c; }
-.cta-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
-.cta-secondary:hover { border-color: var(--text-secondary); }
-.cta-disabled { opacity: 0.6; cursor: default; border: none; }
-.cta svg { width: 16px; height: 16px; flex-shrink: 0; }
+:is(html, body).dark-mode .cta-primary.nic,
+:is(html, body).dark-mode .cta-primary.ngf { background: var(--green); border-color: var(--green); color: var(--n700); }
+:is(html, body).dark-mode .cta-primary.migration,
+:is(html, body).dark-mode .cta-primary.i2g { background: var(--blue); border-color: var(--blue); color: var(--n700); }
 
-/* ── Info Box ── */
-.info-box { padding: 16px 20px; border-radius: 8px; margin: 20px 0; font-size: 0.88rem; line-height: 1.6; }
-.info-box.tip, .info-box.tip-green { background: #e8f5e9; border-left: 4px solid var(--green); color: #2e7d32; }
-:is(html, body).dark-mode .info-box.tip, :is(html, body).dark-mode .info-box.tip-green { background: #1b3a1f; color: var(--green-text); }
-.info-box.info { background: #e3f2fd; border-left: 4px solid var(--blue); color: #1565c0; }
-:is(html, body).dark-mode .info-box.info { background: #0d2137; color: #64b5f6; }
-.info-box.warning { background: #fff3e0; border-left: 4px solid var(--orange); color: #bf4000; }
-:is(html, body).dark-mode .info-box.warning { background: #2d1a00; color: #ffb74d; }
 
-/* ── Key Details ── */
-.key-details { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin: 28px 0; }
-.key-details h2 { font-size: 1rem; font-weight: 700; margin-bottom: 16px; }
-.details-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-.detail-item { display: flex; flex-direction: column; gap: 6px; }
-.detail-label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); }
-.detail-value { font-size: 0.88rem; font-weight: 500; }
-.detail-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.detail-tag { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 0.76rem; font-weight: 500; background: var(--bg); border: 1px solid var(--border); transition: border-color 0.15s; }
-.detail-tag a { color: inherit; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 2px; }
+/* ── Key details ──────────────────────────────────────────────────────────── */
+
+.key-details {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-2hx);
+    margin: var(--space-3hx) 0;
+}
+.key-details h2 {
+    font-size: var(--fs-body-lg);
+    line-height: var(--lh-body-lg);
+    font-weight: 500;
+    margin-bottom: var(--space-2x);
+}
+.details-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: var(--space-3x);
+}
+.detail-item { display: flex; flex-direction: column; gap: var(--space-base); }
+.detail-label {
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+.detail-value { font-size: var(--fs-body); line-height: var(--lh-body); }
+.detail-tags { display: flex; flex-wrap: wrap; gap: var(--space-base); }
+.detail-tag {
+    display: inline-block;
+    padding: var(--space-small) var(--space-base);
+    border-radius: var(--radius);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border);
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    transition: border-color var(--dur-colour) linear;
+}
+.detail-tag:hover { border-color: var(--border-control); }
+.detail-tag a { color: inherit; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 2px; }
 .detail-tag a:hover { text-decoration-color: currentColor; }
-.detail-tag a:focus-visible, .version-pill a:focus-visible, .hero-version:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; border-radius: 4px; }
-.version-pill { display: inline-block; align-self: flex-start; padding: 3px 10px; border-radius: 12px; font-size: 0.78rem; font-weight: 700; font-family: var(--mono); }
+
+/* A version. Pill radius is legitimate — Tags and Badges are F5DS's own
+   exception — and mono sets it apart as a value rather than prose. */
+.version-pill {
+    display: inline-block;
+    align-self: flex-start;
+    padding: var(--space-small) var(--space-base);
+    border-radius: var(--radius-pill);
+    font-family: var(--mono);
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    font-weight: 500;
+}
 .version-pill a { color: inherit; text-decoration: none; }
 .version-pill a:hover { text-decoration: underline; }
-.version-pill.nic, .version-pill.ngf { background: rgba(0,150,57,0.12); color: #005f23; }
-.version-pill.i2g { background: rgba(0,114,176,0.12); color: #004f80; }
-:is(html, body).dark-mode .version-pill.nic, :is(html, body).dark-mode .version-pill.ngf { color: var(--green-text); }
-:is(html, body).dark-mode .version-pill.i2g { color: var(--blue); }
-:is(html, body).dark-mode .page-body a:link:not(.cta) { color: var(--blue); }
-:is(html, body).dark-mode .page-body a:visited:not(.cta) { color: var(--text); }
+.version-pill.nic, .version-pill.ngf { background: var(--green-tint); color: var(--green-deep); }
+.version-pill.i2g { background: var(--blue-tint); color: var(--blue-text); }
+:is(html, body).dark-mode .version-pill.nic,
+:is(html, body).dark-mode .version-pill.ngf { color: var(--green-text); }
+:is(html, body).dark-mode .version-pill.i2g { color: var(--blue-text); }
 
-/* ── Compatibility Table ── */
-.compat-table { width: 100%; border-collapse: collapse; margin: 16px 0; }
-.compat-table th, .compat-table td { padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.86rem; }
-.compat-table th { font-weight: 600; color: var(--text-secondary); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; background: var(--bg); }
+
+/* ── Compatibility table ──────────────────────────────────────────────────
+   F5DS publishes no table component, so the cell padding here is inferred
+   from the console's own screens. The Caption Bold column header is spec. */
+.compat-table { width: 100%; border-collapse: collapse; margin: var(--space-2x) 0; }
+.compat-table th, .compat-table td {
+    padding: var(--space-base) var(--space-2x);
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: var(--fs-body);
+    line-height: var(--lh-body);
+}
+.compat-table th {
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    font-weight: 700;
+    color: var(--text-secondary);
+    background: var(--surface-sunken);
+}
 .compat-table td:first-child { font-weight: 500; }
 
-/* ── Annotation Grid (i2g) ── */
-.annotation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 16px 0; }
-.annotation-grid-header { padding: 10px 16px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); background: var(--bg); }
-.annotation-grid-cell { padding: 8px 16px; font-size: 0.82rem; background: var(--surface); font-family: var(--mono); word-break: break-all; }
+
+/* ── Annotation grid (ingress2gateway) ────────────────────────────────────
+   Dormant by design: built for the ingress2gateway page's annotation table and
+   currently unreferenced in markup. Keep. */
+.annotation-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin: var(--space-2x) 0;
+}
+.annotation-grid-header {
+    padding: var(--space-base) var(--space-2x);
+    background: var(--surface-sunken);
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+.annotation-grid-cell {
+    padding: var(--space-base) var(--space-2x);
+    background: var(--surface);
+    font-family: var(--mono);
+    font-size: var(--fs-code);
+    line-height: var(--lh-code);
+    word-break: break-all;
+}
 .annotation-grid-cell.desc { font-family: var(--font); color: var(--text-secondary); word-break: normal; }
 
-/* ── Preview Card (Migration) ── */
-.preview-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin: 20px 0; text-align: center; }
-.preview-card p { font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5; }
-.preview-stats { display: flex; justify-content: center; gap: 28px; flex-wrap: wrap; }
+
+/* ── Preview card (migration tool teaser) ─────────────────────────────────── */
+
+.preview-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-3x);
+    margin: var(--space-2hx) 0;
+    text-align: center;
+}
+.preview-card p {
+    font-size: var(--fs-body);
+    line-height: var(--lh-body);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-2x);
+}
+.preview-stats { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--space-4x); }
 .preview-stat { text-align: center; }
-.preview-stat .num { font-size: 1.6rem; font-weight: 800; display: block; }
-.preview-stat .num.migration { color: var(--blue); }
-.preview-stat .label { font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+.preview-stat .num {
+    display: block;
+    font-family: var(--font-display);
+    font-size: var(--fs-h2);
+    line-height: var(--lh-h2);
+    font-weight: 700;
+}
+.preview-stat .num.migration { color: var(--blue-text); }
+.preview-stat .label {
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    font-weight: 500;
+    color: var(--text-secondary);
+}
 
-/* ── Home / What's New ── */
-.page-hero.home { background: linear-gradient(135deg, #e8f5e9, #e0f2f1); }
-:is(html, body).dark-mode .page-hero.home { background: linear-gradient(135deg, #0d1f10, #0a1a1b); }
-.page-hero-badge.home { background: rgba(0,150,57,0.15); color: #005f23; }
-:is(html, body).dark-mode .page-hero-badge.home { color: var(--green-text); }
 
-/* ── Project Cards (Home) ── */
-.project-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 20px 0 32px; }
-.project-card { display: block; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s; text-align: left; text-decoration: none; color: inherit; }
-.project-card:link, .project-card:visited { color: inherit; }
-.project-card:hover { border-color: var(--text-secondary); transform: translateY(-2px); box-shadow: var(--shadow); }
-.project-card:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; border-radius: 10px; }
-.project-card-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
-.project-card-badge.green { background: rgba(0,150,57,0.12); color: #005f23; }
-.project-card-badge.blue { background: rgba(0,114,176,0.12); color: #004f80; }
-:is(html, body).dark-mode .project-card-badge.green { color: var(--green-text); }
-:is(html, body).dark-mode .project-card-badge.blue { color: var(--blue); }
-.project-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 8px; }
-.project-card p { font-size: 0.86rem; color: var(--text-secondary); line-height: 1.55; }
-.project-card .card-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 12px; font-size: 0.82rem; font-weight: 600; color: var(--green-text); }
-.project-card .card-link.blue { color: var(--blue); }
-.project-card .card-fit { margin-top: 10px; font-size: 0.8rem; font-weight: 600; color: var(--green-text); }
+/* ── Video embed ──────────────────────────────────────────────────────────── */
 
-/* ── Video Embed ── */
-.video-embed { position: relative; width: 100%; padding-bottom: 56.25%; border-radius: 10px; overflow: hidden; margin: 20px 0 32px; background: #000; }
+.video-embed {
+    position: relative;
+    width: 100%;
+    padding-bottom: 56.25%;
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin: var(--space-2hx) 0 var(--space-4x);
+    background: var(--n700);
+}
 .video-embed iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
-/* Click-to-load poster for YouTube embeds — avoids loading the full iframe payload until requested. */
+/* Click-to-load poster: avoids the full iframe payload until requested. */
 .video-poster { cursor: pointer; }
-.video-poster:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
-.video-poster-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; transition: filter 0.2s; }
+.video-poster-img {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transition: filter var(--dur-colour) linear;
+}
 .video-poster:hover .video-poster-img { filter: brightness(0.85); }
-.video-poster-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; opacity: 0.92; transition: opacity 0.2s, transform 0.2s; }
-.video-poster:hover .video-poster-play { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
+.video-poster-play {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    opacity: 0.92;
+    transition: opacity var(--dur-colour) linear;
+}
+.video-poster:hover .video-poster-play { opacity: 1; }
 
-/* ── Entrance Animation ── */
-.animate-in { opacity: 0; transform: translateY(12px); }
-.animate-in.visible { opacity: 1; transform: translateY(0); transition: opacity 0.4s ease, transform 0.4s ease; }
-/* Inactive (display:none) pages must always render their entrance items as fully visible
-   so they snap in immediately when activated, regardless of any leftover animate-in state. */
+
+/* ── Entrance animation ───────────────────────────────────────────────────
+   F5DS's Fade In, with the 8px travel its Move In pairs with. */
+.animate-in { opacity: 0; transform: translateY(8px); }
+.animate-in.visible {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity var(--dur-move) var(--ease-enter),
+                transform var(--dur-move) var(--ease-enter);
+}
+/* An inactive page must render its entrance items fully visible so they snap in
+   immediately when activated, whatever animate-in state was left behind. */
 .product-page:not(.active) .animate-in { opacity: 1; transform: none; transition: none; }
 
 .svg-sprite { display: none; }
 
-/* ── Reduced Motion ── */
 @media (prefers-reduced-motion: reduce) {
     .animate-in { opacity: 1; transform: none; }
 }
 
-/* ── Responsive: Sidebar collapses ── */
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+
 @media (max-width: 900px) {
-    .page-hero { padding: 32px 24px 28px; }
-    .page-hero h1 { font-size: 1.5rem; }
-    .page-body { padding: 28px 24px 40px; }
+    .page-hero { padding: var(--space-4x) var(--space-3x) var(--space-3x); }
+    .page-hero h1 { font-size: var(--fs-h2); line-height: var(--lh-h2); }
+    .page-body { padding: var(--space-3hx) var(--space-3x) var(--space-5x); }
     .feature-grid, .project-grid { grid-template-columns: 1fr; }
-    .details-grid { grid-template-columns: 1fr; }
-    .annotation-grid { grid-template-columns: 1fr; }
+    .details-grid, .annotation-grid { grid-template-columns: 1fr; }
     .annotation-grid-header:nth-child(2) { display: none; }
 }
 
-/* ── Responsive: Compact ── */
 @media (max-width: 600px) {
-    .page-hero { padding: 24px 16px 20px; }
-    .page-hero h1 { font-size: 1.3rem; }
-    .page-hero p { font-size: 0.92rem; }
-    .page-body { padding: 20px 16px 32px; }
+    .page-hero { padding: var(--space-3x) var(--space-2x) var(--space-2hx); }
+    .page-hero h1 { font-size: var(--fs-h3); line-height: var(--lh-h3); }
+    .page-hero p { font-size: var(--fs-body); line-height: var(--lh-body); }
+    .page-body { padding: var(--space-2hx) var(--space-2x) var(--space-4x); }
+    /* No room for the lattice on a phone: the hero is short and full-bleed, so
+       the mask has no empty right-hand region to occupy and the tile would run
+       straight under the copy. The edge washes stay — they are what removes the
+       band edge, which matters more at this width, not less. */
+    .page-hero.home::before { display: none; }
     .cta-row { flex-direction: column; }
     .cta { justify-content: center; width: 100%; }
-    .preview-stats { gap: 20px; }
+    .preview-stats { gap: var(--space-2hx); }
 }
 
-/* ── Print ── */
+
+/* ── Print ────────────────────────────────────────────────────────────────
+   Chrome hiding and the dark-token reset live in shared.css. */
 @media print {
-    /* Chrome hiding + dark-token reset live in shared.css */
-    .code-block { background: #f5f5f5 !important; border-color: #ccc; color-scheme: light; }
-    .code-block code, .code-block .cmd, .code-block .flag, .code-block .comment, .code-block .str { color: #333 !important; }
+    .page-hero { background: var(--n0) !important; }
+    /* The rule above only resets the element's own background; both decorative
+       layers are separate boxes and would otherwise print. */
+    .page-hero::before,
+    .page-hero::after { display: none !important; }
+    .code-block { background: var(--n100) !important; border-color: var(--n300); color-scheme: light; }
+    .code-block code,
+    .code-block .cmd, .code-block .flag,
+    .code-block .comment, .code-block .str { color: var(--n700) !important; }
+    .feature-card, .project-card, .key-details, .preview-card { break-inside: avoid; }
 }
