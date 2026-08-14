@@ -106,9 +106,14 @@ class Check:
             self.failures.append(entry)
 
     def note(self, path, lineno, line):
+        # Deduplicated: two scans below (spacing/radius/type, then colour) share
+        # the same EXEMPT list, so a line like `border-radius: 50%` is reached
+        # by both and used to be listed — and counted — twice.
         if rel(path) in LEGACY:
             return
-        self.exemptions.append(f'{rel(path)}:{lineno}  {line.strip()}')
+        entry = f'{rel(path)}:{lineno}  {line.strip()}'
+        if entry not in self.exemptions:
+            self.exemptions.append(entry)
 
 
 def run():
@@ -210,8 +215,11 @@ def run():
     # stop, a gradient stop, a scrim -- because there it means "opaque" or
     # "transparent" rather than a colour anyone perceives. Anything carrying
     # hue fails wherever it appears.
-    COLOURLESS = re.compile(r'#[0-9A-Fa-f]{3,8}\b|\brgba?\(')
-    HEX = re.compile(r'#([0-9A-Fa-f]{3,8})\b')
+    # (?<!&) keeps an HTML numeric entity from reading as a colour. `&#9654;`
+    # is the ▶ used in the reference tables; its four digits are a valid #RGBA
+    # literal, so length alone cannot tell them apart — only the leading &.
+    COLOURLESS = re.compile(r'(?<!&)#[0-9A-Fa-f]{3,8}\b|\brgba?\(')
+    HEX = re.compile(r'(?<!&)#([0-9A-Fa-f]{3,8})\b')
     RGB = re.compile(r'\brgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)')
 
     def hues(line):
