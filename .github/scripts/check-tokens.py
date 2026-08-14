@@ -194,23 +194,56 @@ def run():
     # three raw hexes reached the print block in migration.css, duplicating
     # tokens that already existed.
     #
-    # Colour belongs in tokens.css, so only the consuming stylesheets are
-    # scanned. Two exemptions, both structural rather than stylistic:
-    #   - a mask/gradient stop, where #000 and #fff mean "opaque" and
-    #     "transparent" rather than a colour anyone sees
-    #   - an inline SVG data URI in the :root asset block, where the fill is
-    #     percent-encoded into the URL
-    COLOUR = re.compile(r'#[0-9A-Fa-f]{3,8}\b|\brgba?\(')
+    # Colour belongs in tokens.css, so the consuming stylesheets are scanned.
+    # Inline style= and JS cssText are NOT scanned yet: the theme-color metas
+    # and the inline NGINX logo carry hexes that cannot be tokens, so that
+    # extension needs an exemption list first.
+    #
+    # The exemption is per-VALUE, not per-line. An earlier version skipped any
+    # line mentioning mask or gradient, which meant
+    # `linear-gradient(#FF0000, #00FF00)` passed -- and a gradient is exactly
+    # where an off-token colour hides. So: a literal with no hue (#000, #fff,
+    # rgba(0,0,0,.5)) is allowed where it is doing structural work -- a mask
+    # stop, a gradient stop, a scrim -- because there it means "opaque" or
+    # "transparent" rather than a colour anyone perceives. Anything carrying
+    # hue fails wherever it appears.
+    COLOURLESS = re.compile(r'#[0-9A-Fa-f]{3,8}\b|\brgba?\(')
+    HEX = re.compile(r'#([0-9A-Fa-f]{3,8})\b')
+    RGB = re.compile(r'\brgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)')
+
+    def hues(line):
+        """Colour literals on this line that are not pure greys."""
+        found = []
+        for m in HEX.finditer(line):
+            h = m.group(1)
+            if len(h) in (3, 4):
+                h = ''.join(ch * 2 for ch in h)
+            r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+            if not (r == g == b):
+                found.append(m.group(0))
+        for m in RGB.finditer(line):
+            r, g, b = (float(x) for x in m.groups())
+            if not (r == g == b):
+                found.append(m.group(0))
+        return found
+
+    STRUCTURAL = re.compile(r'\b(mask|gradient|scrim)\b')
     for path in css:
-        if path.endswith('tokens.css'):
+        if path.endswith('tokens.css'):       # colour is defined here by design
             continue
         with open(path, encoding='utf-8') as fh:
             text = strip_css_comments(fh.read())
         for lineno, line in enumerate(text.split('\n'), 1):
-            if 'data:image/svg' in line or 'mask-image' in line or 'mask:' in line:
+            if 'data:image/svg' in line:      # percent-encoded fill inside a URL
                 continue
-            if COLOUR.search(line) and not re.search(r'\b(mask|gradient)\b', line):
-                c.fail(path, lineno, 'raw colour at a call site (define it in tokens.css)', line)
+            bad = hues(line)
+            if bad:
+                c.fail(path, lineno,
+                       f'raw colour at a call site ({bad[0]}) — define it in tokens.css', line)
+            elif COLOURLESS.search(line) and not STRUCTURAL.search(line):
+                c.fail(path, lineno,
+                       'raw grey at a call site — use a neutral token', line)
+
 
     # ── Retired colours ───────────────────────────────────────────────────
     # The previous marketing palette, plus Kubernetes blue. F5 Brand Red is on
