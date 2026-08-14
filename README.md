@@ -25,7 +25,34 @@ The community site for NGINX's Kubernetes ecosystem, served via GitHub Pages at 
 
 ## Project Structure
 
-This is a documentation-only project with no build system, tests, or package manager. All pages are static HTML with first-party CSS/JS under `assets/` and no third-party runtime dependencies.
+This is a documentation-only project with **no build system and no package manager**. All pages are static HTML with first-party CSS/JS under `assets/` and no third-party runtime dependencies of any kind — including the webfont, which is self-hosted.
+
+The site follows the **F5 Design System**, the design system behind the F5 Distributed Cloud console. `assets/css/tokens.css` is the whole design surface: every colour, size, space, radius, shadow and duration used anywhere resolves to a token declared there.
+
+### Running it locally
+
+Paths are relative, so opening `index.html` straight from the filesystem works. For a closer match to production:
+
+```console
+python3 -m http.server
+```
+
+Then open <http://localhost:8000>.
+
+### Checks
+
+There is no CI for these yet; run them before opening a pull request.
+
+```console
+python3 .github/scripts/check-tokens.py     # token invariants, retired colours, undefined var()
+python3 .github/scripts/check-contrast.py   # every colour pairing against WCAG 2.1 AA, both themes
+python3 .github/scripts/check-classes.py    # every class used by markup or JS resolves to a CSS rule
+node    .github/scripts/test-analyzer.js    # the migration analyzer, under a DOM stub
+```
+
+Two of those are worth a word. `check-classes.py` matters most after a style change: a class that loses its rule does not error, the element just renders unstyled, which is invisible on a page with thousands of rows. And `test-analyzer.js` exists because `buildPlan` runs each CRD generator inside a `try/catch` that only warns — a broken generator silently drops its resource and the tool still looks like it worked, so the script counts `console.warn` rather than waiting for a thrown exception.
+
+`AGENTS.md` holds the working spec every coding agent reads, with the detail in `.claude/skills/`: the design-system rules and their documented deviations, the migration tool's data-versus-presentation boundary, the version-accuracy rules and the release checklist.
 
 ## Contributing
 
