@@ -1,6 +1,6 @@
 /* migration.css — the migration tool (ingress-nginx-migration.html).
    =========================================================================
-   Loaded after tokens.css and shared.css. Chrome, buttons, info boxes, code
+   Loaded after tokens.css and shared.css. Top bar and sidebar, buttons, info boxes, code
    blocks and status dots live in shared.css; what remains here is the tool's
    own furniture.
 
@@ -95,7 +95,7 @@ main { padding: 0; }
     transition: background var(--dur-reveal) linear;
 }
 
-/* Content-area link colour, scoped so it cannot override the chrome. The
+/* Content-area link colour, scoped so it cannot override the top bar or sidebar. The
    components that must differ (.install-box a, .info-box.warning a) are
    declared later at the same specificity, so source order lets them win. */
 .main-inner a:link { color: var(--blue-text); }
@@ -123,7 +123,7 @@ h3 {
 }
 
 h2[id], h3[id] { display: flex; align-items: center; }
-h2[id], h3[id], section[id] { scroll-margin-top: calc(var(--chrome-h) + var(--space-5x)); }
+h2[id], h3[id], section[id] { scroll-margin-top: calc(var(--fixed-top-h) + var(--space-5x)); }
 .heading-anchor {
     display: inline-flex;
     align-items: center;
@@ -535,15 +535,15 @@ pre code { background: none; border: 0; padding: 0; color: inherit; }
 @media (min-width: 901px) {
     .controls {
         position: sticky;
-        top: var(--chrome-h);
+        top: var(--fixed-top-h);
         z-index: 5;
         background: var(--surface);
         padding: var(--space-base) 0;
         margin: calc(var(--space-base) * -1) 0 var(--space-2hx);
     }
-    /* Headings below the sticky bar need clearance for chrome plus the bar. */
+    /* Headings below the sticky bar need clearance for the fixed header plus the bar. */
     #mappings h3[id], #plus-mappings h3[id], #configmap-mappings h3[id] {
-        scroll-margin-top: calc(var(--chrome-h) + var(--space-8x) + var(--space-2x));
+        scroll-margin-top: calc(var(--fixed-top-h) + var(--space-8x) + var(--space-2x));
     }
 }
 .controls input[type="search"], .controls select {
@@ -840,8 +840,8 @@ button.analyzer-pill { font-family: var(--font); }
 .analyzer-info  { background: var(--purple-tint); border-left: 4px solid var(--purple); }
 
 #analyzerResults { margin-top: var(--space-2hx); }
-/* Analyzer scroll targets (results, step jumps) must clear the fixed chrome. */
-#analyzerResults, .analyzer-step, #analyzer-unrecognized { scroll-margin-top: calc(var(--chrome-h) + var(--space-2x)); }
+/* Analyzer scroll targets (results, step jumps) must clear the fixed header. */
+#analyzerResults, .analyzer-step, #analyzer-unrecognized { scroll-margin-top: calc(var(--fixed-top-h) + var(--space-2x)); }
 .analyzer-unrecognized-section { margin-top: var(--space-2hx); }
 .analyzer-unrecognized-section h4 {
     margin-bottom: var(--space-base);
@@ -1336,7 +1336,7 @@ button.analyzer-pill { font-family: var(--font); }
    Almost everything above now resolves through tokens that already flip, so
    what remains is only the handful of cases where a light-theme choice does not
    translate. Content link colour is page-scoped here for the same reason it is
-   in index.css: declaring it globally would override the chrome. */
+   in index.css: declaring it globally would override the top bar and sidebar. */
 :is(html, body).dark-mode .main-inner a:link { color: var(--blue-text); }
 :is(html, body).dark-mode .main-inner a:visited { color: var(--blue-text); }
 /* The chip needs no dark override: --code-chip-bg is N400 at 22%, so it lifts
@@ -1437,8 +1437,8 @@ button.analyzer-pill { font-family: var(--font); }
 
 
 /* ── Print ────────────────────────────────────────────────────────────────
-   Chrome (top bar, sidebar, backdrop, banner, scroll-to-top, copy buttons) is
-   hidden by shared.css. */
+   The top bar, sidebar, backdrop, banner, scroll-to-top button and copy
+   buttons are hidden by shared.css. */
 @media print {
     .analyzer-actions, .analyzer-input-status, .analyzer-drop-zone,
     .analyzer-copy-btn, .analyzer-copy-all, .analyzer-download-btn,

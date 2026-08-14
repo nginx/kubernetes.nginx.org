@@ -1,6 +1,6 @@
     /* index.js — behavior specific to the landing page (index.html): version
        auto-fetch, SPA product switching, entrance animation, YouTube posters.
-       Shared chrome (dark mode, sidebar drawer, copy-to-clipboard, copyright
+       Shared behavior (dark mode, sidebar drawer, copy-to-clipboard, copyright
        year) lives in shared.js, which loads first and exposes those globals. */
     (function() {
         'use strict';

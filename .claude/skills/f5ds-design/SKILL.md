@@ -11,9 +11,9 @@ The hard constraints are in `AGENTS.md` and apply whether or not this skill is l
 
 ## What the site follows
 
-The **F5 Design System (F5DS)** — the design system behind the F5 Distributed Cloud console. Sources: `~/.claude/skills/f5-product-ui-core` (offline pack) and the live zeroheight styleguide via the `zeroheight` MCP. All of it: colour, spacing, radius, elevation, motion and type.
+The **F5 Design System (F5DS)** — the design system behind the F5 Distributed Cloud console. All of it: colour, spacing, radius, elevation, motion and type. Check values against F5's own design-system documentation; this file and `tokens.css` record what was taken from it and why.
 
-The site previously ran F5DS typography over the F5 **marketing** palette. That split is gone. Do not reintroduce it: `f5-brand-core` (Neusa Next Pro Wide / Proxima Nova, F5 Red, the Brand Center ramps) is a different standard, and a value that is correct in one is a defect in the other. `check-tokens.py` fails on the retired marketing hexes by name.
+The site previously ran F5DS typography over the F5 **marketing** palette. That split is gone. Do not reintroduce it: the F5 **marketing** brand system (Neusa Next Pro Wide / Proxima Nova, F5 Red, the Brand Center ramps) is a different standard, and a value that is correct in one is a defect in the other. `check-tokens.py` fails on the retired marketing hexes by name.
 
 ## Accents, and why green leads
 
@@ -98,10 +98,10 @@ Do not let a scanner or a tidying pass "fix" these.
 | **Two button vocabularies** — `.cta*` and `.btn*` | Given identical geometry in `shared.css` rather than merged, because consolidating means editing markup in two pages for no visual gain. Compose new work onto `.btn`. |
 | **`--mono` = SF Mono** (not F5DS's Courier) | Courier is unreadable at code-block sizes; docs.nginx.com deviates identically. Inline `code` also sizes at `0.9em`, relative to its context rather than off the scale. |
 | **Code syntax palette** (`--code-key`/`-string`/`-comment`/`-keyword`/`-number`/`-punct`) | F5DS publishes no code palette and no syntax-highlighting guidance at all. VS Code Dark+, as the pre-F5DS design and docs.nginx.com both use, adjusted only where contrast required it (`#808080` → `#8B9099`, since VS Code's own separator grey measures 4.19:1 on `--code-bg`). **Do not "fix" these to status hues** — that was tried and broke two rules at once: status hues carry sentiment rather than token role, and `--emerald`/`--amber` were being rendered as text, which this site forbids. The print block inverts them, because the code surface prints light. |
-| **Code surface is neutral `#1E1E1E`, not N700 navy** | Hue proximity between a navy code block and the navy page chrome hurt readability. This is VS Code Dark+'s own editor background, which the syntax palette was designed against. `--code-border` `#333333` is part of the same exemption. |
+| **Code surface is neutral `#1E1E1E`, not N700 navy** | Hue proximity between a navy code block and the navy top bar and sidebar hurt readability. This is VS Code Dark+'s own editor background, which the syntax palette was designed against. `--code-border` `#333333` is part of the same exemption. |
 | **Inline code is a wash with no border and no colour** | Every hue in this system is spoken for: blue is links, green is the accent, pomegranate reads as error, purple and java read as blue-violet and teal — as links again. And a mapping cell holds up to ten annotation names stacked, where ten outlined boxes turn the cell into a grid. GitHub, Slack and Stack Overflow all render inline code the same way. |
 | **900px / 600px breakpoints, and all max-widths** | F5DS publishes no breakpoints and never states its fixed grid's maximum width. |
-| **48px content gutters** (not F5DS's 20px page margin) | 20px assumes a dense product screen in a chrome-heavy shell; on a wide docs page it puts prose against the viewport edge. |
+| **48px content gutters** (not F5DS's 20px page margin) | 20px assumes a dense product screen wrapped in heavy navigation; on a wide docs page it puts prose against the viewport edge. |
 | **`min-height: 44px` on mobile controls** | WCAG target size beats F5DS's fixed 32px. |
 | **`prefers-reduced-motion` kill switch** | F5DS is silent; an addition, not a deviation. |
 | **`border-radius: 50%` on dots and spinners** | A 6px state dot and a spinner cannot take a 4px corner. |
@@ -116,4 +116,4 @@ Say so when touching these — F5DS does not specify them: table cell padding (t
 
 `check-tokens.py` reads literals, `check-contrast.py` asserts a fixed list of pairings, `check-classes.py` resolves class usage. **None of them can see the rendered page**, and `check-contrast.py` only checks pairings that someone remembered to add — which is how the badge palette drifted for months. After any visual change, render and look.
 
-The F5DS scanner (`~/.claude/skills/f5-product-ui-core/scripts/scan_ui_tokens.py`) is **not** a sufficient gate: it cannot resolve `var()`, so a correct `var(--space-2x)` is invisible to it while a literal `16px` counts as on-token. Its spacing and typography dimensions read low *because* this site uses tokens.
+An automated design-system scanner is **not** a sufficient gate either. Scanners generally cannot resolve `var()`, so a correct `var(--space-2x)` is invisible to them while a literal `16px` counts as on-token — a site that uses tokens properly scores *worse*. Read `tokens.css` instead.

@@ -6,7 +6,7 @@
        (e.g. migration-ingress-nginx.js), which defines
        window.MIGRATION_SOURCE and must load BEFORE this file:
        shared.js → migration-<source>.js → migration-core.js.
-       Shared chrome (dark mode, sidebar drawer, copy-to-clipboard, copyright
+       Shared behavior (dark mode, sidebar drawer, copy-to-clipboard, copyright
        year) lives in shared.js, which loads first and exposes those globals. */
     (function() {
         'use strict';
@@ -651,18 +651,18 @@
             return (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ? 'auto' : 'smooth';
         }
 
-        // Current fixed-chrome height (banner + topbar) read from the rendered layout,
-        // so scroll math shares a single source of truth with the CSS --chrome-h var.
-        function chromeHeight() {
+        // Current fixed header height (banner + top bar) read from the rendered layout,
+        // so scroll math shares a single source of truth with the CSS --fixed-top-h var.
+        function fixedTopHeight() {
             let tb = document.querySelector('.topbar');
             return tb ? Math.round(tb.getBoundingClientRect().bottom) : (document.body.classList.contains('has-banner') ? 87 : 52);
         }
 
-        // Scroll offset for an anchor target: the fixed chrome plus, on desktop,
+        // Scroll offset for an anchor target: the fixed header plus, on desktop,
         // the sticky search/filter bar when the target sits below it inside a
         // mapping section (the bar would otherwise cover the scrolled-to heading).
         function scrollOffsetFor(target) {
-            let offset = chromeHeight() + 12;
+            let offset = fixedTopHeight() + 12;
             let section = target.closest('section');
             let controls = section && section.querySelector('.controls');
             if (controls && window.matchMedia('(min-width: 901px)').matches &&
@@ -897,14 +897,14 @@
                 wrapper.appendChild(pre);
                 let expandBtn = document.createElement('button');
                 expandBtn.className = 'analyzer-yaml-expand';
-                expandBtn.textContent = 'Show full YAML (' + lineCount + ' lines)';
+                expandBtn.textContent = 'Show Full YAML (' + lineCount + ' lines)';
                 expandBtn.addEventListener('click', function() {
                     if (pre.classList.contains('collapsed')) {
                         pre.classList.remove('collapsed');
                         expandBtn.textContent = 'Collapse';
                     } else {
                         pre.classList.add('collapsed');
-                        expandBtn.textContent = 'Show full YAML (' + lineCount + ' lines)';
+                        expandBtn.textContent = 'Show Full YAML (' + lineCount + ' lines)';
                     }
                 });
                 wrapper.appendChild(expandBtn);
@@ -1287,12 +1287,12 @@
                 clipSvg.appendChild(rect1);
                 clipSvg.appendChild(path1);
                 copyAllBtn.appendChild(clipSvg);
-                copyAllBtn.appendChild(document.createTextNode('Copy all migration YAML'));
+                copyAllBtn.appendChild(document.createTextNode('Copy All Migration YAML'));
                 copyAllBtn.addEventListener('click', function() {
                     function restoreLabel() {
                         copyAllBtn.textContent = '';
                         copyAllBtn.appendChild(clipSvg);
-                        copyAllBtn.appendChild(document.createTextNode('Copy all migration YAML'));
+                        copyAllBtn.appendChild(document.createTextNode('Copy All Migration YAML'));
                         copyAllBtn.classList.remove('copied');
                     }
                     function onCopied() {
@@ -1831,7 +1831,7 @@
                             }
                         }
                     });
-                }, { rootMargin: '-' + chromeHeight() + 'px 0px -60% 0px', threshold: 0 });
+                }, { rootMargin: '-' + fixedTopHeight() + 'px 0px -60% 0px', threshold: 0 });
                 sections.forEach(function(s) { observer.observe(s.el); });
             }
 
@@ -1857,7 +1857,7 @@
                     // Heading permalinks and other subsection anchors live inside
                     // display:none tool pages, so the browser's native fragment scroll
                     // can't reach them — activate the owning page, then scroll past
-                    // the fixed chrome.
+                    // the fixed header.
                     let target = document.getElementById(hash);
                     let owner = target && target.closest('.tool-page');
                     if (target && owner) {

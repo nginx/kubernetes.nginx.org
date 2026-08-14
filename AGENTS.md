@@ -19,10 +19,10 @@ It covers four things: **NGINX Ingress Controller** (`nginx/kubernetes-ingress`)
 ```
 assets/
   css/  tokens.css        # THE design surface: every colour, size, space, radius, shadow, duration. No selectors.
-        shared.css        # @font-face, reset, chrome (topbar/sidebar/banner), components both pages use
+        shared.css        # @font-face, reset, top bar, sidebar and banner, components both pages use
         index.css         # landing page only (hero, feature/project grids, compat tables, CTAs)
         migration.css     # migration tool (analyzer UI, mapping/reference tables, badges, checklist, print)
-  js/   shared.js         # chrome behavior: dark-mode toggle, sidebar drawer, copy-to-clipboard, copyright year
+  js/   shared.js         # shared behavior: dark-mode toggle, sidebar drawer, copy-to-clipboard, copyright year
         index.js          # version auto-fetch, SPA product switching, entrance animation, YouTube
         migration-core.js           # source-agnostic engine: analyzer orchestration/rendering, filtering, nav, checklist; defines window.MigrationTool (NIC target versions + utils)
         migration-ingress-nginx.js  # ingress-nginx SOURCE module: INGRESS_NGINX_VERSION, ANNOTATION_MAPPINGS, parsers, CRD generators, presets; defines window.MIGRATION_SOURCE
@@ -42,9 +42,9 @@ These fail silently — nothing errors, the page just renders wrong.
 - The inline `<head>` dark-mode flash-prevention script and the page-specific JSON-LD stay inline. Classic (non-module) scripts keep functions global.
 - The font is **self-hosted, never a CDN** — see `assets/fonts/README.md` before upgrading or re-subsetting it.
 
-## Shared chrome
+## Shared header, sidebar and banner
 
-The chrome lives in `assets/css/shared.css` and `assets/js/shared.js` as the single source of truth — **edit it once there**, not per page. Its values all come from `tokens.css`; `shared.css` writes no literals. It covers the event banner, the top bar, the sidebar and its drawer, and the dark-mode token overrides plus toggle.
+These shared parts live in `assets/css/shared.css` and `assets/js/shared.js` as the single source of truth — **edit it once there**, not per page. Its values all come from `tokens.css`; `shared.css` writes no literals. It covers the event banner, the top bar, the sidebar and its drawer, and the dark-mode token overrides plus toggle.
 
 - **The topbar/sidebar/banner markup is duplicated in both HTML pages and must stay structurally in sync** — the shared CSS/JS keys off `#sidebar`, `#sidebarBackdrop`, `#menuToggle`, `#darkToggle`, `.topbar`, `.event-banner`, `#copyright-year`, `#page-announce`.
 - **Top bar**: `--topbar-h` 52px. Logo left-aligned at the start of the bar, then a short centred rule (`.topbar-brand::after`, 32px tall) rather than a full-height border, then the heading; GitHub link and dark-mode toggle at the right. The heading is **one line, and which line depends on width** — above 900px `.topbar-eyebrow` carries the site/tool label and `.mobile-breadcrumb` is hidden; at or below 900px they swap, because the drawer hides the sidebar's active-item marker. `index.js` and `migration-core.js` both keep `.mobile-breadcrumb` in step with the active view, so renaming it means touching both.
@@ -53,7 +53,7 @@ The chrome lives in `assets/css/shared.css` and `assets/js/shared.js` as the sin
 
 ## Design system: the hard rules
 
-The site follows the **F5 Design System (F5DS)**, the system behind the F5 Distributed Cloud console. Never blend it with the F5 **marketing** brand (`f5-brand-core`) — a value correct in one is a defect in the other, and `check-tokens.py` fails on the retired marketing hexes by name.
+The site follows the **F5 Design System (F5DS)**, the system behind the F5 Distributed Cloud console. Never blend it with the F5 **marketing** brand (Neusa Next Pro Wide / Proxima Nova, F5 Red, the Brand Center ramps) — a value correct in one is a defect in the other, and `check-tokens.py` fails on the retired marketing hexes by name.
 
 **`assets/css/tokens.css` is the reference for every value and every measured ratio.** Read it before choosing a colour.
 

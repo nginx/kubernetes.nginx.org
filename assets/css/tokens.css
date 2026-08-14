@@ -7,8 +7,7 @@
 
    ── What this file is ─────────────────────────────────────────────────────
    The site follows the F5 Design System (F5DS) — the design system behind the
-   F5 Distributed Cloud console — captured from the zeroheight styleguide
-   (v63060, Q3-FY26) and the offline pack at ~/.claude/skills/f5-product-ui-core.
+   F5 Distributed Cloud console.
 
    It used to run two standards at once: F5DS typography over the F5 marketing
    colour palette. That split is gone. Colour, spacing, radius, elevation and
@@ -410,12 +409,12 @@
        F5DS fixes Primary Navigation at 264px, up from the site's previous
        260px, and publishes a 12-column grid with a 16px gutter. The gutter is
        adopted. The 20px page margin is not: it assumes a dense product screen
-       inside a chrome-heavy shell, and on a wide documentation page it puts
+       inside a dense product shell, and on a wide documentation page it puts
        prose against the viewport edge. F5DS publishes no breakpoints and never
        states the fixed grid's maximum width, so the site's breakpoints and
        max-widths are local conventions, not spec values.
 
-       --banner-h is overridden by body.has-banner; --chrome-h composes the two
+       --banner-h is overridden by body.has-banner; --fixed-top-h composes the two
        so components never repeat the arithmetic.
 
        --topbar-h is 52px, matching the bar this site already shipped. F5DS
@@ -426,7 +425,7 @@
     --sidebar-w: 264px;
     --topbar-h:  52px;
     --banner-h:  0px;
-    --chrome-h:  calc(var(--topbar-h) + var(--banner-h));
+    --fixed-top-h:  calc(var(--topbar-h) + var(--banner-h));
 }
 
 /* ── Dark theme ────────────────────────────────────────────────────────────

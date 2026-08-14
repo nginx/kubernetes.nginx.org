@@ -1,4 +1,4 @@
-/* shared.css — chrome and cross-page components.
+/* shared.css — the top bar, sidebar, banner and cross-page components.
    =========================================================================
    Shared by index.html and ingress-nginx-migration.html. Single source of
    truth for the top bar, sidebar, event banner, layout offsets, accessibility
@@ -13,7 +13,7 @@
    not design decisions.
 
    ── The visual language ──────────────────────────────────────────────────
-   The chrome follows the F5 Distributed Cloud console: a branding block in the
+   The top bar and sidebar follow the F5 Distributed Cloud console: a branding block in the
    navigation column's header row with the page title alongside it, a fixed
    264px Primary Navigation, flat border-only surfaces, and a green active-item
    rail. What it deliberately does NOT copy is the console's logged-in
@@ -147,7 +147,7 @@ body {
    top-bar links, which work without JavaScript. */
 .noscript-warning {
     position: fixed;
-    top: var(--chrome-h);
+    top: var(--fixed-top-h);
     left: 0; right: 0;
     z-index: 150;
     padding: var(--space-base) var(--space-2x);
@@ -370,7 +370,7 @@ body {
 .event-banner .banner-highlight { font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
 .event-banner a { color: var(--n0); font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
 .event-banner a:hover { text-decoration-thickness: 2px; }
-/* Showing the banner overrides --banner-h so every chrome offset recomputes. */
+/* Showing the banner overrides --banner-h so every offset that depends on it recomputes. */
 body.has-banner { --banner-h: 36px; }
 @media (max-width: 600px) {
     body.has-banner { --banner-h: 48px; }
@@ -381,8 +381,8 @@ body.has-banner { --banner-h: 36px; }
 
 .layout {
     display: flex;
-    margin-top: var(--chrome-h);
-    min-height: calc(100vh - var(--chrome-h));
+    margin-top: var(--fixed-top-h);
+    min-height: calc(100vh - var(--fixed-top-h));
 }
 
 .sidebar-backdrop {
@@ -404,7 +404,7 @@ body.has-banner { --banner-h: 36px; }
 
 .sidebar {
     position: fixed;
-    top: var(--chrome-h);
+    top: var(--fixed-top-h);
     bottom: 0; left: 0;
     width: var(--sidebar-w);
     z-index: 100;
@@ -856,7 +856,7 @@ code, kbd, samp {
 }
 
 
-/* ── Print (chrome) ───────────────────────────────────────────────────────── */
+/* ── Print (top bar, sidebar, banner) ───────────────────────────────────────────────────────── */
 @media print {
     .topbar, .sidebar, .sidebar-backdrop, .event-banner,
     .scroll-to-top, .copy-btn, .skip-link { display: none !important; }

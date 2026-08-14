@@ -1,6 +1,6 @@
 /* index.css — the landing page (index.html).
    =========================================================================
-   Loaded after tokens.css and shared.css. Chrome, buttons, info boxes, code
+   Loaded after tokens.css and shared.css. Top bar and sidebar, buttons, info boxes, code
    blocks and status dots live in shared.css; what remains here is the
    landing page's own furniture — heroes, card grids, key details, tables.
 
@@ -207,7 +207,7 @@
    Zeroing it and easing the top padding brings the row to 64px under the hero. */
 .page-body > .cta-row:first-child { margin-top: 0; }
 .page-body:has(> .cta-row:first-child) { padding-top: var(--space-3x); }
-/* Content-area link colour, scoped so it cannot override the chrome. Card
+/* Content-area link colour, scoped so it cannot override the top bar or sidebar. Card
    anchors are excluded so they keep `inherit`. */
 .page-body a:link:not(.cta):not(.feature-card):not(.project-card) { color: var(--blue-text); }
 .page-body a:visited:not(.cta):not(.feature-card):not(.project-card) { color: var(--blue-text); }
@@ -604,7 +604,7 @@ a.feature-card, a.feature-card:link, a.feature-card:visited { text-decoration: n
 
 
 /* ── Print ────────────────────────────────────────────────────────────────
-   Chrome hiding and the dark-token reset live in shared.css. */
+   Hiding the top bar and sidebar, and the dark-token reset, live in shared.css. */
 @media print {
     .page-hero { background: var(--n0) !important; }
     /* The rule above only resets the element's own background; both decorative

@@ -1297,7 +1297,7 @@
                 analyzeEmpty: { title: 'No input.', message: 'Paste a Kubernetes Ingress YAML manifest to analyze.' },
                 noFindings: { title: 'No community NGINX annotations found.', message: 'Make sure your YAML contains annotations with the nginx.ingress.kubernetes.io/ prefix.' },
                 emptyStateLead: 'Paste your Ingress YAML above and click Analyze',
-                emptyStateHint: 'Drag & drop a .yaml file, or try "Load sample" for an example',
+                emptyStateHint: 'Drag & drop a .yaml file, or try "Load Sample" for an example',
                 pageNames: { 'getting-started': 'Getting started', analyzer: 'Config analyzer', reference: 'Reference guide' }
             },
             versionBindings: [

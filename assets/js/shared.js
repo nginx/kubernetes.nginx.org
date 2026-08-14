@@ -1,4 +1,4 @@
-/* shared.js — chrome behavior shared by index.html and ingress-nginx-migration.html:
+/* shared.js — behavior shared by index.html and ingress-nginx-migration.html:
    dark-mode toggle, sidebar drawer, copy-to-clipboard, copyright year.
    Loaded before the per-page scripts (index.js / migration-*.js), which call these
    as globals. Classic script (not a module) so the functions stay global and
@@ -17,7 +17,7 @@ function initDarkMode() {
 
 // The <head> ships a media-matched theme-color pair that follows the OS
 // preference; the site's dark mode is class-based and user-togglable, so set
-// both metas to the active mode's color to keep browser chrome in sync.
+// both metas to the active mode's color to keep the browser's own UI in sync.
 function updateThemeColorMeta() {
     let isDark = document.documentElement.classList.contains('dark-mode') || document.body.classList.contains('dark-mode');
     document.querySelectorAll('meta[name="theme-color"]').forEach(function(m) {
@@ -137,7 +137,7 @@ function showCopyFailed(btn) {
     }, 2000);
 }
 
-/* ── Shared chrome wiring ── */
+/* ── Shared wiring ── */
 document.addEventListener('DOMContentLoaded', function() {
     initDarkMode();
 
