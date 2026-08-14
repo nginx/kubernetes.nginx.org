@@ -78,6 +78,18 @@ STATE_ONLY = {
 # element, and was restyled twice by people who assumed it appeared on the
 # page. Keep this an explicit list. If a new kind is added to kindBadgeMap,
 # add it here too.
+# Built ahead of the content that will use them, and verified as such with
+# `git log -S`: the event banner ran for three weeks in 2026 for a conference
+# and will run again, and the annotation grid is waiting on ingress2gateway
+# content. They are reported separately from genuinely unused rules so the
+# report stays actionable — an unexplained list gets ignored, and then a live
+# class gets deleted along with the dead ones.
+DORMANT = {
+    'event-banner', 'banner-highlight', 'coming-soon-label',
+    'annotation-grid-cell', 'annotation-grid-header', 'annotation-preview',
+    'annotation-preview-more', 'annotation-preview-toggle', 'annotation-tooltip',
+}
+
 RUNTIME_COMPOSED = {
     'badge-policy', 'badge-virtualserver', 'badge-virtualserverroute',
     'badge-transportserver', 'badge-globalconfiguration',
@@ -121,6 +133,58 @@ def css_selectors_only(css):
     return css
 
 
+SHARED_BLOCKS = [
+    ('top bar', r'<nav class="topbar".*?</nav>'),
+    ('sidebar footer', r'<div class="sidebar-ext-links">.*?</aside>'),
+]
+
+
+def shared_markup_skeleton(text, pattern):
+    """The ordered class/id sequence of a shared block.
+
+    Not the raw tags: the two pages render icons differently (the landing page
+    uses an SVG sprite, the tool inlines them), and that is not what has to
+    match. What has to match is what the shared CSS and JS key off — the
+    classes and ids, in order.
+    """
+    m = re.search(pattern, text, re.S)
+    if not m:
+        return None
+    block = m.group(0)
+    names = []
+    for attr, value in re.findall(r'\s(class|id)="([^"]*)"', block):
+        names.extend(sorted(value.split()) if attr == 'class' else ['#' + value])
+    return names
+
+
+def check_shared_markup():
+    """The top bar and sidebar footer are duplicated in both pages by hand.
+
+    There is no build step to deduplicate them — the project ships static HTML
+    on purpose — so the next best thing is making drift fail a check instead of
+    being noticed months later on one page only.
+    """
+    failures = []
+    pages = html_files()
+    for label, pattern in SHARED_BLOCKS:
+        skeletons = {}
+        for f in pages:
+            skel = shared_markup_skeleton(re.sub(r'<!--.*?-->', '', read(f), flags=re.S), pattern)
+            if skel is None:
+                failures.append(f'{f}: no {label} block found')
+            else:
+                skeletons[f] = skel
+        names = sorted(skeletons)
+        for other in names[1:]:
+            if skeletons[other] != skeletons[names[0]]:
+                only_a = [n for n in skeletons[names[0]] if n not in skeletons[other]]
+                only_b = [n for n in skeletons[other] if n not in skeletons[names[0]]]
+                failures.append(
+                    f'{label} markup has drifted between {names[0]} and {other}: '
+                    f'only in {names[0]}: {only_a or "-"}; only in {other}: {only_b or "-"}')
+    return failures
+
+
 def main():
     # ── what CSS defines ──────────────────────────────────────────────────
     defined = set()
@@ -140,9 +204,19 @@ def main():
     for f in js_files():
         text = read(f)
         found = []
-        found += re.findall(r"classList\.(?:add|remove|toggle|contains)\(\s*'([^']+)'", text)
-        found += re.findall(r"className\s*=\s*'([^']+)'", text)
-        found += re.findall(r"classList\s*=\s*'([^']+)'", text)
+        found += re.findall(r"classList\.(?:add|remove|toggle|contains)\(([^)]*)\)", text)
+        # The whole right-hand side, not just a literal sitting immediately
+        # after the `=`. A ternary — `className = x ? 'analyzer-error' :
+        # 'analyzer-info'` — used to slip past, so both live classes were
+        # reported as unused and were one deletion away from being removed.
+        for expr in re.findall(r"(?:className|classList)\s*=\s*([^;\n]+)", text):
+            # In a ternary the test is not a class — `type === 'error' ?
+            # 'analyzer-error' : 'analyzer-info'` assigns the two branches and
+            # compares against the third. Keep what follows the `?`.
+            if '?' in expr:
+                expr = expr.split('?', 1)[1]
+            found += re.findall(r"'([^']+)'", expr)
+        found += re.findall(r"setAttribute\(\s*'class'\s*,\s*([^)]*)\)", text)
         # Also catch classes inside HTML the renderer builds as a string —
         # otherwise a live class looks unreferenced and could be deleted.
         found += re.findall(r'class="([^"]+)"', text)
@@ -151,8 +225,15 @@ def main():
         for sel in re.findall(r"querySelector(?:All)?\(\s*'([^']+)'", text):
             found += re.findall(r'\.(-?[A-Za-z_][\w-]*)', sel)
         for blob in found:
-            for name in blob.split():
-                used.setdefault(name, set()).add(f)
+            # some patterns above capture a whole argument list, so pull the
+            # string literals back out before splitting on whitespace
+            if "'" in blob:
+                parts = re.findall(r"'([^']+)'", blob)
+            else:
+                parts = [blob]
+            for part in parts:
+                for name in part.split():
+                    used.setdefault(name, set()).add(f)
 
     # ── report ────────────────────────────────────────────────────────────
     unstyled = {}
@@ -169,27 +250,43 @@ def main():
             continue
         unstyled[name] = where
 
-    unused = sorted(
+    unreferenced = sorted(
         n for n in defined
         if n not in used and n not in STATE_ONLY
         and n not in RUNTIME_COMPOSED
     )
+    dormant = [n for n in unreferenced if n in DORMANT]
+    unused = [n for n in unreferenced if n not in DORMANT]
 
     print(f'{len(defined)} classes defined in CSS, {len(used)} referenced by markup or JS\n')
+
+    if dormant:
+        print(f'{len(dormant)} dormant by design (built ahead of their content):')
+        print('  ' + ', '.join('.' + n for n in dormant) + '\n')
 
     if unused:
         print(f'{len(unused)} defined but unreferenced (reported, not failed):')
         for n in unused:
             print(f'  .{n}')
-        print('  Some of these are dormant by design — check `git log -S` before deleting.\n')
+        print('  Not on the dormant list — run `git log -S` and delete if truly dead.\n')
+
+    drift = check_shared_markup()
+    if drift:
+        print(f'{len(drift)} SHARED MARKUP PROBLEM(S):')
+        for d in drift:
+            print(f'  {d}')
+        print()
 
     if unstyled:
         print(f'{len(unstyled)} USED BUT UNSTYLED:')
         for n, where in sorted(unstyled.items()):
             print(f'  .{n}  (referenced in {", ".join(sorted(where))})')
+
+    if unstyled or drift:
         return 1
 
-    print('Every class used by the markup or JS resolves to a CSS rule.')
+    print('Every class used by the markup or JS resolves to a CSS rule,')
+    print('and the shared top bar and sidebar footer match across both pages.')
     return 0
 
 

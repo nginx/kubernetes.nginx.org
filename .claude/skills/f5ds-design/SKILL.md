@@ -70,12 +70,37 @@ Teal (family 5) is deliberately unspent rather than unusable: production styles 
 | N400, documented as the icon colour, on white | 2.42:1 | `--n450` `#848FA5` — 3.25:1 on N0, 3.06:1 on N100 |
 | White on Dodger Blue `#4F73FF` | 4.02:1 | `--blue-text` `#2E50D9` — 6.43:1 |
 
-Green is the same story: white on `#009639` is 3.87:1, so every filled green button uses `--green-dark` `#007D30`.
+Green is the same story: white on `#009639` is 3.87:1, so every filled green button uses `--green-text` `#007D30`.
 
 **Emerald and Amber cannot reach the 3:1 non-text bar at any usable saturation** — 2.02:1 and 1.60:1 on white, and even F5DS's own hover values only manage 2.95:1 and 2.23:1. Two rules follow, and they are F5DS's own (colour must never be the only signal) rather than workarounds:
 
 - A status hue is **never used as text**.
 - A status dot never appears without its text label, and an info box never without its sentiment icon.
+
+## Capitalization: two F5 standards collide
+
+F5DS sets case per component, not globally. **Title Case**: buttons, links,
+primary navigation, tabs, and panel/modal titles. **Sentence case**:
+notifications, tooltips, radio groups, toggles, checkboxes and their legends,
+and modal body copy. F5DS's own components reference flags the button rule as
+the odd one out — "this is one of the few places the product system does not
+use sentence case."
+
+But F5 publishes three standards that contradict each other here, and says so:
+marketing uses title-case display headings, **technical documentation uses
+sentence case**, and product UI uses Title Case labels. This site is
+documentation, so the documentation standard governs everything that reads as
+content.
+
+Where that lands in practice:
+
+| Element | Case | Why |
+|---|---|---|
+| Headings, prose, navigation | sentence | Documentation standard. The sidebar labels are literally the `<h2>`s they link to, so they cannot diverge. |
+| Button labels | Title Case | Pure interface, no documentation conflict — `Expand All`, `Load Sample`. |
+| Tab labels | Title Case | Same — `CRD Approach`, `Policy + Ingress (Recommended)`. |
+| The migration-strategy selector | sentence | It uses `aria-pressed`, so it is a **toggle**, not a tab or a button, and F5DS puts toggles in sentence case. |
+| Code identifiers in a label | as written | `CRD responseHeaders` is an API field name; casing it would make it wrong. |
 
 ## Spacing, radius, elevation, type — the detail
 

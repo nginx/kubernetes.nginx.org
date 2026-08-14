@@ -101,14 +101,14 @@
        The -text values are the ones that pass, and they double as the fill for
        a filled button carrying white text. */
     --green:            #009639;  /* NGINX Jade — marks, rails, non-text fills */
-    --green-text:       #007D30;  /* 5.28:1 on N0, 4.97:1 on N100; white on it 5.28:1 */
-    --green-dark:       #007D30;  /* retained name: the filled-button value */
+    --green-text:       #007D30;  /* 5.28:1 on N0, 4.97:1 on N100; white on it 5.28:1.
+                                     Also the filled-button fill — one value, one name. */
     --green-deep:       #025F26;  /* hover, and text on a green tint */
     --green-tint:       rgba(0, 150, 57, 0.10);
 
     --blue:            #4F73FF;   /* F5DS Dodger Blue — marks, non-text fills */
-    --blue-text:       #2E50D9;   /* 6.43:1 on N0, 6.05:1 on N100; white on it 6.43:1 */
-    --blue-dark:       #2E50D9;   /* retained name: F5DS's published hover */
+    --blue-text:       #2E50D9;   /* 6.43:1 on N0, 6.05:1 on N100; white on it 6.43:1.
+                                     Also F5DS's published hover, and the filled-button fill. */
     --blue-deep:       #1F3CB0;   /* derived one step darker */
     --blue-tint:       rgba(79, 115, 255, 0.10);
 
@@ -469,13 +469,11 @@
 
         --green:      #00B244;  /* 5.55:1 on N600, 6.19:1 on N700 */
         --green-text: #00B244;
-        --green-dark: #00B244;
         --green-deep: #00CC4E;
         --green-tint: rgba(0, 178, 68, 0.14);
 
         --blue:      #7893FF;   /* 5.52:1 on N600, 6.16:1 on N700 */
         --blue-text: #7893FF;
-        --blue-dark: #7893FF;
         --blue-deep: #93A9FF;
         --blue-tint: rgba(120, 147, 255, 0.16);
 

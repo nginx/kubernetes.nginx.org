@@ -63,8 +63,16 @@ The site follows the **F5 Design System (F5DS)**, the system behind the F5 Distr
 - **Type**: sizes only through `--fs-*`/`--lh-*`. F5DS pairs a fixed leading with each size, so `line-height` is a length, not a multiplier: **any rule that sets `font-size` must restate the paired `--lh-*`.** Weights 400/500/700 only. **Zero `letter-spacing` declarations anywhere.**
 - **Elevation**: `--elev-*` only. Cards are border-only at rest, and there is no hover lift.
 - **A status hue is never used as text**, and colour is never the only signal: a status dot always ships with its text label, an info box always with its sentiment icon.
-- **Filled green buttons use `--green-dark`**, not `--green` — white on `#009639` is 3.87:1.
+- **Filled green buttons use `--green-text`**, not `--green` — white on `#009639` is 3.87:1.
 - **CRD badges use F5DS's graph palette**, not the sentiment hues.
+- **Capitalization: sentence case, except buttons and tabs.** F5 ships three
+  standards that disagree here, and for a documentation site the documentation
+  one wins: sentence case for headings, prose, navigation and anything that
+  reads as content. The exception is the parts that are purely interface —
+  button and tab labels take Title Case, which is what F5DS specifies for them.
+  A toggle is not a button: F5DS puts toggles in sentence case, which is why the
+  migration strategy selector stays lowercase. And the sidebar labels *are* the
+  `<h2>` headings they link to, so they cannot diverge from the headings.
 
 **Documented deviations — do not "fix" these.** Each has a reason, in the `f5ds-design` skill: NGINX green leads rather than Dodger Blue; the hexagon lattice in the landing hero; no hover lift; the authored dark theme; two button vocabularies (`.cta*` and `.btn*`); `--mono` = SF Mono; the VS Code code palette and its neutral `#1E1E1E` surface; inline code as a borderless wash; the 900/600px breakpoints and all max-widths; 48px content gutters; `min-height: 44px` on mobile controls; `border-radius: 50%` on dots and spinners; hover scale on the checklist marker and scroll-to-top.
 

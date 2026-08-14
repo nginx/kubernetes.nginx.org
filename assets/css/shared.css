@@ -122,7 +122,7 @@ body {
     left: var(--space-2x);
     z-index: 9999;
     padding: var(--space-base) var(--space-2x);
-    background: var(--green-dark);
+    background: var(--green-text);
     color: var(--n0);
     border-radius: 0 0 var(--radius) var(--radius);
     font-size: var(--fs-body);
@@ -359,7 +359,7 @@ body {
     top: 0; left: 0; right: 0;
     z-index: 300;
     padding: var(--space-base) var(--space-2x);
-    background: var(--green-dark);
+    background: var(--green-text);
     color: var(--n0);
     text-align: center;
     font-size: var(--fs-caption);
@@ -581,17 +581,16 @@ body.has-banner { --banner-h: 36px; }
                 border-color var(--dur-colour) linear,
                 color var(--dur-colour) linear;
 }
-.btn-xs { min-height: 24px; padding: 0 var(--space-2x); font-size: var(--fs-caption); line-height: var(--lh-caption); }
-.btn-md, .cta { min-height: 40px; padding: 0 var(--space-3x); }
+.cta { min-height: 40px; padding: 0 var(--space-3x); }
 .btn svg, .cta svg { width: 16px; height: 16px; flex-shrink: 0; }
 
 /* NGINX green leads, matching the console's NGINX-branded surfaces.
-   --green-dark rather than --green as the fill: white on #009639 is 3.87:1 and
+   --green-text rather than --green as the fill: white on #009639 is 3.87:1 and
    fails AA, white on #007D30 is 5.28:1. */
 .btn-primary, .btn-primary:visited,
 .cta-primary, .cta-primary:visited {
-    background: var(--green-dark);
-    border-color: var(--green-dark);
+    background: var(--green-text);
+    border-color: var(--green-text);
     color: var(--n0);
 }
 .btn-primary:hover, .cta-primary:hover {
@@ -611,7 +610,7 @@ body.has-banner { --banner-h: 36px; }
     color: var(--text);
 }
 
-.btn[disabled], .btn-disabled, .cta-disabled {
+.btn[disabled] {
     background: var(--surface-sunken);
     border-color: var(--border);
     color: var(--text-disabled);
@@ -620,7 +619,7 @@ body.has-banner { --banner-h: 36px; }
 }
 
 /* F5DS's group gap is 20px, not 16px. */
-.cta-row, .btn-row {
+.cta-row {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -823,7 +822,6 @@ code, kbd, samp {
 
     /* WCAG target size beats F5DS's fixed 32px on touch. */
     .btn, .cta, .topbar-link, .dark-toggle { min-height: 44px; }
-    .btn-xs { min-height: 32px; }
 }
 
 @media (max-width: 600px) {

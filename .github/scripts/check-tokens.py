@@ -36,6 +36,9 @@ EXEMPT = [
      'inline code sizes relative to its context, not off the scale'),
     ('border-radius: 50%',
      'a status dot and a spinner cannot take a 4px corner'),
+    ("isDark ? '#0F1E57' : '#FFFFFF'",
+     'a <meta> content attribute cannot hold a var() — asserted against '
+     '--surface instead, below'),
 ]
 
 SPACING_PROPS = r'(?<![\w-])(?:padding|margin|gap|row-gap|column-gap)[a-z-]*'
@@ -228,13 +231,30 @@ def run():
         return found
 
     STRUCTURAL = re.compile(r'\b(mask|gradient|scrim)\b')
-    for path in css:
+
+    # Two places a hex legitimately appears outside tokens.css, because neither
+    # can hold a var(): the theme-color metas, and the inline NGINX logo's SVG
+    # fills. The metas are not waved through — they are asserted against the
+    # tokens further down, which is stricter than exempting them.
+    EXEMPT_COLOUR = re.compile(r'theme-color|(?:fill|stroke)="#|updateThemeColorMeta')
+
+    for path in css + js + html:
+        with open(path, encoding='utf-8') as fh:
+            text = fh.read()
         if path.endswith('tokens.css'):       # colour is defined here by design
             continue
-        with open(path, encoding='utf-8') as fh:
-            text = strip_css_comments(fh.read())
+        if path.endswith('.html'):
+            text = re.sub(r'<!--.*?-->', lambda m: re.sub(r'[^\n]', ' ', m.group(0)), text, flags=re.S)
+        text = strip_css_comments(text)
+        if path.endswith('.js'):
+            text = re.sub(r'//[^\n]*', '', text)
         for lineno, line in enumerate(text.split('\n'), 1):
             if 'data:image/svg' in line:      # percent-encoded fill inside a URL
+                continue
+            if EXEMPT_COLOUR.search(line):
+                continue
+            if is_exempt(line):
+                c.note(path, lineno, line)
                 continue
             bad = hues(line)
             if bad:
@@ -287,6 +307,52 @@ def run():
             for hexval, why in retired.items():
                 if hexval in upper:
                     c.fail(path, lineno, f'retired colour {hexval}: {why}', line)
+
+    # ── theme-color must track --surface ──────────────────────────────────
+    # The browser paints its own UI with these, so they should match the top
+    # bar. They live in a <meta content> and in a setAttribute call, neither of
+    # which can hold a var(), so the only way to keep them honest is to assert
+    # them: four copies of two values, and nothing else would notice a drift.
+    tok = {}
+    with open(os.path.join(CSS_DIR, 'tokens.css'), encoding='utf-8') as fh:
+        tokens_src = strip_css_comments(fh.read())
+
+    def resolve(name, block, fallback=''):
+        # A dark-theme token often points at a base neutral that is only
+        # declared in :root, so each hop falls back to the base block.
+        seen = 0
+        while name.startswith('--') and seen < 8:
+            m = (re.search(re.escape(name) + r'\s*:\s*([^;]+);', block)
+                 or re.search(re.escape(name) + r'\s*:\s*([^;]+);', fallback))
+            if not m:
+                return None
+            value = m.group(1).strip()
+            m2 = re.fullmatch(r'var\((--[\w-]+)\)', value)
+            if not m2:
+                return value.upper()
+            name = m2.group(1)
+            seen += 1
+        return None
+
+    root = re.search(r':root\s*\{(.*?)\n\}', tokens_src, re.S)
+    darkm = re.search(r'\)\.dark-mode\s*\{(.*?)\n    \}', tokens_src, re.S)
+    if root and darkm:
+        want_light = resolve('--surface', root.group(1))
+        want_dark = (resolve('--surface', darkm.group(1), root.group(1))
+                     or want_light)
+        for path in html + js:
+            with open(path, encoding='utf-8') as fh:
+                for lineno, line in enumerate(fh, 1):
+                    if 'theme-color' not in line and 'isDark ?' not in line:
+                        continue
+                    found = [h.upper() for h in re.findall(r'#[0-9A-Fa-f]{6}', line)]
+                    if not found:
+                        continue
+                    for hexv in found:
+                        if hexv not in (want_light, want_dark):
+                            c.fail(path, lineno,
+                                   f'theme-color {hexv} matches neither --surface '
+                                   f'({want_light} light, {want_dark} dark)', line)
 
     # ── Undefined custom properties ───────────────────────────────────────
     # An unresolvable var() does not error, it silently yields nothing — the

@@ -21,7 +21,6 @@
    the one raw font-size this file carried.
    ========================================================================= */
 
-.container { max-width: 1400px; margin: 0 auto; padding: 0 var(--space-2hx); }
 
 
 /* ── Sidebar (tool nav) ───────────────────────────────────────────────────
@@ -332,8 +331,8 @@ pre code { background: none; border: 0; padding: 0; color: inherit; }
 }
 .comparison-copy-btn:hover { background: var(--surface-sunken); color: var(--text); }
 .comparison-copy-btn.copied {
-    background: var(--green-dark);
-    border-color: var(--green-dark);
+    background: var(--green-text);
+    border-color: var(--green-text);
     color: var(--n0);
 }
 
@@ -667,8 +666,8 @@ pre code { background: none; border: 0; padding: 0; color: inherit; }
    other hover transforms on the site were removed. */
 .checklist li:hover::before { transform: scale(1.15); }
 .checklist li.checked::before {
-    background: var(--green-dark) var(--icon-check) center / 0.75rem no-repeat;
-    border-color: var(--green-dark);
+    background: var(--green-text) var(--icon-check) center / 0.75rem no-repeat;
+    border-color: var(--green-text);
 }
 .checklist li.checked span { color: var(--text-secondary); text-decoration: line-through; }
 
@@ -692,7 +691,7 @@ pre code { background: none; border: 0; padding: 0; color: inherit; }
     cursor: pointer;
 }
 .copy-btn:hover { background: var(--on-code-strong); color: var(--n0); }
-.copy-btn.copied { background: var(--green-dark); border-color: var(--green-dark); color: var(--n0); }
+.copy-btn.copied { background: var(--green-text); border-color: var(--green-text); color: var(--n0); }
 
 
 /* ── YAML editor ──────────────────────────────────────────────────────────── */
@@ -872,7 +871,7 @@ button.analyzer-pill { font-family: var(--font); }
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: var(--green-dark);
+    background: var(--green-text);
     color: var(--n0);
     font-size: var(--fs-body);
     line-height: var(--lh-body);
@@ -963,24 +962,8 @@ button.analyzer-pill { font-family: var(--font); }
     transition: background var(--dur-colour) linear, color var(--dur-colour) linear;
 }
 .analyzer-copy-btn:hover { background: var(--on-code-strong); color: var(--n0); }
-.analyzer-copy-btn.copied { background: var(--green-dark); border-color: var(--green-dark); color: var(--n0); }
+.analyzer-copy-btn.copied { background: var(--green-text); border-color: var(--green-text); color: var(--n0); }
 
-.analyzer-install-cmd {
-    position: relative;
-    margin: var(--space-base) 0;
-    padding: var(--space-2x);
-    background: var(--code-bg);
-    color: var(--code-fg);
-    border: 1px solid var(--code-border);
-    border-left: 3px solid var(--blue);
-    border-radius: var(--radius);
-    font-family: var(--mono);
-    font-size: var(--fs-code);
-    line-height: var(--lh-code);
-    overflow-x: auto;
-    color-scheme: dark;
-}
-.analyzer-install-cmd .analyzer-copy-btn { top: var(--space-small); right: var(--space-small); }
 
 .analyzer-crd-group {
     margin-top: var(--space-2x);
@@ -1037,7 +1020,7 @@ button.analyzer-pill { font-family: var(--font); }
 .analyzer-comparison-block .analyzer-yaml-output { margin: 0; border: 0; border-radius: 0; min-height: 60px; }
 
 .analyzer-empty-state { text-align: center; padding: var(--space-5x) var(--space-2hx); color: var(--text-secondary); }
-.analyzer-empty-state svg { margin-bottom: var(--space-2x); color: var(--icon); }
+.analyzer-empty-state svg { margin-bottom: var(--space-2x); color: var(--icon); stroke: currentColor; }
 .analyzer-empty-state p { margin: var(--space-small) 0; font-size: var(--fs-body); line-height: var(--lh-body); }
 .analyzer-empty-state .hint { font-size: var(--fs-caption); line-height: var(--lh-caption); color: var(--text-secondary); }
 
@@ -1152,7 +1135,7 @@ button.analyzer-pill { font-family: var(--font); }
     cursor: pointer;
     transition: background var(--dur-colour) linear;
 }
-.analyzer-copy-all { margin-top: var(--space-2hx); background: var(--green-dark); border-color: var(--green-dark); color: var(--n0); }
+.analyzer-copy-all { margin-top: var(--space-2hx); background: var(--green-text); border-color: var(--green-text); color: var(--n0); }
 .analyzer-copy-all:hover, .analyzer-copy-all.copied { background: var(--green-deep); border-color: var(--green-deep); }
 .analyzer-copy-all svg, .analyzer-download-btn svg { flex-shrink: 0; }
 .analyzer-download-btn { background: var(--surface); border-color: var(--border-control); color: var(--text); }
@@ -1321,7 +1304,7 @@ button.analyzer-pill { font-family: var(--font); }
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: var(--green-dark);
+    background: var(--green-text);
     color: var(--n0);
     border: none;
     cursor: pointer;
@@ -1449,13 +1432,13 @@ button.analyzer-pill { font-family: var(--font); }
 
     /* Static code examples keep their on-screen dark palette otherwise —
        browsers strip backgrounds by default, leaving light-grey-on-white text. */
-    pre, .analyzer-yaml-output, .analyzer-install-cmd, .install-box {
+    pre, .analyzer-yaml-output, .install-box {
         background: var(--n100) !important;
         color: var(--n700) !important;
         border: 1px solid var(--n300);
         color-scheme: light;
     }
-    .install-box h3, .install-box code, .analyzer-install-cmd code { color: var(--n700) !important; }
+    .install-box h3, .install-box code { color: var(--n700) !important; }
     .analyzer-yaml-output.collapsed { max-height: none !important; overflow: visible !important; }
     .analyzer-yaml-output.collapsed::after { display: none !important; }
 

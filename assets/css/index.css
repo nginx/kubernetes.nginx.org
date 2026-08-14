@@ -360,13 +360,12 @@ a.feature-card, a.feature-card:link, a.feature-card:visited { text-decoration: n
    primary fill is overridden per section. The hero CTAs take M-40 as their most
    prominent action; F5DS says use that size sparingly. */
 .cta-row { margin-top: var(--space-4x); }
-.cta-primary.nic, .cta-primary.ngf { background: var(--green-dark); border-color: var(--green-dark); }
+.cta-primary.nic, .cta-primary.ngf { background: var(--green-text); border-color: var(--green-text); }
 .cta-primary.nic:hover, .cta-primary.ngf:hover { background: var(--green-deep); border-color: var(--green-deep); }
 .cta-primary.migration, .cta-primary.i2g { background: var(--blue-text); border-color: var(--blue-text); color: var(--n0); }
 .cta-primary.migration:hover, .cta-primary.i2g:hover { background: var(--blue-deep); border-color: var(--blue-deep); }
 .cta-primary.blogs { background: var(--java-text); border-color: var(--java-text); color: var(--n0); }
 .cta-primary.videos { background: var(--pomegranate-text); border-color: var(--pomegranate-text); color: var(--n0); }
-.cta-disabled { border: 1px solid var(--border); }
 
 :is(html, body).dark-mode .cta-primary.nic,
 :is(html, body).dark-mode .cta-primary.ngf { background: var(--green); border-color: var(--green); color: var(--n700); }
@@ -401,7 +400,6 @@ a.feature-card, a.feature-card:link, a.feature-card:visited { text-decoration: n
     font-weight: 700;
     color: var(--text-secondary);
 }
-.detail-value { font-size: var(--fs-body); line-height: var(--lh-body); }
 .detail-tags { display: flex; flex-wrap: wrap; gap: var(--space-base); }
 .detail-tag {
     display: inline-block;

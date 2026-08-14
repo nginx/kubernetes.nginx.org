@@ -1515,7 +1515,7 @@
             requestAnimationFrame(function() {
                 el.scrollIntoView({ behavior: scrollBehavior() });
                 el.style.transition = 'background-color 0.3s';
-                el.style.backgroundColor = document.documentElement.classList.contains('dark-mode') ? 'rgba(255,211,166,0.12)' : '#FFE4C4';
+                el.style.backgroundColor = 'var(--amber-tint)';
                 setTimeout(function() {
                     el.style.backgroundColor = '';
                     setTimeout(function() { el.style.transition = ''; }, 300);
@@ -1533,7 +1533,7 @@
             let svg = document.createElementNS(svgNS, 'svg');
             svg.setAttribute('width', '48'); svg.setAttribute('height', '48');
             svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none');
-            svg.setAttribute('stroke', '#999'); svg.setAttribute('stroke-width', '1.5');
+            svg.setAttribute('stroke-width', '1.5');   // colour comes from CSS
             let path1 = document.createElementNS(svgNS, 'path');
             path1.setAttribute('d', 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z');
             let polyline = document.createElementNS(svgNS, 'polyline');
