@@ -1,0 +1,533 @@
+/* tokens.css — the design token layer.
+   =========================================================================
+   Loaded first on every page, before shared.css and the page stylesheet.
+   This is the site's auditable surface: every colour, size, space, radius,
+   shadow and duration used anywhere resolves to a token declared here, and
+   `.github/scripts/check-tokens.py` fails on a literal at a call site.
+
+   ── What this file is ─────────────────────────────────────────────────────
+   The site follows the F5 Design System (F5DS) — the design system behind the
+   F5 Distributed Cloud console.
+
+   It used to run two standards at once: F5DS typography over the F5 marketing
+   colour palette. That split is gone. Colour, spacing, radius, elevation and
+   motion are all F5DS now, with one deliberate exception (see Accent below).
+
+   Two things F5DS does not publish, and which are therefore ours to author: a
+   dark theme (announced Early Availability, nothing shipped) and any
+   accessibility guidance whatsoever. We hold ourselves to WCAG 2.1 AA, and
+   that bar is why several tokens below are DERIVED rather than quoted — three
+   of F5DS's own published pairings fail it. Each derivation carries its
+   measured ratio so the next person does not have to re-measure.
+   ========================================================================= */
+
+:root {
+    color-scheme: light;
+
+    /* ── Neutrals: the F5DS N-ramp ─────────────────────────────────────────
+       Blue-tinted greys. F5DS publishes no pure black; N700 is as dark as the
+       system goes, and every shadow is tinted with it rather than black. These
+       replace the marketing neutrals the site used before (#FAF9F7 snow,
+       #222222 carbon, #666666, #E6E6E6) — the shift from a warm grey to a
+       cool, faintly blue one is the single biggest reason the site now reads
+       as an F5 product surface rather than a marketing page.
+
+       Published roles: N0 surfaces, N100 background, N200 lines and borders,
+       N300 disabled, N400 "mostly icons", N500 secondary text, N600 primary
+       text, N700 shadows. */
+    --n0:   #FFFFFF;
+    --n100: #F7F8FA;
+    --n200: #E6E9F3;
+    --n300: #CFD4E2;
+    --n400: #9EA7B8;
+    --n500: #6C778C;
+    --n600: #0F1E57;
+    --n700: #0B1640;
+
+    /* Two DERIVED neutrals, both forced by WCAG AA:
+
+       --n450  N400 is documented as the icon colour but measures 2.42:1 on N0
+               and 2.28:1 on N100 — it fails even the 3:1 non-text bar, so an
+               icon that carries meaning rather than decoration is unreadable.
+               Darkened along the same hue to 3.06:1 on N100.
+       --n550  N500 on N0 is 4.51:1 (AA by 0.01), but on the N100 page
+               background it is 4.25:1 and fails. Rather than allow secondary
+               text on one surface and forbid it on the other, this darkened
+               step clears both: 4.62:1 on N100, 4.91:1 on N0. */
+    --n450: #848FA5;
+    --n550: #677185;
+
+    /* ── Semantic neutral aliases ──────────────────────────────────────────
+       Call sites use these, never the N-names. The ramp is the vocabulary;
+       these are the grammar. Names carried over from the previous palette so
+       the page stylesheets keep resolving — only the values changed. */
+    --bg:             var(--n100);
+    --surface:        var(--n0);
+    --surface-sunken: var(--n100);
+    --text:           var(--n600);
+    --text-secondary: var(--n550);
+    --text-disabled:  var(--n300);
+    --icon:           var(--n450);
+    --icon-subtle:    var(--n400);
+
+    /* Three border weights, and the distinction is an accessibility one, not a
+       stylistic one. --border and --border-strong are decorative dividers:
+       they separate content but identify nothing, so WCAG 1.4.11 does not
+       apply. --border-control is the boundary of an actual control (input,
+       select, unfilled button) where the border IS the thing identifying the
+       component, which does need 3:1 — 3.25:1 on N0, 3.06:1 on N100. Note N300
+       cannot serve that role: it measures 1.48:1, and F5DS documents it as the
+       disabled colour rather than a boundary. */
+    --border:         var(--n200);
+    --border-strong:  var(--n300);
+    --border-control: var(--n450);
+
+    /* ── Accent ────────────────────────────────────────────────────────────
+       Two accents, and which one leads is not arbitrary. F5DS's platform
+       primary is Dodger Blue, but NGINX-branded surfaces inside the console
+       ship green: the NGINX One workspace marks its active navigation item in
+       green and uses a green primary button, while platform-level pages in the
+       same console use Dodger Blue. This is an NGINX community site inside an
+       F5 portfolio, so it follows that same split — NGINX green leads, Dodger
+       Blue carries platform, tooling and secondary work.
+
+       Dodger Blue replaces the Kubernetes brand blue (#326CE5) the site used
+       as its tooling accent. Same job, F5's hue instead of the CNCF one.
+
+       Each accent has a fill value and a text value, because neither fill is
+       readable as text or behind white:
+         green   #009639 on white 3.87:1 FAIL   white on it 3.87:1 FAIL
+         blue    #4F73FF on white 4.02:1 FAIL   white on it 4.02:1 FAIL
+       The -text values are the ones that pass, and they double as the fill for
+       a filled button carrying white text. */
+    --green:            #009639;  /* NGINX Jade — marks, rails, non-text fills */
+    --green-text:       #007D30;  /* 5.28:1 on N0, 4.97:1 on N100; white on it 5.28:1.
+                                     Also the filled-button fill — one value, one name. */
+    --green-deep:       #025F26;  /* hover, and text on a green tint */
+    --green-tint:       rgba(0, 150, 57, 0.10);
+
+    --blue:            #4F73FF;   /* F5DS Dodger Blue — marks, non-text fills */
+    --blue-text:       #2E50D9;   /* 6.43:1 on N0, 6.05:1 on N100; white on it 6.43:1.
+                                     Also F5DS's published hover, and the filled-button fill. */
+    --blue-deep:       #1F3CB0;   /* derived one step darker */
+    --blue-tint:       rgba(79, 115, 255, 0.10);
+
+    /* Hero edge wash. Painted back OVER a hero's tint to soften where the band
+       meets the navigation and where it meets the page, so no hero has a hard
+       edge on any side. It is the page background rather than a neutral grey,
+       which is what makes the tint appear to dissolve into the page instead of
+       fading to a different colour. Decorative only — it never sits under text,
+       so it carries no contrast requirement. */
+    --hero-wash:       rgba(255, 255, 255, 0.50);
+
+    /* One focus idiom for the whole site: an outline, never a box-shadow ring.
+       Dodger Blue rather than green, because focus is a platform affordance
+       rather than a brand one, and because it stays distinguishable from the
+       green active-state marks in the navigation. */
+    --focus: var(--blue-text);
+
+    /* ── Status ────────────────────────────────────────────────────────────
+       F5DS binds four sentiments to four hues, and is explicit that sentiment
+       is carried by icon, border and background only — body text stays N600 in
+       every sentiment, so colour is never the sole signal. The tint values are
+       the ones the notification component pages publish; the Colors page
+       prints a second, conflicting set for the same four tokens. Both are
+       "on-token"; mixing them on one screen is not. N600 measures 13.3–14.5:1
+       on all four tints.
+
+       These replace the marketing hues the site used for the same jobs:
+       F5 Red -> Pomegranate, Tangerine -> Amber, Surf -> Java, Eggplant ->
+       Medium Purple. */
+    --emerald:     #35D068;  --emerald-tint:     #E1F8E9;  /* positive */
+    --amber:       #FFC400;  --amber-tint:       #FFF6D9;  /* attention */
+    --pomegranate: #F94627;  --pomegranate-tint: #FEECE9;  /* negative */
+    --purple:      #8777D9;  --purple-tint:      #EDEBFA;  /* informative */
+    --java:        #1ACB9A;  --java-tint:        #CBF5E9;  /* accent, unbound */
+
+    /* Darker companions, for the rare case where a status hue must carry text
+       or a 3:1 mark. Emerald and Amber deliberately have none — see the note
+       under Status marks below. */
+    --pomegranate-text: #C21F05;  /* 6.01:1 on N0 */
+    --java-text:        #00726A;  /* 5.81:1 on N0 */
+    --purple-text:      #5B49B5;  /* 6.85:1 on N0 */
+
+    /* F5 Brand Red #E4002B is deliberately absent. F5DS restricts it to the
+       logo, illustrations and pictograms, and forbids it as a CTA, link,
+       accent or error colour. Negative sentiment is Pomegranate. The site used
+       it as a section accent before; that is retired. */
+
+    /* ── Badge palette: F5DS graph colours ─────────────────────────────────
+       The badges label eight kinds of resource, and the four sentiment hues
+       cannot do that job. There are only enough of them for five badges, so
+       the sixth and seventh had to be told apart by shape instead of colour —
+       an outlined pill next to a filled one, which readers had to decode. The
+       hues also said the wrong thing: "Policy CRD" in the purple that means
+       "informative" is not informative, and "NGINX Plus" in the red that
+       means "error" is not an error.
+
+       F5DS publishes a second, larger palette meant for exactly this job of
+       telling categories apart: the Graph Colors set (`Shades & Tints/` and
+       `Visualizations/` in the ZH Foundations - Colors library, 55 values in
+       11 colour groups). Each badge below uses one group: its dark value for
+       the text in light mode, and a light value for the background. Dark mode
+       swaps them — the light value becomes the text, over the same colour at
+       16% opacity. check-contrast.py measures every pair, in both modes.
+
+       ── Which colour each badge gets was not a free choice ─────────────────
+       The production site already has a colour for each of these badges, and
+       readers know them. So this is a translation, not a redesign: take the
+       colour production uses, and give the badge the closest group in the
+       F5DS palette. Comparing hue angles, production is within 5° of a group
+       for five of the eight badges:
+
+                              production   hue     closest group    difference
+         VirtualServer        #0072B0      201°    4  cyan-blue      2.2°
+         VirtualServerRoute   #0E41AA      220°    3  blue           4.1°
+         Policy               #933DCC      276°    1  purple        27°
+         TransportServer      #F29A36       32°   10  orange         0.4°
+         ConfigMap            #AB2782      319°    2  magenta       18.2°
+         GlobalConfiguration  #343434      grey    none — see below
+         NGINX Plus           #E4002B      349°    9  rose           2.9°
+         New                  #009639      143°    7  green         22.8°
+
+       That table caught a mistake made here earlier. In production ConfigMap
+       is magenta and GlobalConfiguration is grey; a previous version of this
+       file had those two the wrong way round, and then spent three more
+       attempts looking for a new colour for ConfigMap when nothing was wrong
+       with the old one. GlobalConfiguration is also the right badge to leave
+       grey: it is cluster-wide infrastructure rather than a per-route
+       setting, and production's grey has no hue to match anyway.
+
+       ── There is no annotation badge, so teal is unused ────────────────────
+       Production has a teal `.badge-annotation` rule (#009C93, which is very
+       close to family 5), and an earlier version of this file gave it a teal
+       label here too. Nothing on the page uses it. `git log -S` shows the
+       class has never been put on an element, in any commit — every match is
+       the CSS rule itself, from back when the styles were inside the HTML.
+       check-classes.py did not report it because it skipped every class
+       starting with `badge-`; it now skips only the five names that
+       migration-core.js builds at runtime.
+
+       Family 5 is left unused in case an annotation badge is ever added. If
+       it is: teal is the one colour group whose darkest value is still too
+       light to use as the label. Elm #28837E only reaches 4.01:1 on Light
+       Cyan and 3.59:1 on Ice, both below the 4.5:1 minimum. Darkening Elm
+       while keeping its hue gives #1D5E5A, which reaches 6.64:1 — the same
+       approach --n550 and --blue-text use. Production's #005250 is darker still.
+
+       ── Why ConfigMap uses the second-lightest pink ────────────────────────
+       Picking the nearest colour group is not enough on its own. Groups 2 and
+       9 are neighbours, so ConfigMap and NGINX Plus end up looking similar
+       whatever their labels do.
+
+       Measured with CIEDE2000 — a standard formula for how different two
+       colours look to the eye, where anything under about 10 starts to blur
+       together — ConfigMap on Selago #FCE4F8 versus NGINX Plus on Carousel
+       Pink scored 6.3. That was the closest pair on the page; every other
+       pair scored 10.3 or higher. Production has the same problem, at 3.6,
+       but gets away with it because its two labels score 28.3 apart. Ours
+       were only 21.1 apart, which was not enough to compensate.
+
+       So ConfigMap uses Chantilly #F7BDED, the second-lightest pink in group
+       2, rather than the lightest one that would match production exactly.
+       That raises the score from 6.3 to 15.9 in both light and dark mode.
+       Moving NGINX Plus to group 8 would have worked equally well, but it
+       would have pulled Plus much further from the red it uses in
+       production, so ConfigMap is the one that moved.
+
+       This is also why ConfigMap is no longer the palest badge in the row.
+
+       Groups 6 (olive) and 11 (yellow) are unused. Olive was tried on
+       ConfigMap and looked wrong for the reason the table above makes clear:
+       no badge in production is anywhere near that colour. */
+    --badge-vs-fg:     #044A77;  --badge-vs-bg:     #BBE4FD;  /* 4  Regal / French Pass   */
+    --badge-vsr-fg:    #0041A3;  --badge-vsr-bg:    #B3CDFF;  /* 3  Cobalt / Melrose      */
+    --badge-policy-fg: #5242AA;  --badge-policy-bg: #CAC5EC;  /* 1  Gigas / Prelude       */
+    --badge-ts-fg:     #723E04;  --badge-ts-bg:     #FFE7CA;  /* 10 Peru Tan / Tequila    */
+    --badge-cm-fg:     #6A0B6A;  --badge-cm-bg:     #F7BDED;  /* 2  Palatinate / Chantilly*/
+    --badge-plus-fg:   #7E2B37;  --badge-plus-bg:   #F5DFE3;  /* 9  Nutmeg / Carousel Pink*/
+    --badge-new-fg:    #135213;  --badge-new-bg:    #DAF7D5;  /* 7  Parsley / Romance     */
+    /* The one neutral, and production agrees: GlobalConfiguration is grey. */
+    --badge-gc-fg:     var(--n600);  --badge-gc-bg: var(--n200);
+
+    /* Scrim behind the mobile navigation drawer: N700 at 40%, never black. */
+    --scrim: rgba(11, 22, 64, 0.40);
+
+    /* ── Code surfaces ─────────────────────────────────────────────────────
+       Dark in both themes, tinted with N700 rather than black so code sits in
+       the same colour world as everything else. The two --on-code washes are
+       for controls that sit ON that surface, and are theme-independent for the
+       same reason. */
+    /* Near-black and NEUTRAL, not the N700 navy the rest of the site uses.
+       A navy surface sits in the same hue family as the blue-family syntax
+       tokens (keys #9CDCFE, keywords #569CD6), so they separate poorly against
+       it even though their luminance contrast is fine — the complaint was
+       readability, and hue proximity was the cause rather than contrast. This
+       is VS Code Dark+'s own editor background, which is what the token palette
+       above was designed against. Part of the same code exemption. */
+    --code-bg:     #1E1E1E;
+    --code-fg:     #D4D4D4;
+
+    /* ── Code syntax — a DOCUMENTED EXEMPTION ─────────────────────────────
+       F5DS defines no code palette. It publishes no syntax-highlighting
+       guidance at all, and its status hues are the wrong instrument: they
+       carry sentiment rather than token role, they are not tuned to
+       differentiate six things at a glance, and two of them (Emerald, Amber)
+       are forbidden as text by this site's own contrast rule — which the
+       previous values broke, using --emerald for comments and --amber for
+       numbers.
+
+       These are VS Code Dark+, the same palette the pre-F5DS design used and
+       the same family docs.nginx.com uses, changed only where contrast
+       required it. Ratios are measured against --code-bg #1E1E1E; the code
+       surface is the same in both themes, so one set covers both. */
+    --code-key:     #9CDCFE;  /* 11.18:1 — mapping keys */
+    --code-string:  #CE9178;  /*  6.31:1 — quoted values */
+    --code-comment: #6A9955;  /*  5.00:1 — comments */
+    --code-keyword: #569CD6;  /*  5.65:1 — keywords, booleans, commands */
+    --code-number:  #B5CEA8;  /*  9.81:1 — numbers */
+    --code-punct:   #8B9099;  /*  5.20:1 — separators. VS Code's own #808080
+                                 measures 4.19:1 here, under the bar, so this
+                                 is one step lighter. */
+    --code-border: #333333;
+    --on-code:        rgba(255, 255, 255, 0.08);
+    --on-code-strong: rgba(255, 255, 255, 0.16);
+
+    /* Inline code sits on a wash with no border, which is how GitHub, Slack and
+       Stack Overflow all render it: the monospace face and the tint already say
+       "code", and a 1px outline around a run of ten annotation names in one
+       table cell turns the cell into a grid of boxes. N400 at 22% is the one
+       value that works unchanged in both themes — it lightens N0 to #E9EBEF and
+       over the dark surface it lifts rather than muddies, so the chip needs no
+       dark override at all. Body text on it: 13.21:1 light, 9.99:1 dark. */
+    --code-chip-bg: rgba(158, 167, 184, 0.22);
+
+    /* The accessible foreground for anything sitting on --blue-tint: the
+       blue-washed inline-code chip, and the ingress2gateway version pill.
+       The foreground cannot be --blue — Dodger Blue on its own 10% tint is
+       3.56:1, fine for a mark and short of the bar for text, and both of
+       these are text. --blue-text clears it at 5.70:1. Dark needs its own
+       value because --blue and --blue-text collapse to the same #7893FF
+       there (4.25:1 on the tint); --blue-deep is 5.37:1. */
+    --on-blue-tint: var(--blue-text);
+
+    /* ── Border radius ─────────────────────────────────────────────────────
+       F5DS publishes four values and one rule: 4px for all components and UI
+       elements, except Tags and Badges, and except elements too small for 4px.
+       So --radius is the default for every surface, --radius-small is the
+       too-small escape hatch (F5DS's own example is the selected-item
+       highlight in Primary Navigation), and --radius-pill belongs to Tags and
+       Badges alone. A pill-shaped button, card or input is off-system.
+
+       The site previously ran on f5.com's 5px, hardcoded at nearly every call
+       site rather than tokenised. */
+    --radius:       4px;
+    --radius-small: 2px;
+    --radius-pill:  999px;
+
+    /* ── Elevation ─────────────────────────────────────────────────────────
+       Three levels, all tinted with N700 at 8% and 12% rather than black or
+       f5.com's blue-grey. L0 for elements with their own affordance — buttons
+       and typographic elements are called out by name.
+
+       The console uses border-only cards at rest on its Home and landing
+       pages, reserving shadow for surfaces that actually float. This site now
+       follows that: cards get --border, and elevation is kept for overlays and
+       for the hover step on an interactive card. That is a change from the
+       previous design, where every card rested on a shadow.
+
+       Replaces --shadow / --shadow-strong. */
+    --elev-0: none;
+    --elev-1: 0 6px 24px rgba(11, 22, 64, 0.08);
+    --elev-2: 0 10px 20px rgba(11, 22, 64, 0.12);
+
+    /* ── Spacing ───────────────────────────────────────────────────────────
+       Base 8px; every value a multiple of 4. Named after F5DS's own steps so
+       each token is auditable against the spec. Two published exceptions carry
+       real weight: 2px is used ONLY between a label and its form control, and
+       12px is explicitly not part of the system — a 12px gap resolves to 8 or
+       16 by context, never to itself. There is deliberately no step between 8
+       and 16, because that step would be the banned 12.
+
+       --space-6x and --space-8x extend the ladder past F5DS's published
+       ceiling of 40px, following its own Nx = 8N formula; page gutters and
+       section rhythm need that range and the spec names nothing above 40.
+
+       Choosing between 8 and 16: icon-to-text 8; between buttons in a group
+       20; sibling controls in a row 16; grid gutter 16; same-thought margin 8;
+       peer blocks 16; container insets 20; section to section 40. When
+       genuinely ambiguous, round down. */
+    --space-xsmall: 2px;
+    --space-small:  4px;
+    --space-base:   8px;
+    --space-2x:     16px;   --space-2hx: 20px;
+    --space-3x:     24px;   --space-3hx: 28px;
+    --space-4x:     32px;   --space-4hx: 36px;
+    --space-5x:     40px;
+    --space-6x:     48px;
+    --space-8x:     64px;
+
+    /* ── Motion ────────────────────────────────────────────────────────────
+       Four durations (there is no D1) and two easings. F5DS assigns duration
+       by how far a thing travels, adding 100ms per 10% of screen crossed —
+       that derivation places each token below. A colour swap or a chevron
+       rotation crosses ~0% and takes D2; a disclosure panel or a 264px drawer
+       crosses 20–30% and takes D3/D4; D5 is for a full-height side modal.
+       Colour and opacity move linearly. Elevation fades over 400ms linear,
+       which is what the Elevation page specifies — the Motion page's
+       D3/EaseOutQuint applies to an accompanying position change, which this
+       site does not use. */
+    --dur-colour: 200ms;   /* D2 */
+    --dur-reveal: 300ms;   /* D3 */
+    --dur-move:   400ms;   /* D4 */
+    --dur-travel: 600ms;   /* D5 */
+    --dur-elev:   400ms;
+    --ease-enter: cubic-bezier(0.23, 1, 0.32, 1);           /* EaseOutQuint */
+    --ease-exit:  cubic-bezier(0.550, 0.055, 0.675, 0.190); /* EaseInCubic */
+
+    /* ── Typography ────────────────────────────────────────────────────────
+       Inter, self-hosted, never a CDN. Weights 400/500/700 only — no 300, no
+       600. letter-spacing is 0 on every style in the system, so there should
+       be no letter-spacing declaration anywhere in this codebase.
+
+       F5DS pairs a FIXED LEADING with each size rather than applying one
+       global ratio. line-height is therefore a length, not a multiplier, and
+       every rule that sets font-size must restate its paired --lh-*. Sizes are
+       in rem so the browser's font-size preference still scales the site; at
+       the default 16px root each resolves to exactly the px figure named. */
+    --font: 'InterVariable', 'Inter', 'Inter Fallback', -apple-system,
+            BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    /* Display and body differ by weight and size only, not by face. Kept as a
+       separate token so the distinction survives in the markup. */
+    --font-display: var(--font);
+    /* Deliberate deviation: F5DS specifies Courier for its one code style,
+       which is unreadable at the sizes the YAML analyzer and install commands
+       use. docs.nginx.com deviates identically (JetBrains Mono). */
+    --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+
+    --fs-h1:      2.25rem;   --lh-h1:      3.375rem;  /* 36 / 54 — page hero titles */
+    --fs-h2:      1.5rem;    --lh-h2:      2.25rem;   /* 24 / 36 — section titles */
+    --fs-h3:      1.125rem;  --lh-h3:      1.625rem;  /* 18 / 26 — page and card titles */
+    --fs-body-lg: 1rem;      --lh-body-lg: 1.5rem;    /* 16 / 24 — nav headers, card titles */
+    --fs-body:    0.875rem;  --lh-body:    1.25rem;   /* 14 / 20 — main body and UI size */
+    --fs-caption: 0.75rem;   --lh-caption: 1.125rem;  /* 12 / 18 — breadcrumbs, tags */
+    --fs-badge:   0.625rem;  --lh-badge:   1rem;      /* 10 / 16 — badges only */
+    --fs-code:    0.875rem;  --lh-code:    1.5rem;    /* 14 / 24 — same size, looser leading */
+
+    /* ── Layout ────────────────────────────────────────────────────────────
+       F5DS fixes Primary Navigation at 264px, up from the site's previous
+       260px, and publishes a 12-column grid with a 16px gutter. The gutter is
+       adopted. The 20px page margin is not: it assumes a dense product screen
+       inside a dense product shell, and on a wide documentation page it puts
+       prose against the viewport edge. F5DS publishes no breakpoints and never
+       states the fixed grid's maximum width, so the site's breakpoints and
+       max-widths are local conventions, not spec values.
+
+       --banner-h is overridden by body.has-banner; --fixed-top-h composes the two
+       so components never repeat the arithmetic.
+
+       --topbar-h is 52px, matching the bar this site already shipped. F5DS
+       publishes no top-bar height; 64px was chosen here and read as loose
+       against production, which is where the extra white space above every
+       page came from. 52 holds a 28px logo with 11.5px of clearance either
+       side, and the heading is one line, so nothing is under pressure. */
+    --sidebar-w: 264px;
+    --topbar-h:  52px;
+    --banner-h:  0px;
+    --fixed-top-h:  calc(var(--topbar-h) + var(--banner-h));
+}
+
+/* ── Dark theme ────────────────────────────────────────────────────────────
+   Authored here, not quoted: F5DS ships no dark theme. Rather than invent a
+   parallel palette, this deepens into the same N-ramp — N700 becomes the page,
+   N600 the surface — so dark mode stays recognisably the same colour world
+   rather than a different design. That replaces the previous dark theme, which
+   went to pure black.
+
+   Both accents fail AA against N600 at their light-theme values (green 4.04:1,
+   blue 3.89:1), so each is lightened along its own hue until it clears 4.5:1
+   against BOTH N600 and N700. Measured ratios are recorded inline. Shadows
+   deepen with black rather than N700, because an 8% N700 tint is invisible
+   against a near-black page.
+
+   The class is `dark-mode`, not `dark` — the inline flash-prevention script in
+   each page's <head> and shared.js both set that name, and renaming it would
+   be a behaviour change rather than a visual one. */
+/* Scoped to `screen` on purpose. Printing from dark mode used to leak: the
+   print block in shared.css re-declared a handful of tokens back to their
+   light values by hand, and covered 13 of the 50 overridden below -- so a
+   printed page still carried the dark --surface-sunken behind table headers
+   and all eight badge labels in their near-white dark variants, invisible on
+   paper. Scoping the whole block means print resolves every token to :root,
+   with nothing to keep in sync. */
+@media screen {
+    :is(html, body).dark-mode {
+        color-scheme: dark;
+
+        --bg:             var(--n700);
+        --surface:        var(--n600);
+        --surface-sunken: #0A1338;      /* derived — a well below N700 */
+        --text:           var(--n100);
+        --text-secondary: var(--n400);  /* 6.46:1 on N600, 7.21:1 on N700 */
+        --text-disabled:  #4A5680;      /* derived */
+        --icon:           var(--n300);
+        --icon-subtle:    var(--n400);
+        --border:         #2A3A6E;      /* derived — no F5DS token sits here */
+        --border-strong:  #3C4E85;      /* derived */
+        --border-control: #536AB1;      /* derived — 3.02:1 on N600, 3.38:1 on N700 */
+
+        --green:      #00B244;  /* 5.55:1 on N600, 6.19:1 on N700 */
+        --green-text: #00B244;
+        --green-deep: #00CC4E;
+        --green-tint: rgba(0, 178, 68, 0.14);
+
+        --blue:      #7893FF;   /* 5.52:1 on N600, 6.16:1 on N700 */
+        --blue-text: #7893FF;
+        --blue-deep: #93A9FF;
+        --blue-tint: rgba(120, 147, 255, 0.16);
+
+        /* --blue-text collapses onto --blue here, and #7893FF on its own 16%
+           tint is 4.25:1 — below the text bar. --blue-deep is the next step up
+           and clears it at 5.37:1 on the card, 6.05:1 on the page. */
+        --on-blue-tint: var(--blue-deep);
+
+        /* The wash has to invert: on a dark page the tint is lifted above the
+           background, so softening it means darkening toward N700, not lightening
+           toward white. A white wash here would brighten the very edges it is
+           meant to dissolve. */
+        --hero-wash: rgba(11, 22, 64, 0.38);
+
+        /* Status hues hold their hue but swap tints for low-alpha washes of
+           themselves; the base colours are all >= 4.5:1 on N600 as text. */
+        --emerald-tint:     rgba(53, 208, 104, 0.14);
+        --amber-tint:       rgba(255, 196, 0, 0.14);
+        --pomegranate-tint: rgba(249, 70, 39, 0.16);
+        --purple-tint:      rgba(135, 119, 217, 0.18);
+        --java-tint:        rgba(26, 203, 154, 0.14);
+        --pomegranate-text: #FF8A70;   /* 6.79:1 on N600 */
+        --java-text:        #4FE0BC;   /* 9.47:1 on N600 */
+        --purple-text:      #B3A6F0;   /* 7.17:1 on N600 */
+
+        /* Badges invert: the graph family's tint becomes the label, and the fill
+           is that same tint at 16% over the surface. One value per family drives
+           both, so a family cannot drift apart between themes — including the two
+           that are not graph families, where the light fill is N200 and the dark
+           label is the same N200. */
+        --badge-vs-fg:     #BBE4FD;  --badge-vs-bg:     rgba(187, 228, 253, 0.16);
+        --badge-vsr-fg:    #B3CDFF;  --badge-vsr-bg:    rgba(179, 205, 255, 0.16);
+        --badge-policy-fg: #CAC5EC;  --badge-policy-bg: rgba(202, 197, 236, 0.16);
+        --badge-ts-fg:     #FFE7CA;  --badge-ts-bg:     rgba(255, 231, 202, 0.16);
+        --badge-cm-fg:     #F7BDED;  --badge-cm-bg:     rgba(247, 189, 237, 0.16);
+        --badge-plus-fg:   #F5DFE3;  --badge-plus-bg:   rgba(245, 223, 227, 0.16);
+        --badge-new-fg:    #DAF7D5;  --badge-new-bg:    rgba(218, 247, 213, 0.16);
+        --badge-gc-fg:     var(--n200);  --badge-gc-bg: rgba(230, 233, 243, 0.16);
+
+        /* The code surface is its own world and does not follow the theme —
+           one background means one set of contrast figures to maintain. */
+        --code-bg:     #1E1E1E;
+        --code-border: #333333;
+
+        --elev-1: 0 2px 10px rgba(0, 0, 0, 0.5);
+        --elev-2: 0 1px 4px rgba(0, 0, 0, 0.6), 0 4px 8px rgba(0, 0, 0, 0.45);
+    }
+}

@@ -11,13 +11,14 @@
        lives in MigrationTool.NIC at the top of migration-core.js). */
     (function() {
         'use strict';
-        // Bump when updating the Version Reference (see the release checklist in CLAUDE.md).
+        // Bump when updating the Version Reference (see the release-update skill).
         const INGRESS_NGINX_VERSION = 'v1.15.1';
         const INGRESS_NGINX_RELEASE_URL = 'https://github.com/kubernetes/ingress-nginx/releases/tag/controller-' + INGRESS_NGINX_VERSION;
 
         // Thin call-time delegates to the shared core utilities — migration-core.js
         // loads after this file, so MigrationTool must only be dereferenced inside
         // function bodies, never at top level.
+        function splitDocuments(yamlText) { return MigrationTool.util.splitDocuments(yamlText); }
         function stripInlineComment(s) { return MigrationTool.util.stripInlineComment(s); }
         function sanitizeSnippetValue(value) { return MigrationTool.util.sanitizeSnippetValue(value); }
         function formatYamlKV(indent, key, value) { return MigrationTool.util.formatYamlKV(indent, key, value); }
@@ -25,12 +26,12 @@
         // --- YAML Migration Analyzer ---
         const ANNOTATION_MAPPINGS = [
             // Access Control
-            { community: ["denylist-source-range", "whitelist-source-range"], nic: "Policy CRD accessControl (+ nginx.org/policies annotation for Ingress)", type: "policy", category: "Access Control", anchor: "access-control", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["denylist-source-range", "whitelist-source-range"], nic: "Policy CRD accessControl (+ nginx.org/policies annotation for Ingress)", type: "policy", category: "Access control", anchor: "access-control", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { crdKind: "Policy", crdInstall: true, templateFn: "generateAccessControlPolicy" } },
-            { community: ["satisfy"], nic: "Annotation nginx.org/location-snippets (satisfy directive)", type: "annotation", category: "Access Control", anchor: "access-control", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["satisfy"], nic: "Annotation nginx.org/location-snippets (satisfy directive)", type: "annotation", category: "Access control", anchor: "access-control", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { annotations: { "satisfy": { key: "nginx.org/location-snippets", transform: "snippetWrap", template: "satisfy ${value};" } } } },
             // Authentication (Basic)
-            { community: ["auth-realm", "auth-secret", "auth-secret-type", "auth-type"], nic: "Annotation nginx.org/basic-auth-secret, nginx.org/basic-auth-realm or Policy CRD basicAuth", type: "policy", category: "Authentication (Basic)", anchor: "authentication-basic", section: "oss", dualApproach: true, plusRequired: false,
+            { community: ["auth-realm", "auth-secret", "auth-secret-type", "auth-type"], nic: "Annotation nginx.org/basic-auth-secret, nginx.org/basic-auth-realm or Policy CRD basicAuth", type: "policy", category: "Authentication (basic)", anchor: "authentication-basic", section: "oss", dualApproach: true, plusRequired: false,
               nicMapping: { annotations: { "auth-secret": { key: "nginx.org/basic-auth-secret", transform: "direct" }, "auth-realm": { key: "nginx.org/basic-auth-realm", transform: "direct" } }, crdKind: "Policy", crdInstall: true, templateFn: "generateBasicAuthPolicy" } },
             // Buffering
             { community: ["client-body-buffer-size"], nic: "nginx.org/client-body-buffer-size — or — VirtualServer CRD upstreams[].client-body-buffer-size", type: "annotation", category: "Buffering", anchor: "buffering", section: "oss", dualApproach: false, plusRequired: false,
@@ -50,22 +51,22 @@
             { community: ["proxy-request-buffering"], nic: "Annotation nginx.org/location-snippets (proxy_request_buffering directive)", type: "annotation", category: "Buffering", anchor: "buffering", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { annotations: { "proxy-request-buffering": { key: "nginx.org/location-snippets", transform: "snippetWrap", template: "proxy_request_buffering ${value};" } } } },
             // Canary / Traffic Splitting
-            { community: ["canary", "canary-by-cookie", "canary-by-header", "canary-by-header-pattern", "canary-by-header-value", "canary-weight", "canary-weight-total"], nic: "VirtualServer CRD splits[], matches[]", type: "virtualserver", category: "Canary / Traffic Splitting", anchor: "canary-traffic-splitting", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["canary", "canary-by-cookie", "canary-by-header", "canary-by-header-pattern", "canary-by-header-value", "canary-weight", "canary-weight-total"], nic: "VirtualServer CRD splits[], matches[]", type: "virtualserver", category: "Canary / traffic splitting", anchor: "canary-traffic-splitting", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { crdKind: "VirtualServer", crdInstall: true, templateFn: "generateCanaryVirtualServer" } },
-            { community: ["affinity-canary-behavior"], nic: "VirtualServer CRD matches[] + upstreams[].sessionCookie", type: "virtualserver", category: "Session Affinity / Sticky Sessions", anchor: "session-affinity", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["affinity-canary-behavior"], nic: "VirtualServer CRD matches[] + upstreams[].sessionCookie", type: "virtualserver", category: "Session affinity / sticky sessions", anchor: "session-affinity", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { crdKind: "VirtualServer", crdInstall: true } },
             // Configuration Snippets
-            { community: ["configuration-snippet"], nic: "Annotation nginx.org/location-snippets", type: "annotation", category: "Configuration Snippets", anchor: "configuration-snippets", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["configuration-snippet"], nic: "Annotation nginx.org/location-snippets", type: "annotation", category: "Configuration snippets", anchor: "configuration-snippets", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { annotations: { "configuration-snippet": { key: "nginx.org/location-snippets", transform: "direct" } } } },
-            { community: ["server-snippet"], nic: "Annotation nginx.org/server-snippets", type: "annotation", category: "Configuration Snippets", anchor: "configuration-snippets", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["server-snippet"], nic: "Annotation nginx.org/server-snippets", type: "annotation", category: "Configuration snippets", anchor: "configuration-snippets", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { annotations: { "server-snippet": { key: "nginx.org/server-snippets", transform: "direct" } } } },
-            { community: ["stream-snippet"], nic: "GlobalConfiguration CRD + TransportServer CRD", type: "transportserver", category: "Configuration Snippets", anchor: "configuration-snippets", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["stream-snippet"], nic: "GlobalConfiguration CRD + TransportServer CRD", type: "transportserver", category: "Configuration snippets", anchor: "configuration-snippets", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { crdKind: "TransportServer", crdInstall: true, templateFn: "generateStreamSnippetTS" } },
             // CORS
-            { community: ["cors-allow-credentials", "cors-allow-headers", "cors-allow-methods", "cors-allow-origin", "cors-expose-headers", "cors-max-age", "enable-cors"], nic: "Policy CRD cors (+ nginx.org/policies annotation) — or — Annotation snippets — or — VirtualServer CRD responseHeaders", type: "policy", category: "CORS / Header Manipulation", anchor: "cors", section: "oss", dualApproach: true, plusRequired: false,
+            { community: ["cors-allow-credentials", "cors-allow-headers", "cors-allow-methods", "cors-allow-origin", "cors-expose-headers", "cors-max-age", "enable-cors"], nic: "Policy CRD cors (+ nginx.org/policies annotation) — or — Annotation snippets — or — VirtualServer CRD responseHeaders", type: "policy", category: "CORS / header manipulation", anchor: "cors", section: "oss", dualApproach: true, plusRequired: false,
               nicMapping: { annotations: { "enable-cors": { key: "nginx.org/server-snippets", transform: "corsSnippet" } }, crdKind: "Policy", crdInstall: true, templateFn: "generateCORSPolicy" } },
             // Error Handling
-            { community: ["custom-http-errors", "default-backend"], nic: "VirtualServer CRD errorPages[]", type: "virtualserver", category: "Error Handling", anchor: "error-handling", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["custom-http-errors", "default-backend"], nic: "VirtualServer CRD errorPages[]", type: "virtualserver", category: "Error handling", anchor: "error-handling", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { crdKind: "VirtualServer", crdInstall: true, templateFn: "generateErrorPagesVirtualServer" } },
             // Headers
             { community: ["connection-proxy-header"], nic: "Snippets — or — VirtualServer CRD requestHeaders.set", type: "annotation", category: "Headers", anchor: "headers", section: "oss", dualApproach: false, plusRequired: false,
@@ -76,19 +77,19 @@
             { community: ["upstream-vhost", "x-forwarded-prefix"], nic: "VirtualServer CRD requestHeaders.set", type: "virtualserver", category: "Headers", anchor: "headers", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { crdKind: "VirtualServer", crdInstall: true, templateFn: "generateRequestHeadersVS" } },
             // Load Balancing
-            { community: ["load-balance"], nic: "nginx.org/lb-method — or — VirtualServer CRD upstreams[].lb-method", type: "annotation", category: "Load Balancing", anchor: "load-balancing", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["load-balance"], nic: "nginx.org/lb-method — or — VirtualServer CRD upstreams[].lb-method", type: "annotation", category: "Load balancing", anchor: "load-balancing", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { annotations: { "load-balance": { key: "nginx.org/lb-method", transform: "lbMethod" } } } },
-            { community: ["service-upstream"], nic: "nginx.org/use-cluster-ip — or — VirtualServer CRD upstreams[].use-cluster-ip", type: "annotation", category: "Load Balancing", anchor: "load-balancing", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["service-upstream"], nic: "nginx.org/use-cluster-ip — or — VirtualServer CRD upstreams[].use-cluster-ip", type: "annotation", category: "Load balancing", anchor: "load-balancing", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { annotations: { "service-upstream": { key: "nginx.org/use-cluster-ip", transform: "direct" } } } },
-            { community: ["upstream-hash-by", "upstream-hash-by-subset", "upstream-hash-by-subset-size"], nic: "nginx.org/lb-method — or — VirtualServer CRD upstreams[].lb-method", type: "virtualserver", category: "Load Balancing", anchor: "load-balancing", section: "oss", dualApproach: true, plusRequired: false,
+            { community: ["upstream-hash-by", "upstream-hash-by-subset", "upstream-hash-by-subset-size"], nic: "nginx.org/lb-method — or — VirtualServer CRD upstreams[].lb-method", type: "virtualserver", category: "Load balancing", anchor: "load-balancing", section: "oss", dualApproach: true, plusRequired: false,
               nicMapping: { annotations: { "upstream-hash-by": { key: "nginx.org/lb-method", transform: "snippetWrap", template: "hash ${value} consistent" } }, crdKind: "VirtualServer", crdInstall: true, templateFn: "generateHashLBVirtualServer" } },
             // mTLS (Client)
-            { community: ["auth-tls-error-page", "auth-tls-pass-certificate-to-upstream", "auth-tls-secret", "auth-tls-verify-client", "auth-tls-verify-depth"], nic: "Policy CRD ingressMTLS + snippets", type: "policy", category: "mTLS (Client Certificate Verification)", anchor: "mtls-client", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["auth-tls-error-page", "auth-tls-pass-certificate-to-upstream", "auth-tls-secret", "auth-tls-verify-client", "auth-tls-verify-depth"], nic: "Policy CRD ingressMTLS + snippets", type: "policy", category: "mTLS (client certificate verification)", anchor: "mtls-client", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { crdKind: "Policy", crdInstall: true, templateFn: "generateIngressMTLSPolicy" } },
-            { community: ["auth-tls-match-cn"], nic: "Annotation nginx.org/location-snippets", type: "annotation", category: "mTLS (Client Certificate Verification)", anchor: "mtls-client", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["auth-tls-match-cn"], nic: "Annotation nginx.org/location-snippets", type: "annotation", category: "mTLS (client certificate verification)", anchor: "mtls-client", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { annotations: { "auth-tls-match-cn": { key: "nginx.org/location-snippets", transform: "snippetWrap", template: "if ($ssl_client_s_dn !~ \"${value}\") { return 403; }" } } } },
             // mTLS (Backend)
-            { community: ["proxy-ssl-ciphers", "proxy-ssl-name", "proxy-ssl-protocols", "proxy-ssl-secret", "proxy-ssl-server-name", "proxy-ssl-verify", "proxy-ssl-verify-depth"], nic: "Policy CRD egressMTLS", type: "policy", category: "mTLS (Backend/Egress)", anchor: "mtls-backend", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["proxy-ssl-ciphers", "proxy-ssl-name", "proxy-ssl-protocols", "proxy-ssl-secret", "proxy-ssl-server-name", "proxy-ssl-verify", "proxy-ssl-verify-depth"], nic: "Policy CRD egressMTLS", type: "policy", category: "mTLS (backend/egress)", anchor: "mtls-backend", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { crdKind: "Policy", crdInstall: true, templateFn: "generateEgressMTLSPolicy" } },
             // Logging
             { community: ["enable-access-log"], nic: "ConfigMap access-log-off", type: "configmap", category: "Logging", anchor: "logging", section: "oss", dualApproach: false, plusRequired: false,
@@ -100,13 +101,13 @@
               nicMapping: {} },
             // server-tokens: F5 NGINX Ingress Controller-only annotation (nginx.org/server-tokens) — no community equivalent, not in YAML analyzer
             // Request Mirroring
-            { community: ["mirror-host", "mirror-request-body", "mirror-target"], nic: "Annotations nginx.org/location-snippets (mirror directive) + nginx.org/server-snippets (internal /mirror location)", type: "annotation", category: "Request Mirroring", anchor: "mirroring", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["mirror-host", "mirror-request-body", "mirror-target"], nic: "Annotations nginx.org/location-snippets (mirror directive) + nginx.org/server-snippets (internal /mirror location)", type: "annotation", category: "Request mirroring", anchor: "mirroring", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { annotations: { "mirror-target": { key: "nginx.org/location-snippets", transform: "mirrorSnippet" } } } },
             // Proxy Settings
-            { community: ["proxy-http-version"], nic: "Annotation nginx.org/location-snippets", type: "annotation", category: "Proxy Settings", anchor: "proxy-settings", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["proxy-http-version"], nic: "Annotation nginx.org/location-snippets", type: "annotation", category: "Proxy settings", anchor: "proxy-settings", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { annotations: { "proxy-http-version": { key: "nginx.org/location-snippets", transform: "snippetWrap", template: "proxy_http_version ${value};" } } } },
             // Route Delegation
-            { community: ["server-alias"], nic: "VirtualServer CRD (one resource per hostname)", type: "virtualserver", category: "Route Delegation", anchor: "route-delegation", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["server-alias"], nic: "VirtualServer CRD (one resource per hostname)", type: "virtualserver", category: "Route delegation", anchor: "route-delegation", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { crdKind: "VirtualServer", crdInstall: true, templateFn: "generateServerAliasVS" } },
             // OpenTelemetry
             { community: ["enable-opentelemetry"], nic: "ConfigMap otel-exporter-endpoint, otel-trace-in-http, otel-service-name", type: "configmap", category: "OpenTelemetry", anchor: "opentelemetry", section: "oss", dualApproach: false, plusRequired: false,
@@ -114,10 +115,10 @@
             { community: ["opentelemetry-trust-incoming-span"], nic: "No direct equivalent — NIC does not set otel_trace_context, so incoming trace context is not propagated by default (unlike the community default); there is no per-Ingress toggle, so this annotation can be removed during migration", type: "unsupported", category: "OpenTelemetry", anchor: "opentelemetry", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: {} },
             // Proxy Settings
-            { community: ["proxy-next-upstream", "proxy-next-upstream-timeout", "proxy-next-upstream-tries"], nic: "Annotations nginx.org/proxy-next-upstream* — or — VirtualServer CRD upstreams[].next-upstream*", type: "annotation", category: "Proxy Settings", anchor: "proxy-settings", section: "oss", dualApproach: true, plusRequired: false,
+            { community: ["proxy-next-upstream", "proxy-next-upstream-timeout", "proxy-next-upstream-tries"], nic: "Annotations nginx.org/proxy-next-upstream* — or — VirtualServer CRD upstreams[].next-upstream*", type: "annotation", category: "Proxy settings", anchor: "proxy-settings", section: "oss", dualApproach: true, plusRequired: false,
               nicMapping: { annotations: { "proxy-next-upstream": { key: "nginx.org/proxy-next-upstream", transform: "direct" }, "proxy-next-upstream-timeout": { key: "nginx.org/proxy-next-upstream-timeout", transform: "direct" }, "proxy-next-upstream-tries": { key: "nginx.org/proxy-next-upstream-tries", transform: "direct" } }, crdKind: "VirtualServer", crdInstall: true, templateFn: "generateProxyNextUpstreamVS" } },
             // Rate Limiting
-            { community: ["limit-burst-multiplier", "limit-connections", "limit-rate", "limit-rate-after", "limit-rpm", "limit-rps", "limit-whitelist"], nic: "nginx.org/limit-req-* annotations — or — Policy CRD rateLimit", type: "policy", category: "Rate Limiting", anchor: "rate-limiting", section: "oss", dualApproach: true, plusRequired: false,
+            { community: ["limit-burst-multiplier", "limit-connections", "limit-rate", "limit-rate-after", "limit-rpm", "limit-rps", "limit-whitelist"], nic: "nginx.org/limit-req-* annotations — or — Policy CRD rateLimit", type: "policy", category: "Rate limiting", anchor: "rate-limiting", section: "oss", dualApproach: true, plusRequired: false,
               nicMapping: { annotations: { "limit-rps": { key: "nginx.org/limit-req-rate", transform: "appendRateUnit" }, "limit-burst-multiplier": { key: "nginx.org/limit-req-burst", transform: "burstMultiplier" } }, crdKind: "Policy", crdInstall: true, templateFn: "generateRateLimitPolicy" } },
             // Redirects
             { community: ["from-to-www-redirect", "permanent-redirect", "permanent-redirect-code", "temporal-redirect", "temporal-redirect-code"], nic: "VirtualServer CRD action.redirect", type: "virtualserver", category: "Redirects", anchor: "redirects", section: "oss", dualApproach: false, plusRequired: false,
@@ -153,16 +154,16 @@
               nicMapping: { annotations: { "proxy-send-timeout": { key: "nginx.org/proxy-send-timeout", transform: "appendTimeUnit" } } } },
             // Authentication (External): generic auth_request → externalAuth Policy (OSS, recommended).
             // Native OIDC (Plus) is documented as an alternative in the OIDC Authentication section.
-            { community: ["auth-cache-duration", "auth-cache-key", "auth-method", "auth-proxy-set-headers", "auth-request-redirect", "auth-response-headers", "auth-signin", "auth-signin-redirect-param", "auth-snippet", "auth-url"], nic: "Policy CRD externalAuth (+ nginx.org/policies annotation)", type: "policy", category: "Authentication (External)", anchor: "authentication-external", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["auth-cache-duration", "auth-cache-key", "auth-method", "auth-proxy-set-headers", "auth-request-redirect", "auth-response-headers", "auth-signin", "auth-signin-redirect-param", "auth-snippet", "auth-url"], nic: "Policy CRD externalAuth (+ nginx.org/policies annotation)", type: "policy", category: "Authentication (external)", anchor: "authentication-external", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { crdKind: "Policy", crdInstall: true, templateFn: "generateExternalAuthPolicy" } },
-            { community: ["auth-keepalive", "auth-keepalive-requests", "auth-keepalive-share-vars", "auth-keepalive-timeout"], nic: "Annotation nginx.org/location-snippets (auth_request directives)", type: "annotation", category: "Authentication (External)", anchor: "authentication-external", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["auth-keepalive", "auth-keepalive-requests", "auth-keepalive-share-vars", "auth-keepalive-timeout"], nic: "Annotation nginx.org/location-snippets (auth_request directives)", type: "annotation", category: "Authentication (external)", anchor: "authentication-external", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { annotations: { "auth-keepalive": { key: "nginx.org/location-snippets", transform: "snippetWrap", template: "# auth-keepalive not directly supported; use auth_request directives" } } } },
-            { community: ["auth-always-set-cookie"], nic: "Annotation nginx.org/location-snippets (auth_request_set directive)", type: "annotation", category: "Authentication (External)", anchor: "authentication-external", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["auth-always-set-cookie"], nic: "Annotation nginx.org/location-snippets (auth_request_set directive)", type: "annotation", category: "Authentication (external)", anchor: "authentication-external", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { annotations: { "auth-always-set-cookie": { key: "nginx.org/location-snippets", transform: "snippetWrap", template: "auth_request_set $auth_cookie $upstream_http_set_cookie;\nadd_header Set-Cookie $auth_cookie;" } } } },
-            { community: ["enable-global-auth"], nic: "Not applicable (F5 NGINX Ingress Controller has no global external auth)", type: "unsupported", category: "Authentication (External)", anchor: "authentication-external", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["enable-global-auth"], nic: "Not applicable (F5 NGINX Ingress Controller has no global external auth)", type: "unsupported", category: "Authentication (external)", anchor: "authentication-external", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: {} },
             // Session Affinity (OSS + Plus)
-            { community: ["affinity", "affinity-mode", "session-cookie-change-on-failure", "session-cookie-conditional-samesite-none", "session-cookie-domain", "session-cookie-expires", "session-cookie-max-age", "session-cookie-name", "session-cookie-path", "session-cookie-samesite", "session-cookie-secure"], nic: "VirtualServer CRD sessionCookie", type: "virtualserver", category: "Session Affinity / Sticky Sessions", anchor: "session-affinity", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["affinity", "affinity-mode", "session-cookie-change-on-failure", "session-cookie-conditional-samesite-none", "session-cookie-domain", "session-cookie-expires", "session-cookie-max-age", "session-cookie-name", "session-cookie-path", "session-cookie-samesite", "session-cookie-secure"], nic: "VirtualServer CRD sessionCookie", type: "virtualserver", category: "Session affinity / sticky sessions", anchor: "session-affinity", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { crdKind: "VirtualServer", crdInstall: true, templateFn: "generateSessionAffinityVS" } },
             // Plus: WAF
             // ModSecurity / WAF — no OSS replacement; Plus users can use F5 WAF for NGINX
@@ -199,13 +200,13 @@
             return warnings;
         }
 
-        function parseYamlAnnotations(yamlText) {
+        // Takes the pre-split documents from parseInput (an array of line
+        // arrays), not raw text — splitting and line-splitting the whole
+        // manifest twice, once here and once in parseIngressSpec, was the
+        // analyzer's largest avoidable cost on a big paste.
+        function parseYamlAnnotations(docs) {
             let results = [];
-            // Normalize CRLF/CR so line-by-line parsing never trips on a trailing \r.
-            yamlText = yamlText.replace(/\r\n?/g, '\n');
-            let docs = yamlText.split(/^---\s*$/m);
-            docs.forEach(function(doc, docIndex) {
-                let lines = doc.split('\n');
+            docs.forEach(function(lines, docIndex) {
                 let inAnnotations = false;
                 let annotationIndent = -1;
                 for (let i = 0; i < lines.length; i++) {
@@ -333,14 +334,12 @@
             return { value: result, note: null };
         }
 
-        // Extract Ingress spec fields (host, service, port, path, tls, name) from YAML text
-        function parseIngressSpec(yamlText) {
+        // Extract Ingress spec fields (host, service, port, path, tls, name) from
+        // the pre-split documents parseInput hands over.
+        function parseIngressSpec(docs) {
             let specs = [];
-            yamlText = yamlText.replace(/\r\n?/g, '\n');
-            let docs = yamlText.split(/^---\s*$/m);
-            docs.forEach(function(doc) {
+            docs.forEach(function(lines) {
                 let spec = { host: null, serviceName: null, servicePort: null, path: null, tlsSecret: null, ingressName: null };
-                let lines = doc.split('\n');
                 for (let i = 0; i < lines.length; i++) {
                     let line = lines[i];
                     let trimmed = line.trim();
@@ -641,9 +640,6 @@
                 if (samesite) lines.push('        samesite: ' + samesite.toLowerCase());
                 lines.push('  routes:', '    - path: ' + specPath(spec), '      action:', '        pass: backend');
                 return lines.join('\n');
-            },
-            generateWAFPolicy: function(found) {
-                return ['apiVersion: k8s.nginx.org/v1', 'kind: Policy', 'metadata:', '  name: waf-policy', 'spec:', '  waf:', '    enable: true', '    apPolicy: "default/waf-policy"', '    securityLogs:', '      - enable: true', '        apLogConf: "default/log-config"', '        logDest: "syslog:server=syslog:514"'].join('\n');
             }
         };
 
@@ -710,37 +706,31 @@
                         srvLines.push('}');
                         annotationSwaps.push({ from: 'nginx.ingress.kubernetes.io/mirror-target', fromAnnotations: [], to: 'nginx.org/server-snippets', value: '|\\n  ' + srvLines.join('\\n  '), originalValue: mirrorTarget || '', entry: entry });
                     } else {
-                        // Special handling for backend-protocol — selects correct F5 NGINX Ingress Controller annotation based on value
-                        let hasBackendProtocol = Object.keys(om.annotations).some(function(k) { return om.annotations[k].transform === 'backendProtocol'; });
-                        if (hasBackendProtocol) {
-                            entry.foundAnnotations.forEach(function(a) {
-                                let spec = om.annotations[a.annotation];
-                                if (spec && spec.transform === 'backendProtocol') {
-                                    let upperVal = (a.value || '').toUpperCase();
-                                    let svcName = specService(ingressSpec);
-                                    if (upperVal === 'GRPC' || upperVal === 'GRPCS') {
-                                        annotationSwaps.push({ from: 'nginx.ingress.kubernetes.io/' + a.annotation, fromAnnotations: [{ annotation: a.annotation, value: a.value }], to: 'nginx.org/grpc-services', value: svcName, originalValue: a.value, entry: entry });
-                                    } else if (upperVal === 'HTTPS') {
-                                        annotationSwaps.push({ from: 'nginx.ingress.kubernetes.io/' + a.annotation, fromAnnotations: [{ annotation: a.annotation, value: a.value }], to: 'nginx.org/ssl-services', value: svcName, originalValue: a.value, entry: entry });
-                                    } else if (upperVal === 'HTTP') {
-                                        infoNotes.push({ annotation: a.annotation, value: a.value, message: 'HTTP is the default protocol in F5 NGINX Ingress Controller. Remove this annotation — no replacement is needed.', entry: entry });
-                                    } else if (upperVal === 'AUTO_HTTP' || upperVal === 'FCGI') {
-                                        infoNotes.push({ annotation: a.annotation, value: a.value, message: upperVal + ' has no direct equivalent in F5 NGINX Ingress Controller. Review your backend protocol strategy before migrating.', entry: entry });
-                                    }
-                                } else if (spec) {
-                                    let translated = unwrapTranslated(translateValue(a.value, spec.transform, spec.template, entry.foundAnnotations));
-                                    annotationSwaps.push({ from: 'nginx.ingress.kubernetes.io/' + a.annotation, fromAnnotations: [{ annotation: a.annotation, value: a.value }], to: spec.key, value: translated.value, note: translated.note, originalValue: a.value, entry: entry });
+                        // One loop for every annotation. backend-protocol is the
+                        // single special case — its NIC key depends on the value,
+                        // so it branches here rather than duplicating the generic
+                        // path in a parallel loop (which is what this was).
+                        entry.foundAnnotations.forEach(function(a) {
+                            let spec = om.annotations[a.annotation];
+                            if (!spec) return;
+                            if (spec.transform === 'backendProtocol') {
+                                let upperVal = (a.value || '').toUpperCase();
+                                let svcName = specService(ingressSpec);
+                                let fromAnnotations = [{ annotation: a.annotation, value: a.value }];
+                                if (upperVal === 'GRPC' || upperVal === 'GRPCS') {
+                                    annotationSwaps.push({ from: 'nginx.ingress.kubernetes.io/' + a.annotation, fromAnnotations: fromAnnotations, to: 'nginx.org/grpc-services', value: svcName, originalValue: a.value, entry: entry });
+                                } else if (upperVal === 'HTTPS') {
+                                    annotationSwaps.push({ from: 'nginx.ingress.kubernetes.io/' + a.annotation, fromAnnotations: fromAnnotations, to: 'nginx.org/ssl-services', value: svcName, originalValue: a.value, entry: entry });
+                                } else if (upperVal === 'HTTP') {
+                                    infoNotes.push({ annotation: a.annotation, value: a.value, message: 'HTTP is the default protocol in F5 NGINX Ingress Controller. Remove this annotation — no replacement is needed.', entry: entry });
+                                } else if (upperVal === 'AUTO_HTTP' || upperVal === 'FCGI') {
+                                    infoNotes.push({ annotation: a.annotation, value: a.value, message: upperVal + ' has no direct equivalent in F5 NGINX Ingress Controller. Review your backend protocol strategy before migrating.', entry: entry });
                                 }
-                            });
-                        } else {
-                            entry.foundAnnotations.forEach(function(a) {
-                                let spec = om.annotations[a.annotation];
-                                if (spec) {
-                                    let translated = unwrapTranslated(translateValue(a.value, spec.transform, spec.template, entry.foundAnnotations));
-                                    annotationSwaps.push({ from: 'nginx.ingress.kubernetes.io/' + a.annotation, fromAnnotations: [{ annotation: a.annotation, value: a.value }], to: spec.key, value: translated.value, note: translated.note, originalValue: a.value, entry: entry });
-                                }
-                            });
-                        }
+                                return;
+                            }
+                            let translated = unwrapTranslated(translateValue(a.value, spec.transform, spec.template, entry.foundAnnotations));
+                            annotationSwaps.push({ from: 'nginx.ingress.kubernetes.io/' + a.annotation, fromAnnotations: [{ annotation: a.annotation, value: a.value }], to: spec.key, value: translated.value, note: translated.note, originalValue: a.value, entry: entry });
+                        });
                     }
                 }
 
@@ -847,10 +837,14 @@
         // MigrationPlan (pure data — migration-core.js owns all rendering).
 
         function parseInput(yamlText) {
-            let findings = parseYamlAnnotations(yamlText);
+            // Split once, share with both passes. The shared splitter also
+            // normalizes CRLF/CR, so the line-by-line parsing downstream never
+            // trips on a trailing \r.
+            let docs = splitDocuments(yamlText).map(function(doc) { return doc.split('\n'); });
+            let findings = parseYamlAnnotations(docs);
             return {
                 findings: findings,
-                context: parseIngressSpec(yamlText),
+                context: parseIngressSpec(docs),
                 warnings: detectIngressSyntaxWarnings(yamlText),
                 foundCount: findings.length
             };
@@ -981,7 +975,7 @@
 
                 steps.push({
                     id: 'analyzer-step-1',
-                    title: 'Swap Annotations',
+                    title: 'Swap annotations',
                     countText: migration.annotationSwaps.length + ' annotation' + (migration.annotationSwaps.length !== 1 ? 's' : ''),
                     countCls: '',
                     desc: 'Replace community annotations with their F5 NGINX Ingress Controller equivalents. Copy this annotations block into your Ingress metadata.',
@@ -1002,7 +996,7 @@
 
                 steps.push({
                     id: 'analyzer-step-2',
-                    title: 'ConfigMap Changes',
+                    title: 'ConfigMap changes',
                     countText: migration.configMapChanges.length + ' entr' + (migration.configMapChanges.length !== 1 ? 'ies' : 'y'),
                     countCls: 'configmap',
                     desc: 'These settings are configured via the NGINX ConfigMap instead of annotations. Update your nginx-config ConfigMap with these entries.',
@@ -1062,7 +1056,7 @@
 
                 steps.push({
                     id: 'analyzer-step-3',
-                    title: 'CRD Resources',
+                    title: 'CRD resources',
                     countText: migration.crdResources.length + ' resource' + (migration.crdResources.length !== 1 ? 's' : ''),
                     countCls: 'crd',
                     desc: 'These features require Custom Resource Definitions. Install the CRDs first, then apply the generated resources.',
@@ -1081,7 +1075,7 @@
                 let unsupCount = 0;
                 migration.unsupportedEntries.forEach(function(e) { unsupCount += e.foundAnnotations.length; });
                 unsupported = {
-                    title: 'Unsupported Annotations',
+                    title: 'Unsupported annotations',
                     countText: unsupCount + ' annotation' + (unsupCount !== 1 ? 's' : ''),
                     desc: 'These annotations are recognized but have no direct equivalent in the F5 NGINX Ingress Controller. Review each one and take the recommended action.',
                     cards: migration.unsupportedEntries.map(function(entry) {
@@ -1100,7 +1094,7 @@
             let unrecognizedSection = null;
             if (unrecognized.length > 0) {
                 unrecognizedSection = {
-                    title: 'Unrecognized Annotations',
+                    title: 'Unrecognized annotations',
                     desc: 'These annotations were not found in the migration database. They may be custom, deprecated, or not yet mapped.',
                     items: unrecognized.map(function(u) {
                         let key = 'nginx.ingress.kubernetes.io/' + u.annotation;
@@ -1298,7 +1292,7 @@
                 noFindings: { title: 'No community NGINX annotations found.', message: 'Make sure your YAML contains annotations with the nginx.ingress.kubernetes.io/ prefix.' },
                 emptyStateLead: 'Paste your Ingress YAML above and click Analyze',
                 emptyStateHint: 'Drag & drop a .yaml file, or try "Load Sample" for an example',
-                pageNames: { 'getting-started': 'Getting Started', analyzer: 'Config Analyzer', reference: 'Reference Guide' }
+                pageNames: { 'getting-started': 'Getting started', analyzer: 'Config analyzer', reference: 'Reference guide' }
             },
             versionBindings: [
                 { attr: 'data-ingress-nginx-version', text: INGRESS_NGINX_VERSION },

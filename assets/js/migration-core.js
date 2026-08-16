@@ -6,36 +6,50 @@
        (e.g. migration-ingress-nginx.js), which defines
        window.MIGRATION_SOURCE and must load BEFORE this file:
        shared.js → migration-<source>.js → migration-core.js.
-       Shared chrome (dark mode, sidebar drawer, copy-to-clipboard, copyright
+       Shared behavior (dark mode, sidebar drawer, copy-to-clipboard, copyright
        year) lives in shared.js, which loads first and exposes those globals. */
     (function() {
         'use strict';
         // Single source of truth for the F5 NGINX Ingress Controller (the migration
         // TARGET) versions the tool pages are documented against. Bump these when
-        // updating the Version Reference (see the release checklist in CLAUDE.md;
+        // updating the Version Reference (see .claude/skills/release-update/SKILL.md;
         // also update the version pills/install URLs in index.html). The source
         // controller's version lives at the top of its migration-<source>.js.
         const NIC = {
-            VERSION: 'v5.5.1',
-            HELM_VERSION: '2.6.1'
+            VERSION: 'v5.5.4',
+            HELM_VERSION: '2.6.4'
         };
         NIC.CRD_INSTALL_CMD = 'kubectl apply -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/' + NIC.VERSION + '/deploy/crds.yaml';
         NIC.HELM_INSTALL_CMD = 'helm install nginx-ingress oci://ghcr.io/nginx/charts/nginx-ingress --version ' + NIC.HELM_VERSION + ' --set controller.enableCustomResources=true';
         NIC.RELEASE_URL = 'https://github.com/nginx/kubernetes-ingress/releases/tag/' + NIC.VERSION;
 
-        // Strip a trailing inline "# comment" from a YAML scalar, honoring quotes
-        // (a '#' only begins a comment at the start of the value or after whitespace).
-        function stripInlineComment(s) {
-            let inSingle = false, inDouble = false;
-            for (let k = 0; k < s.length; k++) {
-                let c = s[k];
-                if (c === '"' && !inSingle) inDouble = !inDouble;
-                else if (c === "'" && !inDouble) inSingle = !inSingle;
-                else if (c === '#' && !inSingle && !inDouble && (k === 0 || /\s/.test(s[k - 1]))) {
-                    return s.slice(0, k);
+        // Index of the '#' that begins a trailing inline comment, or -1. A '#'
+        // only starts a comment at the start of the value or after whitespace,
+        // and never inside quotes. `requireLeadingSpace` makes position 0
+        // ineligible, which is what the highlighter needs: a line that is
+        // entirely a comment is matched earlier, so a '#' in column 0 of a
+        // *value* is literal.
+        // One scanner for all three callers — stripInlineComment below and both
+        // arms of highlightYaml, which each carried their own copy and had
+        // quietly drifted on whether a tab counts as the preceding whitespace.
+        function findInlineCommentStart(s, requireLeadingSpace) {
+            let inQuote = false, quoteChar = '';
+            for (let i = 0; i < s.length; i++) {
+                let c = s[i];
+                if (inQuote) { if (c === quoteChar) inQuote = false; }
+                else if (c === '"' || c === "'") { inQuote = true; quoteChar = c; }
+                else if (c === '#') {
+                    if (i === 0) { if (!requireLeadingSpace) return 0; }
+                    else if (/\s/.test(s[i - 1])) return i;
                 }
             }
-            return s;
+            return -1;
+        }
+
+        // Strip a trailing inline "# comment" from a YAML scalar, honoring quotes.
+        function stripInlineComment(s) {
+            let i = findInlineCommentStart(s, false);
+            return i === -1 ? s : s.slice(0, i);
         }
 
         // Values interpolated into generated nginx directives come straight from
@@ -62,9 +76,12 @@
             return indent + key + ': "' + escaped + '"';
         }
 
-        // Normalize CRLF/CR and split a manifest into YAML documents.
+        // Normalize CRLF/CR and split a manifest into YAML documents. The
+        // separator may carry a trailing comment — `helm template` emits
+        // `--- # Source: chart/templates/x.yaml`. An indented `---` is
+        // content, not a separator, which the ^ anchor already handles.
         function splitDocuments(yamlText) {
-            return yamlText.replace(/\r\n?/g, '\n').split(/^---\s*$/m);
+            return yamlText.replace(/\r\n?/g, '\n').split(/^---(?:\s+#.*)?\s*$/m);
         }
 
         // Detect syntax we don't fully parse and surface it to the user, so confusing
@@ -285,10 +302,17 @@
             });
 
             // Filter inputs/selects — both text input and select-change funnel through filterTable.
+            // Typing is debounced: one keystroke re-walks every mapping row in
+            // all three sections, which is enough work to drop frames at 300+
+            // rows. A <select> fires once per choice, so it runs immediately.
+            let filterTimer = null;
             document.querySelectorAll('[data-filter-source]').forEach(function(el) {
-                let evt = el.tagName === 'SELECT' ? 'change' : 'input';
-                el.addEventListener(evt, function() {
-                    filterTable(el.getAttribute('data-filter-source'));
+                let isSelect = el.tagName === 'SELECT';
+                el.addEventListener(isSelect ? 'change' : 'input', function() {
+                    let source = el.getAttribute('data-filter-source');
+                    if (isSelect) { filterTable(source); return; }
+                    clearTimeout(filterTimer);
+                    filterTimer = setTimeout(function() { filterTable(source); }, 120);
                 });
             });
 
@@ -428,35 +452,25 @@
             });
         }
 
-        function expandAllExamples(btn) {
-            let scope = btn ? btn.closest('section') : document;
-            if (!scope) scope = document;
+        // Set every expandable row in a scope to the same state. One body for
+        // both directions — they differed only in add/remove and true/false.
+        function setExamplesExpanded(btn, expanded) {
+            let scope = (btn && btn.closest('section')) || document;
             // Highlighting is lazy — cover the whole scope before revealing rows
             // so none of them flash as plain text while the idle queue catches up.
-            highlightStaticExamples(scope);
+            if (expanded) highlightStaticExamples(scope);
             scope.querySelectorAll('.expandable').forEach(row => {
-                row.classList.add('expanded');
-                row.setAttribute('aria-expanded', 'true');
+                row.classList.toggle('expanded', expanded);
+                row.setAttribute('aria-expanded', expanded ? 'true' : 'false');
                 const exampleRow = row.nextElementSibling;
                 if (exampleRow && exampleRow.classList.contains('example-row')) {
-                    exampleRow.classList.add('visible');
-                    exampleRow.setAttribute('aria-hidden', 'false');
+                    exampleRow.classList.toggle('visible', expanded);
+                    exampleRow.setAttribute('aria-hidden', expanded ? 'false' : 'true');
                 }
             });
         }
-        function collapseAllExamples(btn) {
-            let scope = btn ? btn.closest('section') : document;
-            if (!scope) scope = document;
-            scope.querySelectorAll('.expandable').forEach(row => {
-                row.classList.remove('expanded');
-                row.setAttribute('aria-expanded', 'false');
-                const exampleRow = row.nextElementSibling;
-                if (exampleRow && exampleRow.classList.contains('example-row')) {
-                    exampleRow.classList.remove('visible');
-                    exampleRow.setAttribute('aria-hidden', 'true');
-                }
-            });
-        }
+        function expandAllExamples(btn) { setExamplesExpanded(btn, true); }
+        function collapseAllExamples(btn) { setExamplesExpanded(btn, false); }
         let _savedExpanded = [];
         let _migrationStrategy = (SOURCE.analyzer.strategies && SOURCE.analyzer.strategies.initial) || 'crd'; // 'annotation' or 'crd'
 
@@ -476,6 +490,19 @@
             if (results && results.querySelector('.analyzer-step, .analyzer-success-banner') && document.getElementById('yamlInput').value.trim()) {
                 analyzeYaml();
             }
+        }
+
+        // row.textContent re-serializes the row's whole subtree, and the filter
+        // did it for every row on every keystroke. The reference tables are
+        // static markup, so the lowercased form is cached for the page's life.
+        let _rowSearchText = new WeakMap();
+        function rowSearchText(row) {
+            let cached = _rowSearchText.get(row);
+            if (cached === undefined) {
+                cached = row.textContent.toLowerCase();
+                _rowSearchText.set(row, cached);
+            }
+            return cached;
         }
 
         function filterTable(source) {
@@ -534,9 +561,12 @@
                         return;
                     }
                     if (counts) counts.total++;
-                    let textMatch = !term || row.textContent.toLowerCase().includes(term);
+                    let textMatch = !term || rowSearchText(row).includes(term);
                     let match = textMatch && categoryMatch;
-                    row.style.display = match ? '' : 'none';
+                    // Only touch the style when it actually changes — an
+                    // unconditional write invalidates layout for every row.
+                    let hide = match ? '' : 'none';
+                    if (row.style.display !== hide) row.style.display = hide;
                     if (match) visibleCount++;
                 });
                 if (counts) counts.visible += visibleCount;
@@ -626,23 +656,13 @@
             anchor.addEventListener('click', function(e) {
                 e.preventDefault();
                 history.replaceState(null, '', '#' + anchorId);
-                let target = document.getElementById(anchorId);
-                if (target) {
-                    let y = target.getBoundingClientRect().top + window.pageYOffset - scrollOffsetFor(target);
-                    window.scrollTo({ top: y, behavior: scrollBehavior() });
-                }
+                scrollToAnchor(document.getElementById(anchorId), true);
             });
             anchor.setAttribute('aria-label', 'Permalink: ' + heading.textContent.trim());
-            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            svg.setAttribute('width', '16');
-            svg.setAttribute('height', '16');
-            svg.setAttribute('viewBox', '0 0 16 16');
-            svg.setAttribute('fill', 'currentColor');
-            svg.setAttribute('aria-hidden', 'true');
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            path.setAttribute('d', 'm7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z');
-            svg.appendChild(path);
-            anchor.appendChild(svg);
+            anchor.appendChild(makeSvg(
+                { width: '16', height: '16', viewBox: '0 0 16 16', fill: 'currentColor', 'aria-hidden': 'true' },
+                [['path', { d: 'm7.775 3.275 1.25-1.25a3.5 3.5 0 1 1 4.95 4.95l-2.5 2.5a3.5 3.5 0 0 1-4.95 0 .751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018 1.998 1.998 0 0 0 2.83 0l2.5-2.5a2.002 2.002 0 0 0-2.83-2.83l-1.25 1.25a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042Zm-4.69 9.64a1.998 1.998 0 0 0 2.83 0l1.25-1.25a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042l-1.25 1.25a3.5 3.5 0 1 1-4.95-4.95l2.5-2.5a3.5 3.5 0 0 1 4.95 0 .751.751 0 0 1-.018 1.042.751.751 0 0 1-1.042.018 1.998 1.998 0 0 0-2.83 0l-2.5 2.5a1.998 1.998 0 0 0 0 2.83Z' }]]
+            ));
             heading.appendChild(anchor);
         });
 
@@ -651,18 +671,18 @@
             return (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ? 'auto' : 'smooth';
         }
 
-        // Current fixed-chrome height (banner + topbar) read from the rendered layout,
-        // so scroll math shares a single source of truth with the CSS --chrome-h var.
-        function chromeHeight() {
+        // Current fixed header height (banner + top bar) read from the rendered layout,
+        // so scroll math shares a single source of truth with the CSS --fixed-top-h var.
+        function fixedTopHeight() {
             let tb = document.querySelector('.topbar');
             return tb ? Math.round(tb.getBoundingClientRect().bottom) : (document.body.classList.contains('has-banner') ? 87 : 52);
         }
 
-        // Scroll offset for an anchor target: the fixed chrome plus, on desktop,
+        // Scroll offset for an anchor target: the fixed header plus, on desktop,
         // the sticky search/filter bar when the target sits below it inside a
         // mapping section (the bar would otherwise cover the scrolled-to heading).
         function scrollOffsetFor(target) {
-            let offset = chromeHeight() + 12;
+            let offset = fixedTopHeight() + 12;
             let section = target.closest('section');
             let controls = section && section.querySelector('.controls');
             if (controls && window.matchMedia('(min-width: 901px)').matches &&
@@ -670,6 +690,16 @@
                 offset += controls.offsetHeight + 4;
             }
             return offset;
+        }
+
+        // Scroll an element to just below the fixed header. `smooth` is opt-in:
+        // a jump is correct right after a page switch, where the browser has
+        // only just laid the target out and an animation from an arbitrary
+        // scroll position reads as a glitch.
+        function scrollToAnchor(target, smooth) {
+            if (!target) return;
+            let y = target.getBoundingClientRect().top + window.pageYOffset - scrollOffsetFor(target);
+            window.scrollTo(smooth ? { top: y, behavior: scrollBehavior() } : { top: y });
         }
 
         function copyAnalyzerBlock(btn) {
@@ -809,14 +839,8 @@
                     frag.appendChild(colonSpan);
                     if (kvMatch[5] !== undefined && kvMatch[5] !== '') {
                         let fullVal = kvMatch[5];
-                        // Split trailing inline comment (# preceded by space, outside quotes)
-                        let commentStart = -1, inQ = false, qc = '';
-                        for (let ci = 0; ci < fullVal.length; ci++) {
-                            let cc = fullVal[ci];
-                            if (inQ) { if (cc === qc) inQ = false; }
-                            else if (cc === '"' || cc === "'") { inQ = true; qc = cc; }
-                            else if (cc === '#' && ci > 0 && fullVal[ci - 1] === ' ') { commentStart = ci; break; }
-                        }
+                        // Split trailing inline comment (# preceded by whitespace, outside quotes)
+                        let commentStart = findInlineCommentStart(fullVal, true);
                         let val = commentStart >= 0 ? fullVal.substring(0, commentStart) : fullVal;
                         let inlineComment = commentStart >= 0 ? fullVal.substring(commentStart) : '';
                         let valSpan = document.createElement('span');
@@ -860,13 +884,7 @@
                     return;
                 }
                 // Fallback — detect inline comments (e.g. snippet content with trailing # comment)
-                let fbComment = -1, fbInQ = false, fbQC = '';
-                for (let fi = 0; fi < line.length; fi++) {
-                    let fc = line[fi];
-                    if (fbInQ) { if (fc === fbQC) fbInQ = false; }
-                    else if (fc === '"' || fc === "'") { fbInQ = true; fbQC = fc; }
-                    else if (fc === '#' && fi > 0 && line[fi - 1] === ' ') { fbComment = fi; break; }
-                }
+                let fbComment = findInlineCommentStart(line, true);
                 if (fbComment >= 0) {
                     frag.appendChild(document.createTextNode(line.substring(0, fbComment)));
                     let fbCmSpan = document.createElement('span');
@@ -878,6 +896,23 @@
                 }
             });
             return frag;
+        }
+
+        // Build an inline SVG icon: makeSvg({attrs}, [['path', {d}], …]).
+        // No default attributes on purpose — these icons are a mix of stroked
+        // and filled, and silently defaulting a stroke onto a filled path
+        // repaints it. Every caller states what it needs.
+        function makeSvg(attrs, children) {
+            let ns = 'http://www.w3.org/2000/svg';
+            function apply(el, a) {
+                Object.keys(a).forEach(function(k) { el.setAttribute(k, a[k]); });
+                return el;
+            }
+            let svg = apply(document.createElementNS(ns, 'svg'), attrs);
+            (children || []).forEach(function(c) {
+                svg.appendChild(apply(document.createElementNS(ns, c[0]), c[1]));
+            });
+            return svg;
         }
 
         function buildYamlBlock(text, collapsible) {
@@ -897,14 +932,14 @@
                 wrapper.appendChild(pre);
                 let expandBtn = document.createElement('button');
                 expandBtn.className = 'analyzer-yaml-expand';
-                expandBtn.textContent = 'Show full YAML (' + lineCount + ' lines)';
+                expandBtn.textContent = 'Show Full YAML (' + lineCount + ' lines)';
                 expandBtn.addEventListener('click', function() {
                     if (pre.classList.contains('collapsed')) {
                         pre.classList.remove('collapsed');
                         expandBtn.textContent = 'Collapse';
                     } else {
                         pre.classList.add('collapsed');
-                        expandBtn.textContent = 'Show full YAML (' + lineCount + ' lines)';
+                        expandBtn.textContent = 'Show Full YAML (' + lineCount + ' lines)';
                     }
                 });
                 wrapper.appendChild(expandBtn);
@@ -942,8 +977,7 @@
         // Link to Installing CRDs section instead of showing inline command
         function renderCrdInstallNote() {
             let installNote = document.createElement('div');
-            installNote.className = 'info-box note';
-            installNote.style.cssText = 'margin:0 0 16px;';
+            installNote.className = 'info-box note analyzer-install-note';
             let noteStrong = document.createElement('strong');
             noteStrong.textContent = 'Note:';
             installNote.appendChild(noteStrong);
@@ -970,8 +1004,7 @@
             let kindBadgeMap = { 'Policy': 'policy', 'VirtualServer': 'virtualserver', 'VirtualServerRoute': 'virtualserverroute', 'TransportServer': 'transportserver', 'GlobalConfiguration': 'globalconfiguration' };
             let badgeClass = kindBadgeMap[block.kind] || 'virtualserver';
             let kindBadge = document.createElement('span');
-            kindBadge.className = 'badge badge-' + badgeClass;
-            kindBadge.style.marginRight = '8px';
+            kindBadge.className = 'badge badge-' + badgeClass + ' analyzer-crd-kind-badge';
             kindBadge.textContent = block.kind + ' CRD';
             groupTitle.appendChild(kindBadge);
             groupTitle.appendChild(document.createTextNode(block.countText));
@@ -984,12 +1017,12 @@
                     groupDiv.appendChild(spacer);
                 }
                 let catLabel = document.createElement('div');
-                catLabel.style.cssText = 'font-size:0.82rem;color:var(--text-secondary);margin-bottom:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
+                catLabel.className = 'analyzer-crd-category';
                 catLabel.appendChild(document.createTextNode(item.category));
                 if (item.plusRequired) {
                     let plusBadge = document.createElement('span');
                     plusBadge.className = 'plus-indicator';
-                    plusBadge.textContent = 'Plus Required';
+                    plusBadge.textContent = 'Plus required';
                     catLabel.appendChild(plusBadge);
                 }
                 if (item.dualSuffix) catLabel.appendChild(document.createTextNode(item.dualSuffix));
@@ -997,6 +1030,61 @@
                 groupDiv.appendChild(renderComparisonBlock({ old: item.old, new: item.new }));
             });
             return groupDiv;
+        }
+
+        // One builder for all three step headers — the numbered steps, the
+        // informational notes and the unsupported findings differed only in the
+        // marker text and two optional modifier classes.
+        function buildStep(opts) {
+            let step = document.createElement('div');
+            step.className = 'analyzer-step';
+            step.id = opts.id;
+            let header = document.createElement('div');
+            header.className = 'analyzer-step-header';
+            let num = document.createElement('span');
+            num.className = 'analyzer-step-number' + (opts.markerCls ? ' ' + opts.markerCls : '');
+            num.textContent = opts.marker;
+            let title = document.createElement('h3');
+            title.className = 'analyzer-step-title';
+            title.textContent = opts.title;
+            let count = document.createElement('span');
+            count.className = 'analyzer-step-count' + (opts.countCls ? ' ' + opts.countCls : '');
+            count.textContent = opts.countText;
+            header.appendChild(num);
+            header.appendChild(title);
+            header.appendChild(count);
+            step.appendChild(header);
+            if (opts.desc) {
+                let desc = document.createElement('div');
+                desc.className = 'analyzer-step-desc';
+                desc.textContent = opts.desc;
+                step.appendChild(desc);
+            }
+            return step;
+        }
+
+        // One builder for the informational-note and unsupported-finding cards:
+        // same shape, differing only in sentiment and an optional title.
+        // Spacing comes from .analyzer-note-card / .analyzer-note-body in
+        // migration.css — these used to carry inline `margin: 10px 0` and
+        // `margin-top: 6px`, neither of which is on the 4px grid.
+        function buildNoteCard(variant, opts) {
+            let card = document.createElement('div');
+            card.className = 'info-box ' + variant + ' analyzer-note-card';
+            if (opts.title) {
+                let strong = document.createElement('strong');
+                strong.textContent = opts.title;
+                card.appendChild(strong);
+                card.appendChild(document.createTextNode(' — '));
+            }
+            let code = document.createElement('code');
+            code.textContent = opts.code;
+            card.appendChild(code);
+            let body = document.createElement('div');
+            body.className = 'analyzer-note-body';
+            body.textContent = opts.text;
+            card.appendChild(body);
+            return card;
         }
 
         function renderPlan(container, plan) {
@@ -1038,17 +1126,11 @@
             // Success banner
             let banner = document.createElement('div');
             banner.className = 'analyzer-success-banner';
-            let svgNS = 'http://www.w3.org/2000/svg';
-            let checkSvg = document.createElementNS(svgNS, 'svg');
-            checkSvg.setAttribute('width', '22'); checkSvg.setAttribute('height', '22');
-            checkSvg.setAttribute('viewBox', '0 0 24 24'); checkSvg.setAttribute('fill', 'none');
-            checkSvg.setAttribute('stroke', 'currentColor'); checkSvg.setAttribute('stroke-width', '2.5');
-            let checkPath = document.createElementNS(svgNS, 'path');
-            checkPath.setAttribute('d', 'M22 11.08V12a10 10 0 1 1-5.93-9.14');
-            let checkLine = document.createElementNS(svgNS, 'polyline');
-            checkLine.setAttribute('points', '22 4 12 14.01 9 11.01');
-            checkSvg.appendChild(checkPath); checkSvg.appendChild(checkLine);
-            banner.appendChild(checkSvg);
+            banner.appendChild(makeSvg(
+                { width: '22', height: '22', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2.5' },
+                [['path', { d: 'M22 11.08V12a10 10 0 1 1-5.93-9.14' }],
+                 ['polyline', { points: '22 4 12 14.01 9 11.01' }]]
+            ));
             let bannerText = document.createElement('div');
             bannerText.className = 'banner-text';
             bannerText.textContent = 'Analysis complete — ';
@@ -1060,7 +1142,7 @@
 
             // Complexity indicator
             let complexityLevel = plan.banner.complexity;
-            let complexityLabels = { simple: 'Simple Migration', moderate: 'Moderate Migration', advanced: 'Advanced Migration' };
+            let complexityLabels = { simple: 'Simple migration', moderate: 'Moderate migration', advanced: 'Advanced migration' };
             let complexityFilled = { simple: 1, moderate: 2, advanced: 3 };
             let complexBadge = document.createElement('span');
             complexBadge.className = 'analyzer-complexity ' + complexityLevel;
@@ -1082,28 +1164,14 @@
             let stepNum = 0;
             plan.steps.forEach(function(stepData) {
                 stepNum++;
-                let step = document.createElement('div');
-                step.className = 'analyzer-step';
-                step.id = stepData.id;
-                let header = document.createElement('div');
-                header.className = 'analyzer-step-header';
-                let num = document.createElement('div');
-                num.className = 'analyzer-step-number';
-                num.textContent = String(stepNum);
-                let title = document.createElement('h3');
-                title.className = 'analyzer-step-title';
-                title.textContent = stepData.title;
-                let count = document.createElement('span');
-                count.className = 'analyzer-step-count' + (stepData.countCls ? ' ' + stepData.countCls : '');
-                count.textContent = stepData.countText;
-                header.appendChild(num);
-                header.appendChild(title);
-                header.appendChild(count);
-                step.appendChild(header);
-                let desc = document.createElement('div');
-                desc.className = 'analyzer-step-desc';
-                desc.textContent = stepData.desc;
-                step.appendChild(desc);
+                let step = buildStep({
+                    id: stepData.id,
+                    marker: String(stepNum),
+                    title: stepData.title,
+                    countText: stepData.countText,
+                    countCls: stepData.countCls,
+                    desc: stepData.desc
+                });
 
                 stepData.blocks.forEach(function(block) {
                     if (block.type === 'comparison') {
@@ -1128,36 +1196,14 @@
 
             // Informational notes (recognized values that don't need a swap or have no equivalent)
             if (plan.infoNotes && plan.infoNotes.length > 0) {
-                let stepInfo = document.createElement('div');
-                stepInfo.className = 'analyzer-step';
-                stepInfo.id = 'analyzer-info-notes';
-                let hInfo = document.createElement('div');
-                hInfo.className = 'analyzer-step-header';
-                let nInfo = document.createElement('span');
-                nInfo.className = 'analyzer-step-number';
-                nInfo.textContent = 'i';
-                let tInfo = document.createElement('h3');
-                tInfo.className = 'analyzer-step-title';
-                tInfo.textContent = 'Informational Notes';
-                let cInfo = document.createElement('span');
-                cInfo.className = 'analyzer-step-count';
-                cInfo.textContent = plan.infoNotes.length + ' note' + (plan.infoNotes.length !== 1 ? 's' : '');
-                hInfo.appendChild(nInfo);
-                hInfo.appendChild(tInfo);
-                hInfo.appendChild(cInfo);
-                stepInfo.appendChild(hInfo);
+                let stepInfo = buildStep({
+                    id: 'analyzer-info-notes',
+                    marker: 'i',
+                    title: 'Informational notes',
+                    countText: plan.infoNotes.length + ' note' + (plan.infoNotes.length !== 1 ? 's' : '')
+                });
                 plan.infoNotes.forEach(function(note) {
-                    let card = document.createElement('div');
-                    card.className = 'info-box note';
-                    card.style.cssText = 'margin: 10px 0;';
-                    let annCode = document.createElement('code');
-                    annCode.textContent = note.code;
-                    card.appendChild(annCode);
-                    let msg = document.createElement('div');
-                    msg.style.cssText = 'margin-top: 6px; font-size: 0.88rem;';
-                    msg.textContent = note.message;
-                    card.appendChild(msg);
-                    stepInfo.appendChild(card);
+                    stepInfo.appendChild(buildNoteCard('note', { code: note.code, text: note.message }));
                 });
                 applyFadeIn(stepInfo);
                 container.appendChild(stepInfo);
@@ -1165,56 +1211,33 @@
 
             // Unsupported findings (recognized but no migration path)
             if (plan.unsupported) {
-                let step4 = document.createElement('div');
-                step4.className = 'analyzer-step';
-                step4.id = 'analyzer-unsupported';
-                let h4u = document.createElement('div');
-                h4u.className = 'analyzer-step-header';
-                let n4 = document.createElement('span');
-                n4.className = 'analyzer-step-number warning';
-                n4.textContent = '!';
-                let t4 = document.createElement('h3');
-                t4.className = 'analyzer-step-title';
-                t4.textContent = plan.unsupported.title;
-                let c4 = document.createElement('span');
-                c4.className = 'analyzer-step-count unsupported';
-                c4.textContent = plan.unsupported.countText;
-                h4u.appendChild(n4);
-                h4u.appendChild(t4);
-                h4u.appendChild(c4);
-                step4.appendChild(h4u);
-                let d4 = document.createElement('div');
-                d4.className = 'analyzer-step-desc';
-                d4.textContent = plan.unsupported.desc;
-                step4.appendChild(d4);
+                let step4 = buildStep({
+                    id: 'analyzer-unsupported',
+                    marker: '!',
+                    markerCls: 'warning',
+                    title: plan.unsupported.title,
+                    countText: plan.unsupported.countText,
+                    countCls: 'unsupported',
+                    desc: plan.unsupported.desc
+                });
 
                 plan.unsupported.cards.forEach(function(cardData) {
-                    let card = document.createElement('div');
-                    card.className = 'info-box warning';
-                    card.style.cssText = 'margin: 10px 0;';
-                    let title = document.createElement('strong');
-                    title.textContent = cardData.title;
-                    card.appendChild(title);
-                    card.appendChild(document.createTextNode(' — '));
-                    let annCode = document.createElement('code');
-                    annCode.textContent = cardData.code;
-                    card.appendChild(annCode);
-                    let desc = document.createElement('div');
-                    desc.style.cssText = 'margin-top: 6px; font-size: 0.88rem;';
-                    desc.textContent = cardData.desc;
-                    card.appendChild(desc);
+                    let card = buildNoteCard('warning', {
+                        title: cardData.title,
+                        code: cardData.code,
+                        text: cardData.desc
+                    });
                     if (cardData.anchor) {
                         let link = document.createElement('a');
                         link.href = '#' + cardData.anchor;
-                        link.style.cssText = 'font-size: 0.82rem; margin-top: 4px; display: inline-block;';
-                        link.textContent = 'See Reference Guide →';
+                        link.className = 'analyzer-note-link';
+                        link.textContent = 'See reference guide →';
                         link.addEventListener('click', function(e) {
                             e.preventDefault();
                             let sidebarLink = document.querySelector('.sidebar-link[data-section="' + cardData.sidebarSection + '"]');
                             if (sidebarLink) sidebarLink.click();
                             setTimeout(function() {
-                                let target = document.getElementById(cardData.anchor);
-                                if (target) { let y = target.getBoundingClientRect().top + window.pageYOffset - scrollOffsetFor(target); window.scrollTo({ top: y, behavior: scrollBehavior() }); }
+                                scrollToAnchor(document.getElementById(cardData.anchor), true);
                             }, 150);
                         });
                         card.appendChild(link);
@@ -1235,9 +1258,7 @@
                 h4.textContent = plan.unrecognized.title;
                 unrecSection.appendChild(h4);
                 let desc = document.createElement('p');
-                desc.style.fontSize = '0.9rem';
-                desc.style.color = 'var(--text-secondary)';
-                desc.style.marginBottom = '10px';
+                desc.className = 'analyzer-unrecognized-desc';
                 desc.textContent = plan.unrecognized.desc;
                 unrecSection.appendChild(desc);
                 plan.unrecognized.items.forEach(function(u) {
@@ -1253,13 +1274,11 @@
                     unrecSection.appendChild(uCard);
                 });
                 let contributeP = document.createElement('p');
-                contributeP.style.fontSize = '0.85rem';
-                contributeP.style.marginTop = '10px';
+                contributeP.className = 'analyzer-contribute';
                 let contributeLink = document.createElement('a');
                 contributeLink.href = 'https://github.com/nginx/kubernetes.nginx.org';
                 contributeLink.target = '_blank';
                 contributeLink.rel = 'noopener noreferrer';
-                contributeLink.style.color = 'var(--green-text)';
                 contributeLink.textContent = 'Contribute a mapping on GitHub →';
                 contributeP.appendChild(contributeLink);
                 unrecSection.appendChild(contributeP);
@@ -1274,73 +1293,29 @@
                 exportRow.className = 'analyzer-export-actions';
                 let copyAllBtn = document.createElement('button');
                 copyAllBtn.className = 'analyzer-copy-all';
-                copyAllBtn.style.marginTop = '0';
-                let clipSvg = document.createElementNS(svgNS, 'svg');
-                clipSvg.setAttribute('width', '18');
-                clipSvg.setAttribute('height', '18');
-                clipSvg.setAttribute('viewBox', '0 0 24 24');
-                clipSvg.setAttribute('fill', 'none');
-                clipSvg.setAttribute('stroke', 'currentColor');
-                clipSvg.setAttribute('stroke-width', '2');
-                let rect1 = document.createElementNS(svgNS, 'rect');
-                rect1.setAttribute('x', '9'); rect1.setAttribute('y', '9');
-                rect1.setAttribute('width', '13'); rect1.setAttribute('height', '13');
-                rect1.setAttribute('rx', '2'); rect1.setAttribute('ry', '2');
-                let path1 = document.createElementNS(svgNS, 'path');
-                path1.setAttribute('d', 'M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1');
-                clipSvg.appendChild(rect1);
-                clipSvg.appendChild(path1);
-                copyAllBtn.appendChild(clipSvg);
-                copyAllBtn.appendChild(document.createTextNode('Copy All Migration YAML'));
+                copyAllBtn.appendChild(makeSvg(
+                    { width: '18', height: '18', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+                    [['rect', { x: '9', y: '9', width: '13', height: '13', rx: '2', ry: '2' }],
+                     ['path', { d: 'M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1' }]]
+                ));
+                // The label lives in its own span so the shared copy-feedback
+                // helpers can swap it without destroying the icon beside it.
+                addCopyLabel(copyAllBtn, 'Copy All Migration YAML');
                 copyAllBtn.addEventListener('click', function() {
-                    function restoreLabel() {
-                        copyAllBtn.textContent = '';
-                        copyAllBtn.appendChild(clipSvg);
-                        copyAllBtn.appendChild(document.createTextNode('Copy All Migration YAML'));
-                        copyAllBtn.classList.remove('copied');
-                    }
-                    function onCopied() {
-                        copyAllBtn.textContent = '';
-                        copyAllBtn.appendChild(clipSvg);
-                        copyAllBtn.appendChild(document.createTextNode('Copied!'));
-                        copyAllBtn.classList.add('copied');
-                        announce('Migration YAML copied to clipboard');
-                        setTimeout(restoreLabel, 2000);
-                    }
-                    function onFailed() {
-                        copyAllBtn.textContent = '';
-                        copyAllBtn.appendChild(clipSvg);
-                        copyAllBtn.appendChild(document.createTextNode('Copy failed'));
-                        announce('Copy failed');
-                        setTimeout(restoreLabel, 2000);
-                    }
-                    if (navigator.clipboard && navigator.clipboard.writeText) {
-                        navigator.clipboard.writeText(allYaml).then(onCopied).catch(function() {
-                            if (fallbackCopy(allYaml)) onCopied(); else onFailed();
-                        });
-                    } else {
-                        if (fallbackCopy(allYaml)) onCopied(); else onFailed();
-                    }
+                    copyToClipboard(allYaml, copyAllBtn, 'Migration YAML copied to clipboard');
                 });
                 exportRow.appendChild(copyAllBtn);
 
                 // Download YAML button
                 let dlBtn = document.createElement('button');
                 dlBtn.className = 'analyzer-download-btn';
-                let dlSvg = document.createElementNS(svgNS, 'svg');
-                dlSvg.setAttribute('width', '18'); dlSvg.setAttribute('height', '18');
-                dlSvg.setAttribute('viewBox', '0 0 24 24'); dlSvg.setAttribute('fill', 'none');
-                dlSvg.setAttribute('stroke', 'currentColor'); dlSvg.setAttribute('stroke-width', '2');
-                let dlPath1 = document.createElementNS(svgNS, 'path');
-                dlPath1.setAttribute('d', 'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4');
-                let dlPath2 = document.createElementNS(svgNS, 'polyline');
-                dlPath2.setAttribute('points', '7 10 12 15 17 10');
-                let dlPath3 = document.createElementNS(svgNS, 'line');
-                dlPath3.setAttribute('x1', '12'); dlPath3.setAttribute('y1', '15');
-                dlPath3.setAttribute('x2', '12'); dlPath3.setAttribute('y2', '3');
-                dlSvg.appendChild(dlPath1); dlSvg.appendChild(dlPath2); dlSvg.appendChild(dlPath3);
-                dlBtn.appendChild(dlSvg);
-                dlBtn.appendChild(document.createTextNode('Download YAML'));
+                dlBtn.appendChild(makeSvg(
+                    { width: '18', height: '18', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+                    [['path', { d: 'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4' }],
+                     ['polyline', { points: '7 10 12 15 17 10' }],
+                     ['line', { x1: '12', y1: '15', x2: '12', y2: '3' }]]
+                ));
+                let dlLabel = addCopyLabel(dlBtn, 'Download YAML');
                 dlBtn.addEventListener('click', function() {
                     let header = SOURCE.export.header + '\n# Generated: ' + new Date().toISOString().split('T')[0] + '\n\n';
                     let blob = new Blob([header + allYaml], { type: 'application/x-yaml' });
@@ -1353,10 +1328,9 @@
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
                     dlBtn.classList.add('downloaded');
-                    let origText = dlBtn.lastChild;
-                    origText.textContent = 'Downloaded!';
+                    dlLabel.textContent = 'Downloaded!';
                     setTimeout(function() {
-                        origText.textContent = 'Download YAML';
+                        dlLabel.textContent = 'Download YAML';
                         dlBtn.classList.remove('downloaded');
                     }, 2000);
                 });
@@ -1396,18 +1370,12 @@
                 // Edit YAML button
                 let editBtn = document.createElement('button');
                 editBtn.className = 'analyzer-edit-btn';
-                let editSvgNS = 'http://www.w3.org/2000/svg';
-                let editSvg = document.createElementNS(editSvgNS, 'svg');
-                editSvg.setAttribute('width', '16'); editSvg.setAttribute('height', '16');
-                editSvg.setAttribute('viewBox', '0 0 24 24'); editSvg.setAttribute('fill', 'none');
-                editSvg.setAttribute('stroke', 'currentColor'); editSvg.setAttribute('stroke-width', '2');
-                let editPath = document.createElementNS(editSvgNS, 'path');
-                editPath.setAttribute('d', 'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7');
-                let editPath2 = document.createElementNS(editSvgNS, 'path');
-                editPath2.setAttribute('d', 'M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z');
-                editSvg.appendChild(editPath); editSvg.appendChild(editPath2);
-                editBtn.appendChild(editSvg);
-                editBtn.appendChild(document.createTextNode('Edit YAML & Re-Analyze'));
+                editBtn.appendChild(makeSvg(
+                    { width: '16', height: '16', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+                    [['path', { d: 'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7' }],
+                     ['path', { d: 'M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z' }]]
+                ));
+                editBtn.appendChild(document.createTextNode('Edit YAML & re-analyze'));
                 editBtn.addEventListener('click', function() {
                     // Switch to analyzer page
                     let analyzerPageLink = document.querySelector('.sidebar-link[data-page="analyzer"]');
@@ -1443,13 +1411,15 @@
                 // Temporarily show to measure height
                 dropdown.style.top = ''; dropdown.style.bottom = '';
                 let dropH = dropdown.offsetHeight;
-                if (spaceAbove > dropH + 6 && spaceBelow < dropH + 6) {
+                // 8px clearance, matching --space-base; the numeric comparison
+                // needs a number, the offsets resolve the token.
+                if (spaceAbove > dropH + 8 && spaceBelow < dropH + 8) {
                     // Open upward
-                    dropdown.style.bottom = 'calc(100% + 6px)';
+                    dropdown.style.bottom = 'calc(100% + var(--space-base))';
                     dropdown.style.top = 'auto';
                 } else {
                     // Open downward
-                    dropdown.style.top = 'calc(100% + 6px)';
+                    dropdown.style.top = 'calc(100% + var(--space-base))';
                     dropdown.style.bottom = 'auto';
                 }
                 let firstItem = dropdown.querySelector('[role="menuitem"]');
@@ -1518,8 +1488,8 @@
             }
             requestAnimationFrame(function() {
                 el.scrollIntoView({ behavior: scrollBehavior() });
-                el.style.transition = 'background-color 0.3s';
-                el.style.backgroundColor = document.documentElement.classList.contains('dark-mode') ? 'rgba(255,249,196,0.1)' : '#fff9c4';
+                el.style.transition = 'background-color var(--dur-reveal)';
+                el.style.backgroundColor = 'var(--amber-tint)';
                 setTimeout(function() {
                     el.style.backgroundColor = '';
                     setTimeout(function() { el.style.transition = ''; }, 300);
@@ -1533,24 +1503,14 @@
             let empty = document.createElement('div');
             empty.className = 'analyzer-empty-state';
             empty.id = 'analyzerEmptyState';
-            let svgNS = 'http://www.w3.org/2000/svg';
-            let svg = document.createElementNS(svgNS, 'svg');
-            svg.setAttribute('width', '48'); svg.setAttribute('height', '48');
-            svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none');
-            svg.setAttribute('stroke', '#999'); svg.setAttribute('stroke-width', '1.5');
-            let path1 = document.createElementNS(svgNS, 'path');
-            path1.setAttribute('d', 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z');
-            let polyline = document.createElementNS(svgNS, 'polyline');
-            polyline.setAttribute('points', '14 2 14 8 20 8');
-            let line1 = document.createElementNS(svgNS, 'line');
-            line1.setAttribute('x1', '16'); line1.setAttribute('y1', '13');
-            line1.setAttribute('x2', '8'); line1.setAttribute('y2', '13');
-            let line2 = document.createElementNS(svgNS, 'line');
-            line2.setAttribute('x1', '16'); line2.setAttribute('y1', '17');
-            line2.setAttribute('x2', '8'); line2.setAttribute('y2', '17');
-            svg.appendChild(path1); svg.appendChild(polyline);
-            svg.appendChild(line1); svg.appendChild(line2);
-            empty.appendChild(svg);
+            empty.appendChild(makeSvg(
+                // colour comes from CSS
+                { width: '48', height: '48', viewBox: '0 0 24 24', fill: 'none', 'stroke-width': '1.5' },
+                [['path', { d: 'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z' }],
+                 ['polyline', { points: '14 2 14 8 20 8' }],
+                 ['line', { x1: '16', y1: '13', x2: '8', y2: '13' }],
+                 ['line', { x1: '16', y1: '17', x2: '8', y2: '17' }]]
+            ));
             let p1 = document.createElement('p');
             p1.textContent = SOURCE.strings.emptyStateLead;
             empty.appendChild(p1);
@@ -1641,9 +1601,25 @@
             highlight.scrollLeft = textarea.scrollLeft;
         }
 
+        // Both passes walk the whole document — one counts lines and annotations,
+        // the other rebuilds the highlight overlay. Running them synchronously on
+        // every keystroke is visible as typing lag on a large paste, so they are
+        // coalesced to one update per frame. The textarea itself is a native
+        // control and keeps painting the caret and text without waiting for us.
+        let editorUpdateQueued = false;
+        function scheduleEditorUpdate() {
+            if (editorUpdateQueued) return;
+            editorUpdateQueued = true;
+            requestAnimationFrame(function() {
+                editorUpdateQueued = false;
+                updateInputStatus();
+                updateYamlHighlight();
+            });
+        }
+
         let yamlInputEl = document.getElementById('yamlInput');
-        yamlInputEl.addEventListener('input', function() { updateInputStatus(); updateYamlHighlight(); });
-        yamlInputEl.addEventListener('scroll', syncEditorScroll);
+        yamlInputEl.addEventListener('input', scheduleEditorUpdate);
+        yamlInputEl.addEventListener('scroll', syncEditorScroll, { passive: true });
 
         // Keyboard shortcuts for textarea
         yamlInputEl.addEventListener('keydown', function(e) {
@@ -1666,8 +1642,7 @@
                 let end = this.selectionEnd;
                 this.value = this.value.substring(0, start) + '  ' + this.value.substring(end);
                 this.selectionStart = this.selectionEnd = start + 2;
-                updateInputStatus();
-                updateYamlHighlight();
+                scheduleEditorUpdate();
             }
         });
 
@@ -1681,17 +1656,48 @@
             let allSubnavs = document.querySelectorAll('.sidebar-subnav');
 
             let currentPage = SOURCE.reference.defaultPage;
+            // The page's own <title>, read once before anything switches, so the
+            // per-view titles below compose against it without the source module
+            // having to declare it.
+            let baseTitle = document.title;
 
             function showPage(id, opts) {
                 opts = opts || {};
                 let switching = (id !== currentPage);
                 currentPage = id;
+                let pageNames = SOURCE.strings.pageNames;
+
+                // Whether keyboard focus is currently inside a tool page. That page
+                // is about to be hidden, which would strand focus on an element in a
+                // hidden subtree — it is not perceivable, and hidden="until-found"
+                // content is out of the accessibility tree. The one trigger of this
+                // shape on the page is the "config analyzer" link in the Getting
+                // started tip. Read BEFORE the pages are toggled.
+                //
+                // Deliberately not unconditional: a sidebar link lives outside the
+                // pages, so clicking one keeps its focus where the user put it.
+                let focusLeavingPage = !!(document.activeElement &&
+                    document.activeElement.closest &&
+                    document.activeElement.closest('.tool-page'));
 
                 // Toggle tool-page visibility — inactive pages are hidden="until-found"
                 // (not display:none) so browser find-in-page can search their content.
                 document.querySelectorAll('.tool-page').forEach(function(p) { p.classList.remove('active'); p.setAttribute('hidden', 'until-found'); });
                 let page = document.getElementById('page-' + id);
-                if (page) { page.removeAttribute('hidden'); page.classList.add('active'); }
+                if (page) {
+                    page.removeAttribute('hidden');
+                    page.classList.add('active');
+                    if (focusLeavingPage) {
+                        page.setAttribute('tabindex', '-1');
+                        page.focus({ preventScroll: true });
+                    }
+                }
+
+                // Tab title per view. Every switch below pushes a history entry, so
+                // without this the whole tool shares one label in the tab, in the
+                // Back-button menu and to a screen reader. The default page carries
+                // the bare site title, matching the landing page's treatment of Home.
+                document.title = (id === SOURCE.reference.defaultPage ? '' : (pageNames[id] || id) + ' — ') + baseTitle;
 
                 // Update sidebar active states
                 pageLinks.forEach(function(l) { l.classList.remove('active'); l.removeAttribute('aria-current'); });
@@ -1717,7 +1723,6 @@
                 }
 
                 // Announce page switch for screen readers
-                let pageNames = SOURCE.strings.pageNames;
                 if (switching) {
                     announce('Navigated to ' + (pageNames[id] || id));
                 }
@@ -1734,10 +1739,23 @@
                 closeSidebar();
             }
 
-            // Page link click handlers
+            // Page link click handlers. Re-clicking the already-active parent
+            // acts as a disclosure toggle (collapse/expand its subnav, chevron
+            // follows via aria-expanded) instead of re-navigating; switching
+            // pages via showPage() always reopens the active page's subnav.
             pageLinks.forEach(function(link) {
                 link.addEventListener('click', function() {
-                    showPage(this.getAttribute('data-page'));
+                    let id = this.getAttribute('data-page');
+                    if (id === currentPage && this.hasAttribute('aria-controls')) {
+                        let subnav = document.getElementById(this.getAttribute('aria-controls'));
+                        if (subnav) {
+                            let nowOpen = !subnav.classList.contains('open');
+                            subnav.classList.toggle('open', nowOpen);
+                            this.setAttribute('aria-expanded', nowOpen ? 'true' : 'false');
+                            return;
+                        }
+                    }
+                    showPage(id);
                 });
             });
 
@@ -1766,25 +1784,13 @@
                         history.pushState(null, '', '#' + sectionId);
                     }
 
-                    function scrollToSection() {
-                        let target = document.getElementById(sectionId);
-                        if (target) {
-                            let y = target.getBoundingClientRect().top + window.pageYOffset - scrollOffsetFor(target);
-                            window.scrollTo({ top: y, behavior: scrollBehavior() });
-                        }
-                    }
-
                     if (wasOnTargetPage) {
                         // Already on the page — scroll immediately
-                        scrollToSection();
+                        scrollToAnchor(document.getElementById(sectionId), true);
                     } else {
                         // Just switched pages — need a frame for layout, then jump (no smooth) to section
                         requestAnimationFrame(function() {
-                            let target = document.getElementById(sectionId);
-                            if (target) {
-                                let y = target.getBoundingClientRect().top + window.pageYOffset - scrollOffsetFor(target);
-                                window.scrollTo({ top: y });
-                            }
+                            scrollToAnchor(document.getElementById(sectionId), false);
                         });
                     }
 
@@ -1822,7 +1828,7 @@
                             }
                         }
                     });
-                }, { rootMargin: '-' + chromeHeight() + 'px 0px -60% 0px', threshold: 0 });
+                }, { rootMargin: '-' + fixedTopHeight() + 'px 0px -60% 0px', threshold: 0 });
                 sections.forEach(function(s) { observer.observe(s.el); });
             }
 
@@ -1848,17 +1854,14 @@
                     // Heading permalinks and other subsection anchors live inside
                     // display:none tool pages, so the browser's native fragment scroll
                     // can't reach them — activate the owning page, then scroll past
-                    // the fixed chrome.
+                    // the fixed header.
                     let target = document.getElementById(hash);
                     let owner = target && target.closest('.tool-page');
                     if (target && owner) {
                         if (!owner.classList.contains('active')) {
                             showPage(owner.id.replace('page-', ''), { updateHash: false, skipScroll: true });
                         }
-                        requestAnimationFrame(function() {
-                            let y = target.getBoundingClientRect().top + window.pageYOffset - scrollOffsetFor(target);
-                            window.scrollTo({ top: y });
-                        });
+                        requestAnimationFrame(function() { scrollToAnchor(target, false); });
                     }
                 }
             }
@@ -1872,25 +1875,25 @@
             btn.className = 'scroll-to-top';
             btn.id = 'scrollTopBtn';
             btn.setAttribute('aria-label', 'Scroll to top');
-            let svgNS = 'http://www.w3.org/2000/svg';
-            let svg = document.createElementNS(svgNS, 'svg');
-            svg.setAttribute('width', '20'); svg.setAttribute('height', '20');
-            svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none');
-            svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2.5');
-            svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
-            let polyline = document.createElementNS(svgNS, 'polyline');
-            polyline.setAttribute('points', '18 15 12 9 6 15');
-            svg.appendChild(polyline);
-            btn.appendChild(svg);
+            btn.appendChild(makeSvg(
+                { width: '20', height: '20', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+                  'stroke-width': '2.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' },
+                [['polyline', { points: '18 15 12 9 6 15' }]]
+            ));
             document.body.appendChild(btn);
 
+            // Passive (this never calls preventDefault, so the browser need not
+            // wait on us to scroll) and coalesced to one classList write per
+            // frame — scroll fires far more often than the page can paint.
+            let scrollTicking = false;
             window.addEventListener('scroll', function() {
-                if (window.scrollY > 400) {
-                    btn.classList.add('visible');
-                } else {
-                    btn.classList.remove('visible');
-                }
-            });
+                if (scrollTicking) return;
+                scrollTicking = true;
+                requestAnimationFrame(function() {
+                    scrollTicking = false;
+                    btn.classList.toggle('visible', window.scrollY > 400);
+                });
+            }, { passive: true });
             btn.addEventListener('click', function() {
                 window.scrollTo({ top: 0, behavior: scrollBehavior() });
             });
