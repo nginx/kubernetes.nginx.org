@@ -28,3 +28,26 @@ Thumbs.db
 # Logs #
 ########
 *.log
+
+##########################################
+# Byte-code from the checks in .github/   #
+##########################################
+# Running the checks exactly as AGENTS.md prescribes creates these. Left
+# untracked-but-unignored they dirty `git status`, which is the signal used to
+# prove a temporary edit was reverted — and a reflexive `git add -A` then
+# commits byte-code to a public repo.
+__pycache__/
+*.py[cod]
+
+#################################
+# Agent harness, machine-local  #
+#################################
+# Permissions, hooks and MCP servers are a local choice, not a property of the
+# project: they carry machine paths and credentials, and pinning them here
+# would impose one person's setup on every contributor.
+#
+# Only the machine-local file is ignored. Its shared siblings — settings.json
+# and .mcp.json — are absent by choice rather than ignored: this project checks
+# in no agent config, and ignoring a shared file would silently swallow one
+# that a later maintainer added on purpose.
+.claude/settings.local.json
