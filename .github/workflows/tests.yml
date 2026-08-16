@@ -1,0 +1,126 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, "preview/**"]
+  pull_request:
+  # So a result can be reproduced on demand. Without it, confirming a fix on a
+  # branch means pushing an empty commit.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Supersede an in-flight run when the same ref is pushed again — on a repo where
+# push is deploy, the run that matters is the latest one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Design checks, analyzer & wiring tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          # Nothing here pushes; matches ossf_scorecard.yml.
+          persist-credentials: false
+          # check-branch-freshness needs origin/main to compare against.
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+
+      # One `node --check` per file, because the flag parses only its first
+      # positional argument and silently discards the rest: `node --check
+      # good.js broken.js` exits 0. The loop lives in Python rather than in
+      # this YAML so the glob never reaches a shell.
+      - name: Syntax-check all first-party scripts
+        run: python3 .github/scripts/check-syntax.py
+
+      # The four design checks, one step each so a failure names itself in the
+      # log rather than hiding inside a compound command. None of them can see
+      # the rendered page: a green run means nothing is structurally broken,
+      # not that the page looks right.
+      - name: Check design tokens
+        run: python3 .github/scripts/check-tokens.py
+
+      - name: Check colour contrast
+        run: python3 .github/scripts/check-contrast.py
+
+      - name: Check every class resolves to a rule
+        run: python3 .github/scripts/check-classes.py
+
+      - name: Check every version string agrees
+        run: python3 .github/scripts/check-versions.py
+
+      - name: Check markup structure
+        run: python3 .github/scripts/check-markup.py
+
+      - name: Check the migration analyzer
+        run: node .github/scripts/test-analyzer.js
+
+      # test-analyzer.js regenerates .github/data/mapping-index.json from the
+      # source module every run. Committing it means an agent can answer "which
+      # section documents this annotation" with one small read instead of
+      # grepping 4,952 lines; this step is what stops the committed copy going
+      # stale, since a generated file nobody verifies is worse than none.
+      - name: Check the generated mapping index is current
+        run: git diff --exit-code -- .github/data/
+
+      # Dependency-free suite (node:test) — page↔engine↔module wiring checks,
+      # plus per-source analyzer and conversion cases on the branches that ship
+      # a second migration tool.
+      #
+      # The guard matters: `node --test` exits 0 when it finds no test files,
+      # so a deleted or renamed .github/test/ turns this step into a green
+      # no-op under a name that claims otherwise. That is the same shape as the
+      # `node --check` glob bug above, and the incident list in AGENTS.md.
+      - name: Run the test suite
+        run: |
+          if [ -z "$(find .github/test -name '*.test.js' -print -quit 2>/dev/null)" ]; then
+            echo "::error::No .github/test/**/*.test.js found — 'node --test' would pass vacuously."
+            exit 1
+          fi
+          node --test .github/test/*.test.js
+
+      # where.py is a token-saving navigation aid, not a correctness check — but
+      # a locator that silently matches nothing reads as "that thing is not in
+      # this repo", which is worse than no locator at all. Its self-test asserts
+      # each resolver still finds a known-present thing, by KIND rather than by
+      # line number, so ordinary edits do not turn it red.
+      - name: Check the locator still resolves
+        run: python3 .github/scripts/where.py --self-test
+
+      # A branch is graded by ITS OWN copy of the checks and the shared engine,
+      # which means a stale branch is graded by weaker ones. Measured across the
+      # preview branches: both shipped a copy-button bug that had already been
+      # fixed on main, a dead ruleset, and an AGENTS.md missing its only
+      # absolute prohibition — and CI was green on all of it, because the check
+      # that finds the dead ruleset only existed on main.
+      #
+      # So: the shared engine and the checks are owned by main, and a branch
+      # must have merged main's copy of them before its own green run means
+      # anything. Warns rather than fails, because the fix is a merge the author
+      # may reasonably want to schedule.
+      - name: Check the branch carries main's engine and checks
+        if: github.ref != 'refs/heads/main'
+        run: |
+          git fetch --no-tags --depth=0 origin main 2>/dev/null || git fetch --no-tags origin main
+          stale=0
+          for path in .github/scripts .github/test assets/js/shared.js assets/js/migration-core.js AGENTS.md; do
+            if ! git diff --quiet origin/main...HEAD -- "$path" 2>/dev/null; then
+              behind=$(git rev-list --count HEAD..origin/main -- "$path")
+              if [ "$behind" -gt 0 ]; then
+                echo "::warning file=$path::$path is $behind commit(s) behind origin/main. This branch is being graded by its own older copy."
+                stale=1
+              fi
+            fi
+          done
+          [ "$stale" = "0" ] && echo "Branch carries main's engine and checks."
+          exit 0
