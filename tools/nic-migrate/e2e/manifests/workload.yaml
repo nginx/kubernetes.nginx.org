@@ -1,0 +1,189 @@
+# The application under test.
+#
+# Three backends behind an nginx that answers every request with the URI it
+# actually received. That echo is the whole point: a rewrite is only observable
+# from the backend's side, so asserting "the migration preserved the rewrite"
+# means asserting the backend saw the same path through both controllers.
+#
+# nginx:alpine plus a ConfigMap rather than an off-the-shelf echo image, so the
+# fixture pulls only an image this project would already trust and its output
+# format cannot change under us.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: e2e-shop
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: echo-api
+  namespace: e2e-shop
+data:
+  default.conf: |
+    server {
+        listen 8080;
+        server_name _;
+        location / {
+            default_type application/json;
+            return 200 '{"app":"api","uri":"$request_uri","host":"$http_host","origin":"$http_origin"}\n';
+        }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: echo-web
+  namespace: e2e-shop
+data:
+  default.conf: |
+    server {
+        listen 8080;
+        server_name _;
+        location / {
+            default_type application/json;
+            return 200 '{"app":"web","uri":"$request_uri","host":"$http_host","origin":"$http_origin"}\n';
+        }
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: echo-web2
+  namespace: e2e-shop
+data:
+  default.conf: |
+    server {
+        listen 8080;
+        server_name _;
+        location / {
+            default_type application/json;
+            return 200 '{"app":"web2","uri":"$request_uri","host":"$http_host","origin":"$http_origin"}\n';
+        }
+    }
+---
+# Two replicas on api-svc so session affinity has something to be sticky about:
+# with one endpoint every request lands on the same pod and the assertion would
+# pass whether or not the cookie works.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: e2e-shop
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: api}
+  template:
+    metadata:
+      labels: {app: api}
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports: [{containerPort: 8080}]
+          volumeMounts:
+            - {name: conf, mountPath: /etc/nginx/conf.d}
+          readinessProbe:
+            httpGet: {path: /, port: 8080}
+            initialDelaySeconds: 1
+            periodSeconds: 2
+      volumes:
+        - name: conf
+          configMap: {name: echo-api}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: e2e-shop
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: web}
+  template:
+    metadata:
+      labels: {app: web}
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports: [{containerPort: 8080}]
+          volumeMounts:
+            - {name: conf, mountPath: /etc/nginx/conf.d}
+          readinessProbe:
+            httpGet: {path: /, port: 8080}
+            initialDelaySeconds: 1
+            periodSeconds: 2
+      volumes:
+        - name: conf
+          configMap: {name: echo-web}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web2
+  namespace: e2e-shop
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: web2}
+  template:
+    metadata:
+      labels: {app: web2}
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports: [{containerPort: 8080}]
+          volumeMounts:
+            - {name: conf, mountPath: /etc/nginx/conf.d}
+          readinessProbe:
+            httpGet: {path: /, port: 8080}
+            initialDelaySeconds: 1
+            periodSeconds: 2
+      volumes:
+        - name: conf
+          configMap: {name: echo-web2}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-svc
+  namespace: e2e-shop
+spec:
+  selector: {app: api}
+  ports: [{port: 8080, targetPort: 8080}]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-svc
+  namespace: e2e-shop
+spec:
+  selector: {app: web}
+  ports: [{port: 8080, targetPort: 8080}]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web2-svc
+  namespace: e2e-shop
+spec:
+  selector: {app: web2}
+  ports: [{port: 8080, targetPort: 8080}]
+---
+# Requests are made from inside the cluster, straight at each controller's
+# ClusterIP Service. That sidesteps hostPort/NodePort collisions entirely —
+# which matters here, because both controllers run at once so the two can be
+# compared without tearing one down.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: probe
+  namespace: e2e-shop
+spec:
+  containers:
+    - name: curl
+      image: curlimages/curl:8.11.1
+      command: ["sleep", "infinity"]
+  restartPolicy: Never

@@ -1,0 +1,16 @@
+# Single node is enough: the comparison happens inside the cluster, so there
+# are no host ports to map and nothing to spread across nodes.
+#
+# No `image:` here on purpose. Each kind release ships a default node image it
+# was built and tested against, so pinning an image separately means picking a
+# pair that may not have been tested together — and a wrong digest fails at
+# cluster creation with a pull error that reads like a network problem.
+#
+# The Kubernetes version is therefore whatever the pinned kind version defaults
+# to, which makes the kind pin in .github/workflows/e2e.yml the single lever.
+# Bump that deliberately, and keep the local kind version in step with it.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: nic-migrate-e2e
+nodes:
+  - role: control-plane

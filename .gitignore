@@ -51,3 +51,6 @@ __pycache__/
 # in no agent config, and ignoring a shared file would silently swallow one
 # that a later maintainer added on purpose.
 .claude/settings.local.json
+
+# e2e scratch: converted manifests and cluster artefacts from run-e2e.py
+tools/nic-migrate/e2e/.work/

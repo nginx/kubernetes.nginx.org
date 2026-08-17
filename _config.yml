@@ -1,0 +1,33 @@
+# Jekyll configuration — exists only to keep tools/ out of the published site.
+#
+# GitHub Pages serves `main` through the classic Jekyll build (there is no Pages
+# workflow and no .nojekyll). Jekyll skips dot- and underscore-prefixed paths by
+# default, which is the whole reason .github/scripts/ and .github/test/ are not
+# served — see "Checks" in AGENTS.md. A top-level tools/ gets no such treatment,
+# so it has to be excluded by name or the CLI ships to every visitor.
+#
+# Considered and rejected: naming the directory _tools/, which Jekyll would skip
+# with no config at all. Rejected because the leading underscore reads as a
+# Jekyll internal (_posts, _layouts, _data) when it is ordinary tooling, and the
+# implicit rule is the kind that fails silently on rename. An explicit exclude
+# says what it means.
+#
+# Do NOT add .nojekyll to "fix" anything here: it disables Jekyll rather than
+# configuring it, which would publish .github/ wholesale.
+#
+# `exclude` REPLACES Jekyll's default list rather than extending it, so the
+# defaults are restated below. Dropping them would start publishing vendor/ and
+# node_modules/ if either ever appears.
+exclude:
+  - tools
+  # Jekyll defaults, restated because the key above overrides them.
+  - .sass-cache
+  - .jekyll-cache
+  - gemfiles
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor/bundle/
+  - vendor/cache/
+  - vendor/gems/
+  - vendor/ruby/

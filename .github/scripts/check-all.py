@@ -43,7 +43,8 @@ CHECKS = [
     # be absent here without anything reporting a smaller suite. Add new test
     # files to BOTH.
     ('wiring suite', ['node', '--test', '.github/test/index.test.js',
-                      '.github/test/wiring.test.js']),
+                      '.github/test/wiring.test.js',
+                      '.github/test/nic-migrate.test.js']),
     ('locator', [sys.executable, '.github/scripts/where.py', '--self-test']),
 ]
 
