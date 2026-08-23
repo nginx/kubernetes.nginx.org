@@ -528,7 +528,7 @@ kind: Ingress
 metadata:
   name: my-app
   annotations:
-    nginx.org/policies: "access-control-allow,access-control-deny"</code></pre></div>
+    nginx.org/policies: "access-control-allow,access-control-deny"  # attaches the Policies above</code></pre></div>
                                 </div>
                                 <div class="info-box note"><strong>New in v5.4.0:</strong> AccessControl policies can now be referenced directly from Ingress resources using the <code>nginx.org/policies</code> annotation. This is the simplest migration path — you stay on Ingress resources.</div>
                             </div>
@@ -601,9 +601,13 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/satisfy: "any"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/location-snippets: |  # satisfy
-    satisfy any;  # satisfy</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/location-snippets: |  # satisfy
+      satisfy any;  # satisfy</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -671,9 +675,13 @@ type: nginx.org/htpasswd  # auth-secret-type
 data:
   htpasswd: dXNlcjokYXByMS4uLg==
 ---
-annotations:
-  nginx.org/basic-auth-realm: "Protected Area"  # auth-realm
-  nginx.org/basic-auth-secret: "basic-auth"  # auth-secret</code></pre></div>
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/basic-auth-realm: "Protected Area"  # auth-realm
+    nginx.org/basic-auth-secret: "basic-auth"  # auth-secret</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -691,7 +699,7 @@ metadata:
 kind: Secret
 metadata:
   name: basic-auth
-type: nginx.org/htpasswd
+type: nginx.org/htpasswd  # auth-secret-type
 data:
   htpasswd: dXNlcjokYXByMS4uLg==
 ---
@@ -743,11 +751,15 @@ metadata:
     nginx.ingress.kubernetes.io/auth-always-set-cookie: "true"
     nginx.ingress.kubernetes.io/auth-url: "https://auth.example.com/verify"</code></pre></div>
                                     <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code># Use snippets to propagate cookies from auth responses
-annotations:
-  nginx.org/location-snippets: |  # auth-always-set-cookie
-    auth_request /auth;
-    auth_request_set $auth_cookie $upstream_http_set_cookie;
-    add_header Set-Cookie $auth_cookie;  # auth-always-set-cookie</code></pre></div>
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/location-snippets: |  # auth-always-set-cookie
+      auth_request /auth;
+      auth_request_set $auth_cookie $upstream_http_set_cookie;
+      add_header Set-Cookie $auth_cookie;  # auth-always-set-cookie</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -821,7 +833,7 @@ kind: Ingress
 metadata:
   name: my-app
   annotations:
-    nginx.org/policies: "external-auth"</code></pre></div>
+    nginx.org/policies: "external-auth"  # attaches the Policy above</code></pre></div>
                                 </div>
                                 <div class="info-box note"><strong>New in v5.5.0:</strong> The <code>externalAuth</code> Policy CRD can be referenced directly from Ingress resources using the <code>nginx.org/policies</code> annotation. This is the simplest migration path — you stay on Ingress resources. <code>auth-url</code> is split into <code>authURI</code> (path) and <code>authServiceName</code> (<code>&lt;namespace&gt;/&lt;service&gt;</code>). The community's <code>auth-method</code>, <code>auth-response-headers</code>, <code>auth-cache-duration</code>, <code>auth-cache-key</code>, <code>auth-proxy-set-headers</code>, <code>auth-request-redirect</code>, and <code>auth-signin-redirect-param</code> annotations have no dedicated Policy fields — express these through <code>authSnippets</code> when needed. If you are not adopting a Policy, place the same directives directly in <code>nginx.org/location-snippets</code> alongside the <code>auth_request</code> directive instead. NIC's <code>authSigninURI</code> is a <em>relative</em> URI (validated <code>^/.*$</code>): a full <code>auth-signin</code> URL is reduced to its path, and a sign-in page on a different host cannot be expressed by this field.</div>
                             </div>
@@ -894,11 +906,15 @@ metadata:
     nginx.ingress.kubernetes.io/auth-url: "https://auth.example.com/verify"</code></pre></div>
                                     <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code># No direct auth-keepalive annotations; use snippets
 # for auth_request subrequest customization.
-annotations:
-  nginx.org/location-snippets: |  # auth-keepalive
-    auth_request /auth;
-    auth_request_set $auth_user $upstream_http_x_auth_user;
-    proxy_set_header X-Auth-User $auth_user;</code></pre></div>
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/location-snippets: |  # auth-keepalive
+      auth_request /auth;
+      auth_request_set $auth_user $upstream_http_x_auth_user;
+      proxy_set_header X-Auth-User $auth_user;</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -1019,8 +1035,12 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/client-body-buffer-size: "16k"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/client-body-buffer-size: "16k"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/client-body-buffer-size: "16k"  # client-body-buffer-size</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -1059,8 +1079,12 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/client-max-body-size: "10m"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/client-max-body-size: "10m"  # proxy-body-size</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -1099,8 +1123,12 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/proxy-buffer-size: "8k"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/proxy-buffer-size: "8k"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/proxy-buffer-size: "8k"  # proxy-buffer-size</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -1139,8 +1167,12 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/proxy-buffering: "on"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/proxy-buffering: "on"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/proxy-buffering: "on"  # proxy-buffering</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -1179,8 +1211,12 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/proxy-buffers-number: "4"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/proxy-buffers: "4 8k"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/proxy-buffers: "4 8k"  # proxy-buffers-number</code></pre></div>
                                 </div>
                                 <div class="info-box note"><strong>Note:</strong> The F5 NGINX Ingress Controller annotation uses a combined format: <code>"number size"</code> (e.g., <code>"4 8k"</code>).</div>
                             </div>
@@ -1222,8 +1258,12 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/proxy-busy-buffers-size: "16k"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/proxy-busy-buffers-size: "16k"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/proxy-busy-buffers-size: "16k"  # proxy-busy-buffers-size</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -1257,8 +1297,12 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/proxy-max-temp-file-size: "1024m"</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/proxy-max-temp-file-size: "1024m"</code></pre></div>
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/proxy-max-temp-file-size: "1024m"  # proxy-max-temp-file-size</code></pre></div>
                             </div>
                         </div></td></tr>
                         <tr class="expandable">
@@ -1278,9 +1322,13 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/proxy-request-buffering: "off"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/location-snippets: |  # proxy-request-buffering
-    proxy_request_buffering off;  # proxy-request-buffering</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/location-snippets: |  # proxy-request-buffering
+      proxy_request_buffering off;  # proxy-request-buffering</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -1401,9 +1449,13 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/configuration-snippet: |
       add_header X-Custom "value";</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/location-snippets: |  # configuration-snippet
-    add_header X-Custom "value";</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/location-snippets: |  # configuration-snippet
+      add_header X-Custom "value";</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -1452,9 +1504,13 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/server-snippet: |
       location /health { return 200; }</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/server-snippets: |  # server-snippet
-    location /health { return 200; }</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/server-snippets: |  # server-snippet
+      location /health { return 200; }</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -1559,21 +1615,25 @@ metadata:
     nginx.ingress.kubernetes.io/cors-expose-headers: "X-Request-ID, X-Custom-Header"
     nginx.ingress.kubernetes.io/cors-max-age: "86400"
     nginx.ingress.kubernetes.io/enable-cors: "true"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/server-snippets: |  # enable-cors + cors-*
-    set $cors_origin "";
-    if ($http_origin ~* "^https://frontend\.example\.com$") {
-        set $cors_origin $http_origin;
-    }
-    add_header Access-Control-Allow-Origin $cors_origin always;  # cors-allow-origin
-    add_header Access-Control-Allow-Credentials "true" always;  # cors-allow-credentials
-    add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;  # cors-allow-methods
-    add_header Access-Control-Allow-Headers "Authorization, Content-Type" always;  # cors-allow-headers
-    add_header Access-Control-Expose-Headers "X-Request-ID, X-Custom-Header" always;  # cors-expose-headers
-    add_header Access-Control-Max-Age 86400 always;  # cors-max-age
-    if ($request_method = OPTIONS) {  # enable-cors
-        return 204;
-    }</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/server-snippets: |  # enable-cors + cors-*
+      set $cors_origin "";
+      if ($http_origin ~* "^https://frontend\.example\.com$") {
+          set $cors_origin $http_origin;
+      }
+      add_header Access-Control-Allow-Origin $cors_origin always;  # cors-allow-origin
+      add_header Access-Control-Allow-Credentials "true" always;  # cors-allow-credentials
+      add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;  # cors-allow-methods
+      add_header Access-Control-Allow-Headers "Authorization, Content-Type" always;  # cors-allow-headers
+      add_header Access-Control-Expose-Headers "X-Request-ID, X-Custom-Header" always;  # cors-expose-headers
+      add_header Access-Control-Max-Age 86400 always;  # cors-max-age
+      if ($request_method = OPTIONS) {  # enable-cors
+          return 204;
+      }</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="policy">
@@ -1619,7 +1679,7 @@ kind: Ingress
 metadata:
   name: my-app
   annotations:
-    nginx.org/policies: "cors-policy"
+    nginx.org/policies: "cors-policy"  # attaches the Policy above
 
 # Or reference from VirtualServer:
 # spec:
@@ -1775,9 +1835,13 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/connection-proxy-header: "keep-alive"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/location-snippets: |  # connection-proxy-header
-    proxy_set_header Connection "keep-alive";  # connection-proxy-header</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/location-snippets: |  # connection-proxy-header
+      proxy_set_header Connection "keep-alive";  # connection-proxy-header</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -1844,8 +1908,12 @@ metadata:
   name: ingress-nginx-controller
 data:
   server-tokens: "false"</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/server-tokens: "false"</code></pre></div>
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/server-tokens: "false"  # server-tokens</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> The Community controller configures server tokens via ConfigMap only. The F5 NGINX Ingress Controller provides a per-Ingress annotation.</div>
                         </div></td></tr>
@@ -1892,9 +1960,13 @@ metadata:
     nginx.ingress.kubernetes.io/configuration-snippet: |
       add_header X-Frame-Options "SAMEORIGIN";
       add_header X-Content-Type-Options "nosniff";</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/add-header: "X-Frame-Options: SAMEORIGIN, X-Content-Type-Options: nosniff"
-  nginx.org/add-header-inherit: "merge"  # on | off | merge</code></pre></div>
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/add-header: "X-Frame-Options: SAMEORIGIN, X-Content-Type-Options: nosniff"
+    nginx.org/add-header-inherit: "merge"  # on | off | merge</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>New in v5.5.0:</strong> The <code>nginx.org/add-header</code> annotation adds response headers inline using a comma-separated <code>Name: Value</code> list — no snippet or external ConfigMap reference required. The <code>nginx.org/add-header-inherit</code> annotation controls how the directive is inherited from outer contexts: <code>on</code> (default — inherit), <code>off</code> (do not inherit), or <code>merge</code> (combine). Both are also available as ConfigMap keys (<code>add-header</code> and <code>add-header-inherit</code>) for global defaults.</div>
                         </div></td></tr>
@@ -1903,8 +1975,12 @@ metadata:
                             <div class="comparison">
                                 <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># Custom headers set via ConfigMap
 # proxy-set-headers in controller ConfigMap</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/proxy-set-headers: "my-custom-headers"
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/proxy-set-headers: "my-custom-headers"
 ---
 # ConfigMap with custom headers
 apiVersion: v1
@@ -1942,10 +2018,14 @@ data:
   hsts-max-age: "31536000"
   hsts-include-subdomains: "true"
   hsts-preload: "true"</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/hsts: "true"
-  nginx.org/hsts-include-subdomains: "true"
-  nginx.org/hsts-max-age: "31536000"</code></pre></div>
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/hsts: "true"  # hsts
+    nginx.org/hsts-include-subdomains: "true"  # hsts-include-subdomains
+    nginx.org/hsts-max-age: "31536000"  # hsts-max-age</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> HSTS annotations are F5 NGINX Ingress Controller-only and provide per-Ingress control. The community controller handles HSTS via ConfigMap only. The F5 NGINX Ingress Controller's <code>nginx.org/hsts</code> annotation includes the <code>preload</code> directive by default — there is no separate equivalent of the community <code>hsts-preload</code> ConfigMap key.</div>
                         </div></td></tr>
@@ -1958,9 +2038,13 @@ data:
                                 <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># No equivalent
 # HSTS headers are always added regardless
 # of proxy/load balancer presence</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/hsts: "true"
-  nginx.org/hsts-behind-proxy: "true"</code></pre></div>
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/hsts: "true"
+    nginx.org/hsts-behind-proxy: "true"</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> <code>nginx.org/hsts-behind-proxy</code> controls whether HSTS headers are added when NGINX sits behind a proxy or load balancer. When <code>true</code>, HSTS headers are added regardless of the connection protocol. This is an NIC-only feature with no community controller equivalent.</div>
                         </div></td></tr>
@@ -1980,12 +2064,20 @@ data:
 # Canary/traffic-splitting uses separate
 # canary annotations</code></pre></div>
                                 <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code># Master Ingress (server-level config)
-annotations:
-  nginx.org/mergeable-ingress-type: "master"
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app-master
+  annotations:
+    nginx.org/mergeable-ingress-type: "master"
 ---
 # Minion Ingress (route-level config)
-annotations:
-  nginx.org/mergeable-ingress-type: "minion"</code></pre></div>
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app-minion
+  annotations:
+    nginx.org/mergeable-ingress-type: "minion"</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> Mergeable Ingress types allow splitting configuration across multiple Ingress resources for the same host. The <code>master</code> handles server-level settings while <code>minion</code> resources define individual routes.</div>
                         </div></td></tr>
@@ -2015,8 +2107,12 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/load-balance: "ewma"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/lb-method: "least_conn"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/lb-method: "least_conn"  # load-balance</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -2056,8 +2152,12 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/service-upstream: "true"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/use-cluster-ip: "true"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/use-cluster-ip: "true"  # service-upstream</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -2096,8 +2196,12 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/upstream-hash-by: "$request_uri"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/lb-method: "hash $request_uri consistent"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/lb-method: "hash $request_uri consistent"  # upstream-hash-by</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -2170,9 +2274,13 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/enable-rewrite-log: "true"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/location-snippets: |  # enable-rewrite-log
-    rewrite_log on;  # enable-rewrite-log</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/location-snippets: |  # enable-rewrite-log
+      rewrite_log on;  # enable-rewrite-log</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -2231,16 +2339,20 @@ metadata:
     nginx.ingress.kubernetes.io/mirror-host: "mirror.example.com"
     nginx.ingress.kubernetes.io/mirror-request-body: "on"
     nginx.ingress.kubernetes.io/mirror-target: "https://mirror.example.com$request_uri"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/location-snippets: |  # mirror-target + mirror-request-body
-    mirror /mirror;  # mirror-target
-    mirror_request_body on;  # mirror-request-body
-  nginx.org/server-snippets: |  # mirror-host + mirror-target
-    location /mirror {
-      internal;
-      proxy_set_header Host mirror.example.com;  # mirror-host
-      proxy_pass https://mirror.example.com$request_uri;  # mirror-target
-    }</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/location-snippets: |  # mirror-target + mirror-request-body
+      mirror /mirror;  # mirror-target
+      mirror_request_body on;  # mirror-request-body
+    nginx.org/server-snippets: |  # mirror-host + mirror-target
+      location /mirror {
+        internal;
+        proxy_set_header Host mirror.example.com;  # mirror-host
+        proxy_pass https://mirror.example.com$request_uri;  # mirror-target
+      }</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -2328,7 +2440,7 @@ kind: Ingress
 metadata:
   name: my-app
   annotations:
-    nginx.org/policies: "ingress-mtls"
+    nginx.org/policies: "ingress-mtls"  # attaches the Policy above
     nginx.org/location-snippets: |  # auth-tls-pass-certificate-to-upstream
       proxy_set_header ssl-client-cert $ssl_client_escaped_cert;
     nginx.org/server-snippets: |  # auth-tls-error-page
@@ -2401,11 +2513,15 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/auth-tls-match-cn: "CN=client-[0-9]+"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/location-snippets: |  # auth-tls-match-cn
-    if ($ssl_client_s_dn !~ "CN=client-[0-9]+") {  # auth-tls-match-cn
-        return 403;
-    }</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/location-snippets: |  # auth-tls-match-cn
+      if ($ssl_client_s_dn !~ "CN=client-[0-9]+") {  # auth-tls-match-cn
+          return 403;
+      }</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -2492,7 +2608,7 @@ kind: Ingress
 metadata:
   name: my-app
   annotations:
-    nginx.org/policies: "egress-mtls"
+    nginx.org/policies: "egress-mtls"  # attaches the Policy above
     nginx.org/ssl-services: "secure-app"  # opt-in upstream(s) to TLS</code></pre></div>
                                 </div>
                                 <div class="info-box note"><strong>New in v5.5.0:</strong> The <code>egressMTLS</code> Policy CRD can now be referenced directly from Ingress resources using the <code>nginx.org/policies</code> annotation. This is the simplest migration path — you stay on Ingress resources. Combine with <code>nginx.org/ssl-services</code> to identify which backend services should use TLS.</div>
@@ -2689,9 +2805,13 @@ data:
 # max_fails / fail_timeout; failed upstreams are
 # handled via proxy-next-upstream retries only.</code></pre></div>
                                     <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code># Per-Ingress annotations:
-annotations:
-  nginx.org/fail-timeout: "30s"
-  nginx.org/max-fails: "3"</code></pre></div>
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/fail-timeout: "30s"
+    nginx.org/max-fails: "3"</code></pre></div>
                                 </div>
                                 <div class="info-box note"><strong>Note:</strong> The community controller has no passive health check tuning — its load balancer does not support <code>max_fails</code>/<code>fail_timeout</code>, and upstream failures are handled through <code>proxy-next-upstream</code> retries (see <a href="#proxy-settings">Proxy settings</a>). The F5 NGINX Ingress Controller adds per-upstream passive health checks via the <code>nginx.org/max-fails</code> and <code>nginx.org/fail-timeout</code> annotations.</div>
                             </div>
@@ -2740,9 +2860,13 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/proxy-http-version: "1.1"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/location-snippets: |  # proxy-http-version
-    proxy_http_version 1.1;  # proxy-http-version</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/location-snippets: |  # proxy-http-version
+      proxy_http_version 1.1;  # proxy-http-version</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -2792,10 +2916,14 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-next-upstream: "error timeout"
     nginx.ingress.kubernetes.io/proxy-next-upstream-timeout: "30"
     nginx.ingress.kubernetes.io/proxy-next-upstream-tries: "3"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/proxy-next-upstream: "error timeout"
-  nginx.org/proxy-next-upstream-timeout: "30s"
-  nginx.org/proxy-next-upstream-tries: "3"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/proxy-next-upstream: "error timeout"  # proxy-next-upstream
+    nginx.org/proxy-next-upstream-timeout: "30s"  # proxy-next-upstream-timeout
+    nginx.org/proxy-next-upstream-tries: "3"  # proxy-next-upstream-tries</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -2854,16 +2982,20 @@ metadata:
     nginx.ingress.kubernetes.io/limit-rpm: "300"
     nginx.ingress.kubernetes.io/limit-rps: "10"
     nginx.ingress.kubernetes.io/limit-whitelist: "10.0.0.0/8,172.16.0.0/12"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/limit-req-burst: "50"  # limit-burst-multiplier (limit-rps × multiplier)
-  nginx.org/limit-req-rate: "10r/s"  # limit-rps (also covers limit-rpm)
-  # limit-connections, limit-rate, limit-rate-after, limit-whitelist
-  # → use location-snippets:
-  nginx.org/location-snippets: |  # limit-connections / limit-rate / limit-rate-after
-    limit_conn addr 5;  # limit-connections
-    limit_rate 100k;  # limit-rate
-    limit_rate_after 1024k;  # limit-rate-after (community value is kilobytes)
-    # limit-whitelist → use geo module or map in server-snippets</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/limit-req-burst: "50"  # limit-burst-multiplier (limit-rps × multiplier)
+    nginx.org/limit-req-rate: "10r/s"  # limit-rps (also covers limit-rpm)
+    # limit-connections, limit-rate, limit-rate-after, limit-whitelist
+    # → use location-snippets:
+    nginx.org/location-snippets: |  # limit-connections / limit-rate / limit-rate-after
+      limit_conn addr 5;  # limit-connections
+      limit_rate 100k;  # limit-rate
+      limit_rate_after 1024k;  # limit-rate-after (community value is kilobytes)
+      # limit-whitelist → use geo module or map in server-snippets</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -2901,10 +3033,18 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="comparison">
-                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX) ConfigMap</h4><pre><code>data:
+                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX) ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
   limit-req-status-code: "429"</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/limit-req-reject-code: "429"</code></pre></div>
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/limit-req-reject-code: "429"  # limit-req-status-code</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> The community controller sets the rate limit rejection status code globally via ConfigMap. The F5 NGINX Ingress Controller sets it per-Ingress via the <code>nginx.org/limit-req-reject-code</code> annotation (default: 429).</div>
                         </div></td></tr>
@@ -2916,17 +3056,21 @@ spec:
                             <div class="comparison">
                                 <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># No equivalents for these fine-grained
 # rate limiting controls</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/limit-req-rate: "10r/s"
-  nginx.org/limit-req-burst: "50"
-  nginx.org/limit-req-key: "${binary_remote_addr}"
-  nginx.org/limit-req-delay: "5"
-  nginx.org/limit-req-no-delay: "true"
-  nginx.org/limit-req-zone-size: "10M"
-  nginx.org/limit-req-reject-code: "429"
-  nginx.org/limit-req-log-level: "warn"
-  nginx.org/limit-req-dry-run: "false"
-  nginx.org/limit-req-scale: "true"</code></pre></div>
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/limit-req-rate: "10r/s"
+    nginx.org/limit-req-burst: "50"
+    nginx.org/limit-req-key: "${binary_remote_addr}"
+    nginx.org/limit-req-delay: "5"
+    nginx.org/limit-req-no-delay: "true"
+    nginx.org/limit-req-zone-size: "10M"
+    nginx.org/limit-req-reject-code: "429"
+    nginx.org/limit-req-log-level: "warn"
+    nginx.org/limit-req-dry-run: "false"
+    nginx.org/limit-req-scale: "true"</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> These NIC-only annotations provide fine-grained rate limiting control. <code>limit-req-key</code> customizes the rate limiting key (default: <code>${binary_remote_addr}</code>). <code>limit-req-scale</code> divides the rate by pod count for consistency during autoscaling. <code>limit-req-reject-code</code> sets the response code for rejected requests (default: 429). <code>limit-req-dry-run</code> enables logging without enforcing limits.</div>
                         </div></td></tr>
@@ -3007,10 +3151,14 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /$2
     nginx.ingress.kubernetes.io/use-regex: "true"
 # Used with Ingress path: /api(/|$)(.*)</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/app-root: "/dashboard"
-  nginx.org/path-regex: "case_sensitive"
-  nginx.org/rewrite-target: /$2</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/app-root: "/dashboard"  # app-root
+    nginx.org/path-regex: "case_sensitive"  # use-regex
+    nginx.org/rewrite-target: /$2  # rewrite-target</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -3060,10 +3208,14 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/proxy-cookie-domain: "internal.example.com external.example.com"
     nginx.ingress.kubernetes.io/proxy-cookie-path: "/internal/ /external/"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/location-snippets: |  # proxy-cookie-domain / proxy-cookie-path
-    proxy_cookie_domain internal.example.com external.example.com;  # proxy-cookie-domain
-    proxy_cookie_path /internal/ /external/;  # proxy-cookie-path</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/location-snippets: |  # proxy-cookie-domain / proxy-cookie-path
+      proxy_cookie_domain internal.example.com external.example.com;  # proxy-cookie-domain
+      proxy_cookie_path /internal/ /external/;  # proxy-cookie-path</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -3109,9 +3261,13 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/proxy-redirect-from: "http://internal/"
     nginx.ingress.kubernetes.io/proxy-redirect-to: "https://external/"</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/proxy-redirect-from: "http://internal/"  # proxy-redirect-from
-  nginx.org/proxy-redirect-to: "https://external/"  # proxy-redirect-to</code></pre></div>
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/proxy-redirect-from: "http://internal/"  # proxy-redirect-from
+    nginx.org/proxy-redirect-to: "https://external/"  # proxy-redirect-to</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>New in v5.5.0:</strong> The <code>nginx.org/proxy-redirect-from</code> and <code>nginx.org/proxy-redirect-to</code> annotations are new and provide direct 1:1 mappings from the community annotations. The <code>from</code> value also accepts <code>off</code>, <code>default</code>, or a regex prefixed with <code>~</code>/<code>~*</code>.</div>
                         </div></td></tr>
@@ -3124,8 +3280,12 @@ metadata:
                                 <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># No per-service rewrite equivalent
 # rewrite-target applies globally to all
 # backends in the Ingress resource</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/rewrites: "serviceName=tea-svc rewrite=/;serviceName=coffee-svc rewrite=/beans"</code></pre></div>
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/rewrites: "serviceName=tea-svc rewrite=/;serviceName=coffee-svc rewrite=/beans"</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> <code>nginx.org/rewrites</code> enables per-service URL rewriting within a single Ingress resource. Each semicolon-separated entry specifies a service name and its rewrite path. This is an NIC-only feature with no community controller equivalent.</div>
                         </div></td></tr>
@@ -3155,9 +3315,13 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/server-alias: "alias.example.com"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/server-snippets: |  # server-alias
-    server_name alias.example.com;  # server-alias</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/server-snippets: |  # server-alias
+      server_name alias.example.com;  # server-alias</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -3260,8 +3424,12 @@ metadata:
     nginx.ingress.kubernetes.io/session-cookie-max-age: "172800"
     nginx.ingress.kubernetes.io/session-cookie-name: "SERVERID"
     nginx.ingress.kubernetes.io/session-cookie-path: "/"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/sticky-cookie-services: "serviceName=my-service srv_id expires=48h path=/"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/sticky-cookie-services: "serviceName=my-service srv_id expires=48h path=/"  # affinity: "cookie" + session-cookie-*</code></pre></div>
                                 </div>
                                 <div class="info-box note"><strong>Note:</strong> The <code>nginx.org/sticky-cookie-services</code> annotation works with both NGINX OSS and NGINX Plus and provides a simpler way to configure session persistence via Ingress annotations (the legacy <code>nginx.com/sticky-cookie-services</code> form is Plus-only and kept for backward compatibility). For more granular control (domain, secure, samesite, httpOnly), use the VirtualServer CRD approach.</div>
                             </div>
@@ -3376,8 +3544,12 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/ssl-services: "my-service"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/ssl-services: "my-service"  # backend-protocol</code></pre></div>
                                 </div>
                                 <div class="info-box note"><strong>Note:</strong> For gRPC backends, use <code>nginx.org/grpc-services: "my-service"</code> instead.</div>
                             </div>
@@ -3414,8 +3586,12 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/redirect-to-https: "true"</code></pre></div>
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/redirect-to-https: "true"  # force-ssl-redirect</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> <code>force-ssl-redirect</code> in the Community controller forces HTTPS redirect even without a TLS certificate. Use <code>nginx.org/redirect-to-https</code> for similar behavior.</div>
                         </div></td></tr>
@@ -3448,8 +3624,12 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/ssl-ciphers: "HIGH:!aNULL:!MD5"</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/ssl-ciphers: "HIGH:!aNULL:!MD5"</code></pre></div>
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/ssl-ciphers: "HIGH:!aNULL:!MD5"  # ssl-ciphers</code></pre></div>
                             </div>
                         </div></td></tr>
                         <tr class="expandable">
@@ -3494,8 +3674,12 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/ssl-prefer-server-ciphers: "true"</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/ssl-prefer-server-ciphers: "true"</code></pre></div>
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/ssl-prefer-server-ciphers: "true"  # ssl-prefer-server-ciphers</code></pre></div>
                             </div>
                         </div></td></tr>
                         <tr class="expandable">
@@ -3515,14 +3699,18 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "true"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  # Match the community controller's 308 default
-  # (preserves request method and body)
-  nginx.org/http-redirect-code: "308"
-  # Option 1: For TLS terminated at load balancer
-  nginx.org/redirect-to-https: "true"
-  # OR Option 2: For unconditional redirect
-  nginx.org/ssl-redirect: "true"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    # Match the community controller's 308 default
+    # (preserves request method and body)
+    nginx.org/http-redirect-code: "308"  # ssl-redirect (redirect status code)
+    # Option 1: For TLS terminated at load balancer
+    nginx.org/redirect-to-https: "true"  # ssl-redirect
+    # OR Option 2: For unconditional redirect
+    nginx.org/ssl-redirect: "true"  # ssl-redirect</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content" data-approach="crd">
@@ -3567,9 +3755,13 @@ spec:
                                 <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># No direct equivalent
 # Redirect code is not configurable
 # per Ingress resource</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/http-redirect-code: "308"
-  nginx.org/redirect-to-https: "true"</code></pre></div>
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/http-redirect-code: "308"
+    nginx.org/redirect-to-https: "true"</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>New in v5.4.0:</strong> Customizes the HTTP redirect status code used when redirecting to HTTPS (default: 301). Available as both a per-Ingress annotation and a global ConfigMap key (<code>http-redirect-code</code>). Common values: 301 (permanent), 302 (temporary), 307 (temporary, preserves method), 308 (permanent, preserves method).</div>
                         </div></td></tr>
@@ -3579,9 +3771,13 @@ spec:
                                 <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># No direct equivalent
 # Port configuration is handled at the
 # controller/service level</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/listen-ports: "8080,8443"
-  nginx.org/listen-ports-ssl: "8443,9443"</code></pre></div>
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/listen-ports: "8080,8443"
+    nginx.org/listen-ports-ssl: "8443,9443"</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> These annotations configure custom HTTP and HTTPS listen ports for the Ingress resource. Useful when the controller needs to listen on non-standard ports.</div>
                         </div></td></tr>
@@ -3656,8 +3852,12 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/proxy-connect-timeout: "10s"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/proxy-connect-timeout: "10s"  # proxy-connect-timeout</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -3696,8 +3896,12 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "60"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/proxy-read-timeout: "60s"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/proxy-read-timeout: "60s"  # proxy-read-timeout</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -3736,8 +3940,12 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/proxy-send-timeout: "60"</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/proxy-send-timeout: "60s"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/proxy-send-timeout: "60s"  # proxy-send-timeout</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -3781,12 +3989,16 @@ spec:
                                 <div class="comparison">
                                     <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># No per-Ingress upstream tuning
 # Community controller uses ConfigMap defaults</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/fail-timeout: "10s"
-  nginx.org/keepalive: "32"
-  nginx.org/max-conns: "100"
-  nginx.org/max-fails: "3"
-  nginx.org/upstream-zone-size: "256k"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/fail-timeout: "10s"
+    nginx.org/keepalive: "32"
+    nginx.org/max-conns: "100"
+    nginx.org/max-fails: "3"
+    nginx.org/upstream-zone-size: "256k"</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -3817,8 +4029,12 @@ spec:
                                 <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># WebSocket support is automatic
 # Just ensure proxy-http-version: "1.1"
 # and proper Upgrade/Connection headers</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>annotations:
-  nginx.org/websocket-services: "ws-service"</code></pre></div>
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/websocket-services: "ws-service"</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> The Community controller handles WebSocket upgrades automatically. The F5 NGINX Ingress Controller provides an explicit annotation to enable WebSocket support for specific services.</div>
                         </div></td></tr>
@@ -3921,11 +4137,15 @@ spec:
                                 <div class="comparison">
                                     <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX)</h4><pre><code># No direct equivalent
 # Requires external auth service</code></pre></div>
-                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller (Plus)</h4><pre><code>annotations:
-  nginx.com/jwt-key: "my-jwk-secret"
-  nginx.com/jwt-login-url: "https://login.example.com"
-  nginx.com/jwt-realm: "API"
-  nginx.com/jwt-token: "$http_authorization"</code></pre></div>
+                                    <div class="comparison-block new"><h4>F5 NGINX Ingress Controller (Plus)</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.com/jwt-key: "my-jwk-secret"
+    nginx.com/jwt-login-url: "https://login.example.com"
+    nginx.com/jwt-realm: "API"
+    nginx.com/jwt-token: "$http_authorization"</code></pre></div>
                                 </div>
                                 <div class="info-box note"><strong>Note:</strong> The annotation approach requires a Kubernetes Secret containing the JWK. The Policy CRD approach is recommended for new deployments as it provides more granular control including JWKS URI support and key caching.</div>
                             </div>
@@ -4584,7 +4804,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  client-max-body-size: "8m"</code></pre></div>
+  client-max-body-size: "8m"  # proxy-body-size</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> Both keys map to the NGINX <code>client_max_body_size</code> directive. The F5 NGINX Ingress Controller uses the NGINX-native naming convention.</div>
                         </div></td></tr>
@@ -4605,7 +4825,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  proxy-buffers: "4 8k"</code></pre></div>
+  proxy-buffers: "4 8k"  # proxy-buffers-number</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> The community key takes just a number (buffer count). The F5 NGINX Ingress Controller key takes the full NGINX <code>proxy_buffers</code> format: <code>"number size"</code> (e.g., <code>"4 8k"</code>).</div>
                         </div></td></tr>
@@ -4635,7 +4855,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  redirect-to-https: "true"</code></pre></div>
+  redirect-to-https: "true"  # force-ssl-redirect</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> The community controller uses an <code>X-Forwarded-Proto</code> header check to determine whether to redirect. The F5 NGINX Ingress Controller performs a direct HTTP-to-HTTPS redirect.</div>
                         </div></td></tr>
@@ -4678,7 +4898,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  ssl-dhparam-file: "/etc/nginx/secrets/dhparam.pem"</code></pre></div>
+  ssl-dhparam-file: "/etc/nginx/secrets/dhparam.pem"  # ssl-dh-param</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> The community key references a Kubernetes secret name, while the F5 NGINX Ingress Controller key expects a file path to the DH parameters file mounted into the pod.</div>
                         </div></td></tr>
@@ -4726,7 +4946,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  access-log-off: "true"</code></pre></div>
+  access-log-off: "true"  # disable-access-log</code></pre></div>
                             </div>
                         </div></td></tr>
                         <tr class="expandable">
@@ -4746,7 +4966,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  log-format-escaping: "json"</code></pre></div>
+  log-format-escaping: "json"  # log-format-escape-json / log-format-escape-none</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> The community controller uses separate boolean keys (<code>log-format-escape-json</code> and <code>log-format-escape-none</code>). The F5 NGINX Ingress Controller uses a single key with a string value: <code>"json"</code>, <code>"default"</code>, or <code>"none"</code>.</div>
                         </div></td></tr>
@@ -4767,7 +4987,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  stream-log-format: '$remote_addr [$time_local]'</code></pre></div>
+  stream-log-format: '$remote_addr [$time_local]'  # log-format-stream</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> The word order is swapped: community uses <code>log-format-stream</code>, while the F5 NGINX Ingress Controller uses <code>stream-log-format</code>.</div>
                         </div></td></tr>
@@ -4788,7 +5008,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  log-format: '$remote_addr - $request_id'</code></pre></div>
+  log-format: '$remote_addr - $request_id'  # log-format-upstream</code></pre></div>
                             </div>
                         </div></td></tr>
                     </tbody>
@@ -4806,11 +5026,19 @@ data:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="comparison">
-                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX) ConfigMap</h4><pre><code>data:
+                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX) ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
   proxy-real-ip-cidr: "10.0.0.0/8"
   use-forwarded-headers: "true"</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller ConfigMap</h4><pre><code>data:
-  set-real-ip-from: "10.0.0.0/8"
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  set-real-ip-from: "10.0.0.0/8"  # proxy-real-ip-cidr
   real-ip-header: "X-Forwarded-For"
   real-ip-recursive: "true"</code></pre></div>
                             </div>
@@ -4822,10 +5050,18 @@ data:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="comparison">
-                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX) ConfigMap</h4><pre><code>data:
+                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX) ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
   use-forwarded-headers: "true"</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller ConfigMap</h4><pre><code>data:
-  real-ip-header: "X-Forwarded-For"</code></pre></div>
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  real-ip-header: "X-Forwarded-For"  # use-forwarded-headers</code></pre></div>
                             </div>
                         </div></td></tr>
                         <tr class="expandable">
@@ -4834,10 +5070,18 @@ data:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="comparison">
-                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX) ConfigMap</h4><pre><code>data:
+                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX) ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
   use-proxy-protocol: "true"</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller ConfigMap</h4><pre><code>data:
-  proxy-protocol: "true"
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  proxy-protocol: "true"  # use-proxy-protocol
   set-real-ip-from: "0.0.0.0/0"
   real-ip-header: "proxy_protocol"</code></pre></div>
                             </div>
@@ -4869,7 +5113,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  worker-connections: "16384"</code></pre></div>
+  worker-connections: "16384"  # max-worker-connections</code></pre></div>
                             </div>
                         </div></td></tr>
                         <tr class="expandable">
@@ -4889,7 +5133,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  worker-rlimit-nofile: "65536"</code></pre></div>
+  worker-rlimit-nofile: "65536"  # max-worker-open-files</code></pre></div>
                             </div>
                         </div></td></tr>
                     </tbody>
@@ -4918,7 +5162,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  lb-method: "random two least_conn"</code></pre></div>
+  lb-method: "random two least_conn"  # load-balance</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> The community controller defaults to <code>round_robin</code> and supports methods like <code>ewma</code> and <code>least_conn</code>. The F5 NGINX Ingress Controller defaults to <code>random two least_conn</code> and uses standard NGINX load balancing method names.</div>
                         </div></td></tr>
@@ -4939,7 +5183,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  keepalive: "320"</code></pre></div>
+  keepalive: "320"  # upstream-keepalive-connections</code></pre></div>
                             </div>
                         </div></td></tr>
                     </tbody>
@@ -4968,7 +5212,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  keepalive-timeout: "75s"</code></pre></div>
+  keepalive-timeout: "75s"  # keep-alive</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> Both map to the NGINX <code>keepalive_timeout</code> directive. The F5 NGINX Ingress Controller key uses the NGINX-native name and expects a time unit suffix (e.g., <code>"75s"</code>).</div>
                         </div></td></tr>
@@ -4989,7 +5233,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  keepalive-requests: "1000"</code></pre></div>
+  keepalive-requests: "1000"  # keep-alive-requests</code></pre></div>
                             </div>
                         </div></td></tr>
                     </tbody>
@@ -5018,7 +5262,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  server-names-hash-bucket-size: "128"</code></pre></div>
+  server-names-hash-bucket-size: "128"  # server-name-hash-bucket-size</code></pre></div>
                             </div>
                         </div></td></tr>
                         <tr class="expandable">
@@ -5038,7 +5282,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  server-names-hash-max-size: "1024"</code></pre></div>
+  server-names-hash-max-size: "1024"  # server-name-hash-max-size</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> Subtle difference: the community uses <code>server-name-hash-max-size</code> and <code>server-name-hash-bucket-size</code> (singular "name"), while the F5 NGINX Ingress Controller uses <code>server-names-hash-max-size</code> and <code>server-names-hash-bucket-size</code> (plural "names") matching the NGINX directives.</div>
                         </div></td></tr>
@@ -5077,7 +5321,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  add-header: "X-Frame-Options: SAMEORIGIN, Strict-Transport-Security: max-age=31536000"</code></pre></div>
+  add-header: "X-Frame-Options: SAMEORIGIN, Strict-Transport-Security: max-age=31536000"  # add-headers</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>New in v5.5.0:</strong> The <code>add-header</code> ConfigMap key adds globally-applied response headers using a comma-separated <code>Name: Value</code> list. Unlike the community <code>add-headers</code> key (which references a separate ConfigMap of headers), values are specified inline.</div>
                         </div></td></tr>
@@ -5098,7 +5342,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  proxy-hide-headers: "X-Powered-By,Server"</code></pre></div>
+  proxy-hide-headers: "X-Powered-By,Server"  # hide-headers</code></pre></div>
                             </div>
                         </div></td></tr>
                         <tr class="expandable">
@@ -5144,7 +5388,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  http2: "true"</code></pre></div>
+  http2: "true"  # use-http2</code></pre></div>
                             </div>
                         </div></td></tr>
                     </tbody>
@@ -5185,18 +5429,18 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  http-snippets: |
+  http-snippets: |  # http-snippet
     map $http_upgrade $connection_upgrade {
       default upgrade;
       '' close;
     }
-  location-snippets: |
+  location-snippets: |  # location-snippet
     proxy_cache_valid 200 10m;
-  main-snippets: |
+  main-snippets: |  # main-snippet
     worker_rlimit_nofile 65535;
-  server-snippets: |
+  server-snippets: |  # server-snippet
     add_header X-Custom "value";
-  stream-snippets: |
+  stream-snippets: |  # stream-snippet
     log_format stream '$remote_addr [$time_local]';</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> All snippet keys change from singular to plural: <code>http-snippet</code> → <code>http-snippets</code>, <code>location-snippet</code> → <code>location-snippets</code>, <code>main-snippet</code> → <code>main-snippets</code>, <code>server-snippet</code> → <code>server-snippets</code>, <code>stream-snippet</code> → <code>stream-snippets</code>.</div>
@@ -5227,7 +5471,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  otel-trace-in-http: "true"</code></pre></div>
+  otel-trace-in-http: "true"  # enable-opentelemetry</code></pre></div>
                             </div>
                         </div></td></tr>
                         <tr class="expandable">
@@ -5248,7 +5492,7 @@ kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  otel-exporter-endpoint: "otel-collector.observability:4317"</code></pre></div>
+  otel-exporter-endpoint: "otel-collector.observability:4317"  # otlp-collector-host + otlp-collector-port</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> The community controller uses separate keys for host and port. The F5 NGINX Ingress Controller combines them into a single endpoint URL.</div>
                         </div></td></tr>
@@ -5268,10 +5512,18 @@ data:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="comparison">
-                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX) ConfigMap</h4><pre><code>data:
+                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX) ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
   access-log-path: "/var/log/nginx/access.log"</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller ConfigMap</h4><pre><code>data:
-  http-snippets: |
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  http-snippets: |  # access-log-path
     access_log /var/log/nginx/access.log;</code></pre></div>
                             </div>
                         </div></td></tr>
@@ -5281,10 +5533,18 @@ data:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="comparison">
-                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX) ConfigMap</h4><pre><code>data:
+                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX) ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
   custom-http-errors: "404,503"</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller ConfigMap</h4><pre><code>data:
-  server-snippets: |
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  server-snippets: |  # custom-http-errors
     error_page 404 503 @custom_errors;</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> The community controller integrates with a default backend for custom error pages. The NIC requires manual <code>error_page</code> directives via snippets, typically combined with a custom error backend.</div>
@@ -5295,13 +5555,21 @@ data:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="comparison">
-                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX) ConfigMap</h4><pre><code>data:
+                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX) ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
   enable-brotli: "true"
   brotli-level: "6"</code></pre></div>
                                 <div class="comparison-block new"><h4>F5 NGINX Ingress Controller ConfigMap</h4><pre><code># Brotli is not included in the default NGINX build.
 # If using a custom build with the brotli module:
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
 data:
-  http-snippets: |
+  http-snippets: |  # enable-brotli
     brotli on;
     brotli_comp_level 6;
     brotli_types text/plain text/css application/json application/javascript;</code></pre></div>
@@ -5313,10 +5581,18 @@ data:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="comparison">
-                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX) ConfigMap</h4><pre><code>data:
+                                <div class="comparison-block old"><h4>Kubernetes Ingress NGINX (Ingress-NGINX) ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
   error-log-path: "/var/log/nginx/error.log"</code></pre></div>
-                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller ConfigMap</h4><pre><code>data:
-  main-snippets: |
+                                <div class="comparison-block new"><h4>F5 NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  main-snippets: |  # error-log-path
     error_log /var/log/nginx/error.log warn;</code></pre></div>
                             </div>
                         </div></td></tr>

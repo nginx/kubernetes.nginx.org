@@ -114,6 +114,64 @@ for (const p of PAGES) {
         assert.deepEqual(tabs, panes, 'approach tab/pane pairing');
     });
 
+    // Both sides of a comparison are complete manifests. A bare `annotations:`
+    // or `data:` block is not something a reader can paste or diff against their
+    // own cluster, and the two sides must be the same shape or the diff the panel
+    // exists to show is not a diff. 1878479 applied this to the source side and
+    // recorded it only in its commit body, so the target side kept its 61
+    // fragments; hence an assertion rather than a convention. Comment-only
+    // blocks ("# No direct equivalent") declare nothing and are exempt.
+    test(`${p.name}: every comparison example is a complete manifest`, () => {
+        const fragments = [];
+        const blocks = page.matchAll(
+            /<div class="comparison-block (?:old|new)"><h4>[\s\S]*?<\/h4><pre><code>([\s\S]*?)<\/code><\/pre><\/div>/g);
+        for (const b of blocks) {
+            const line = page.slice(0, b.index).split('\n').length;
+            for (const doc of b[1].split(/^---$/m)) {
+                const content = doc.split('\n')
+                    .filter((l) => l.trim() && !l.trimStart().startsWith('#'));
+                if (!content.length) continue;
+                if (!/^\s*kind:\s/m.test(doc)) {
+                    fragments.push(`${p.page}:${line} ${content[0].trim().slice(0, 40)}`);
+                }
+            }
+        }
+        assert.deepEqual(fragments, [], 'comparison examples with no kind: declared');
+    });
+
+    // A NIC-side line carrying a translated value names its community source in
+    // a trailing comment (`client-max-body-size: "10m"  # proxy-body-size`). Which
+    // lines are translated is a judgement no regex can make, so this asserts only
+    // the mechanical half: within one row, the same key and value must not be
+    // commented in one approach tab and bare in another. That is the drift that
+    // let 70 lines sit uncommented — the CRD tab named the source, the Annotation
+    // tab beside it did not, and nothing compared them.
+    test(`${p.name}: mapping comments agree across a row's approach tabs`, () => {
+        const LINE = /^\s*(?:-\s*)?([\w.\-/]+):(\s*)(\S.*?)(?:\s\s#\s*(.*))?$/;
+        const drift = [];
+        const rows = page.matchAll(
+            /<tr class="expandable">\s*[\s\S]*?\s*<\/tr>\s*<tr class="example-row">([\s\S]*?)<\/tr>/g);
+        for (const row of rows) {
+            const blocks = [...row[1].matchAll(
+                /<div class="comparison-block new"><h4>[\s\S]*?<\/h4><pre><code>([\s\S]*?)<\/code><\/pre><\/div>/g)];
+            if (blocks.length < 2) continue;
+            const seen = new Map();
+            for (const b of blocks) {
+                for (const line of b[1].split('\n')) {
+                    const m = LINE.exec(line);
+                    if (!m) continue;
+                    const k = `${m[1]}=${m[3]}`;
+                    if (!seen.has(k)) seen.set(k, new Set());
+                    seen.get(k).add(m[4] || '');
+                }
+            }
+            for (const [k, comments] of seen) {
+                if (comments.size > 1 && comments.has('')) drift.push(k);
+            }
+        }
+        assert.deepEqual(drift, [], 'lines commented in one approach tab and bare in another');
+    });
+
     // A reference row belongs to exactly one section, and which one is not a
     // judgement call: NIC tier first (a Plus-only target goes to #plus-mappings
     // whatever surface it came from), then the source surface — annotations to
