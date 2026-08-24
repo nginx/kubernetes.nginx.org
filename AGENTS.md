@@ -60,7 +60,12 @@ assets/
         migration-ingress-nginx.js  # ingress-nginx SOURCE module; defines window.MIGRATION_SOURCE
   img/  icon.svg, icon-512.png, apple-touch-icon.{svg,png}, og-image.{svg,png}
   fonts/ InterVariable-subset.woff2, OFL.txt, README.md
+tools/
+  nic-migrate/  # CLI batching the analyzer over real manifests. Reads the engine
+                # out of assets/js/ — never vendor a copy. See its README.
 ```
+
+**`tools/` is not published.** Pages runs the classic Jekyll build on `main`, which skips dot- and underscore-prefixed paths — that is what keeps `.github/` off the site, and it does nothing for a plain top-level directory. `_config.yml` exists solely to exclude `tools/` by name; it restates Jekyll's default `exclude` list because setting the key replaces those defaults rather than extending them.
 
 ## Load order and asset invariants
 

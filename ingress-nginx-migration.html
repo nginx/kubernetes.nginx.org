@@ -124,6 +124,7 @@
                             <li><button class="sidebar-link" data-section="features"><span class="dot"></span><span class="sidebar-link-name">CRDs summary</span></button></li>
                             <li><button class="sidebar-link" data-section="installation"><span class="dot"></span><span class="sidebar-link-name">Installing CRDs</span></button></li>
                             <li><button class="sidebar-link" data-section="checklist"><span class="dot"></span><span class="sidebar-link-name">Migration checklist</span></button></li>
+                            <li><button class="sidebar-link" data-section="cli"><span class="dot"></span><span class="sidebar-link-name">Command line tool</span></button></li>
                             <li><button class="sidebar-link" data-section="resources"><span class="dot"></span><span class="sidebar-link-name">Additional resources</span></button></li>
                         </ul>
                     </li>
@@ -350,6 +351,22 @@
                 <li role="checkbox" aria-checked="false" tabindex="0" data-id="test-in-staging-environment"><span>Test in staging environment</span></li>
                 <li role="checkbox" aria-checked="false" tabindex="0" data-id="update-monitoring-and-alerting"><span>Update monitoring and alerting</span></li>
             </ul>
+        </section>
+
+        <!-- Command line tool -->
+        <section id="cli">
+            <h2 id="command-line-tool">Command line tool</h2>
+            <div class="info-box warning"><strong>Beta:</strong> <code>nic-migrate</code> is new and under active development. Review its output before applying anything to a cluster — command names, flags, and the manifests it generates may still change.</div>
+            <p>The analyzer on this page works on one manifest at a time. <code>nic-migrate</code> runs the same engine from a terminal, across every Ingress in a directory or read straight from a running cluster. It loads the mapping database out of this site's own source rather than keeping a second copy, so it cannot drift from the tables in the reference guide. It is not distributed as a download — clone the <a href="https://github.com/nginx/kubernetes.nginx.org/tree/main/tools/nic-migrate" target="_blank" rel="noopener noreferrer">repository for this site</a> and run it with Node 18 or newer, with nothing to install.</p>
+            <div class="install-box"><h3>Review what would change</h3>
+                <p style="margin: 0 0 var(--space-2x); font-size: var(--fs-body); line-height: var(--lh-body);">Prints a summary per Ingress: annotation swaps, the Policies and CRDs required, and anything the analyzer cannot express on its own, graded blocking, review, or note.</p>
+                <pre><code>node tools/nic-migrate/nic-migrate.js report -f ./manifests</code></pre>
+            </div>
+            <div class="install-box"><h3>Generate manifests</h3>
+                <p style="margin: 0 0 var(--space-2x); font-size: var(--fs-body); line-height: var(--lh-body);">Merges those results into resources you can apply: one VirtualServer per host carrying every route and backend, with Policies referenced, TLS preserved, and the namespace kept. <code>--target ingress</code> instead keeps your Ingress resources and rewrites their annotations.</p>
+                <pre><code>node tools/nic-migrate/nic-migrate.js convert -f ./manifests --validate</code></pre>
+            </div>
+            <p>Neither command drops anything silently: where a construct has no equivalent on the target you choose, it is named rather than omitted. Read the notes each run prints, keep <code>--validate</code> on so the output is checked against a live cluster with <code>kubectl apply --dry-run=server</code>, and see the <a href="https://github.com/nginx/kubernetes.nginx.org/blob/main/tools/nic-migrate/README.md" target="_blank" rel="noopener noreferrer">full option reference and known limitations</a>.</p>
         </section>
 
         <!-- Resources -->

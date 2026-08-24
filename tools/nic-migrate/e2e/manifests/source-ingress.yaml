@@ -1,0 +1,63 @@
+# The Ingress under migration: a community ingress-nginx resource using the
+# annotations that exercise each way the converter has to work.
+#
+#   rewrite-target      a VirtualServer feature, and the one whose correctness
+#                       is only observable from the backend
+#   affinity            an upstream field, Ingress-scoped, so it must reach
+#                       every upstream
+#   enable-cors         a Policy, which must end up referenced and not merely
+#                       generated
+#   proxy-body-size     a plain annotation swap
+#   ssl-redirect false  keeps plain HTTP assertable; the converter must then NOT
+#                       set tls.redirect, which is its own assertion
+#
+# Two hosts and three backends across two paths, because the single-context
+# model in the page's analyzer collapses exactly that shape — this fixture fails
+# loudly against a converter that kept it.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: shop
+  namespace: e2e-shop
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/proxy-body-size: 10m
+    nginx.ingress.kubernetes.io/affinity: cookie
+    nginx.ingress.kubernetes.io/session-cookie-name: E2ESESSION
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://shop.example.com"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - shop.example.com
+      secretName: shop-tls
+  rules:
+    - host: shop.example.com
+      http:
+        paths:
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: api-svc
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web-svc
+                port:
+                  number: 8080
+    - host: b.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web2-svc
+                port:
+                  number: 8080

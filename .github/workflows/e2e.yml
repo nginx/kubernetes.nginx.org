@@ -1,0 +1,115 @@
+name: Migration e2e
+
+# Deliberately NOT part of Tests. This spins up a kind cluster and installs two
+# ingress controllers: minutes, not seconds, and it needs Docker. Tests stays
+# fast so it can gate every push on a repo where push is deploy; this runs when
+# the converter changes, on demand, and weekly to catch upstream drift in
+# ingress-nginx or NIC rather than in our own code.
+on:
+  push:
+    branches: [main, "preview/**"]
+    paths:
+      - "tools/nic-migrate/**"
+      - "assets/js/migration-core.js"
+      - "assets/js/migration-ingress-nginx.js"
+      - ".github/workflows/e2e.yml"
+  pull_request:
+    paths:
+      - "tools/nic-migrate/**"
+      - "assets/js/migration-core.js"
+      - "assets/js/migration-ingress-nginx.js"
+      - ".github/workflows/e2e.yml"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "convert target"
+        type: choice
+        options: [virtualserver, ingress]
+        default: virtualserver
+  schedule:
+    # Mondays 04:17 UTC. Off the hour because scheduled runs cluster there and
+    # get queued.
+    - cron: "17 4 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: ingress-nginx -> NIC, on a real cluster
+    runs-on: ubuntu-latest
+    # A hung wait_for should not burn an hour of runner time.
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+
+      # Cheap first: the runner's own logic needs no cluster, so a broken
+      # response parser fails in seconds rather than after two Helm installs.
+      # The same command works locally with nothing installed.
+      - name: Self-test the runner
+        run: python3 tools/nic-migrate/e2e/run-e2e.py --self-test
+
+      # `go install` rather than downloading a release binary: the module is
+      # verified against the Go checksum database, so the version pin is
+      # actually enforced instead of being a URL we hope is unchanged. Go,
+      # Docker, kubectl and helm are all preinstalled on the runner.
+      #
+      # This pin also decides the Kubernetes version: kind-cluster.yaml sets no
+      # node image, so each kind release uses the default it was tested with.
+      # Bumping this line is how the cluster's Kubernetes version moves.
+      - name: Install kind
+        run: |
+          go install sigs.k8s.io/kind@v0.32.0
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Verify the toolchain
+        run: |
+          kind --version
+          kubectl version --client
+          helm version --short
+
+      # The input goes through env rather than being interpolated into the shell
+      # line. A `choice` input is validated against its options by GitHub, so
+      # this is belt and braces — but a workflow-injection bug is invisible
+      # until it is exploited, and the safe form costs one line.
+      - name: Run the migration e2e
+        env:
+          E2E_TARGET: ${{ github.event.inputs.target || 'virtualserver' }}
+        run: |
+          python3 tools/nic-migrate/e2e/run-e2e.py --target "$E2E_TARGET"
+
+      # The converted manifests and controller logs are the only things worth
+      # having when a case mismatches — the run itself is gone.
+      - name: Collect diagnostics
+        if: failure()
+        run: |
+          mkdir -p /tmp/e2e-diag
+          cp -r tools/nic-migrate/e2e/.work /tmp/e2e-diag/ 2>/dev/null || true
+          for ns in e2e-shop ingress-nginx nginx-ingress; do
+            kubectl get all,ingress,virtualserver,policy -n "$ns" -o wide > "/tmp/e2e-diag/$ns.txt" 2>&1 || true
+            kubectl describe ingress,virtualserver -n "$ns" >> "/tmp/e2e-diag/$ns.txt" 2>&1 || true
+          done
+          kubectl logs -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx --tail=300 \
+            > /tmp/e2e-diag/ingress-nginx.log 2>&1 || true
+          kubectl logs -n nginx-ingress -l app.kubernetes.io/instance=nic --tail=300 \
+            > /tmp/e2e-diag/nic.log 2>&1 || true
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e2e-diagnostics
+          path: /tmp/e2e-diag
+          retention-days: 7

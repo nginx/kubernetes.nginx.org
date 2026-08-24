@@ -19,18 +19,41 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-JS_DIR = os.path.join(ROOT, 'assets', 'js')
+
+# Every tree holding first-party JavaScript. `tools/` is walked recursively
+# because the CLI there has a lib/ subdirectory; assets/js is flat by design.
+# Keeping tools/ out of this list would recreate exactly the gap described
+# above — a directory of shipped scripts that nothing parses — one directory
+# over from where it happened the first time.
+JS_TREES = [('assets/js', False), ('tools', True)]
+
+
+def collect():
+    """Repo-relative paths of every .js file under the trees above."""
+    found = []
+    for rel, recurse in JS_TREES:
+        base = os.path.join(ROOT, rel)
+        if not os.path.isdir(base):
+            continue
+        if recurse:
+            for dirpath, _dirnames, filenames in os.walk(base):
+                for name in filenames:
+                    if name.endswith('.js'):
+                        full = os.path.join(dirpath, name)
+                        found.append(os.path.relpath(full, ROOT))
+        else:
+            found.extend(os.path.join(rel, f) for f in os.listdir(base) if f.endswith('.js'))
+    return sorted(found)
 
 
 def main():
-    files = sorted(f for f in os.listdir(JS_DIR) if f.endswith('.js'))
+    files = collect()
     if not files:
         print('no scripts found in assets/js — is this being run from the repo root?')
         return 1
 
     failures = 0
-    for name in files:
-        rel = os.path.join('assets/js', name)
+    for rel in files:
         try:
             proc = subprocess.run(['node', '--check', rel], cwd=ROOT,
                                   capture_output=True, text=True)
