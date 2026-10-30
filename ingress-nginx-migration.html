@@ -238,11 +238,13 @@
             <div class="install-box"><h3>Helm (example)</h3>
                 <pre><code>helm install nginx-ingress oci://ghcr.io/nginx/charts/nginx-ingress \
   --set controller.ingressClass.name=nginx-nic \
+  --set controller.config.name=nginx-config \
   --set controller.enableSnippets=true \
   --set controller.enableTLSPassthrough=true</code></pre>
             </div>
             <p>Keep only the flags your Ingresses need:</p>
             <ul class="doc-list">
+                <li><strong><code>controller.config.name</code></strong> — The examples on this page write the ConfigMap <code>nginx-config</code>, the name the manifests install. The chart names it after the release instead (<code>nginx-ingress</code> for this command) unless this is set, and NGINX Ingress Controller reads only the ConfigMap its <code>-nginx-configmaps</code> flag names, so keys written to any other one are silently unused.</li>
                 <li><strong><code>controller.enableSnippets</code></strong> — Off by default. With it off, NGINX Ingress Controller rejects any resource that carries a snippet, so <code>configuration-snippet</code>, <code>server-snippet</code> and every mapping that becomes a snippet fail. Snippets are copied as written: directives from modules the community image included, such as <code>more_set_headers</code> (headers-more) and Lua, do not exist in NGINX Ingress Controller and fail the configuration reload.</li>
                 <li><strong><code>controller.enableTLSPassthrough</code></strong> — Off by default. <code>ssl-passthrough</code> becomes a TransportServer on the built-in <code>tls-passthrough</code> listener, which exists only with this flag.</li>
                 <li><strong><code>controller.enableCertManager</code></strong> — Off by default. cert-manager HTTP-01 challenges for a VirtualServer's host pass its HTTPS redirect and authentication only with this flag (v5.7.0 and later); on an Ingress they do without it. The community controller exempted <code>/.well-known/acme-challenge</code> by default.</li>
@@ -288,7 +290,7 @@
                         <li><strong>Path Rewriting:</strong> Modify request URIs with regex support before forwarding to backends</li>
                         <li><strong>Error Pages:</strong> Custom responses for specific HTTP error codes</li>
                         <li><strong>Request/Response Headers:</strong> Add, modify, or remove headers in transit</li>
-                        <li><strong>Health Checks:</strong> Active health monitoring of upstream servers</li>
+                        <li><strong>Health Checks:</strong> Active health monitoring of upstream servers (NGINX Plus)</li>
                         <li><strong>Session Persistence:</strong> Cookie-based sticky sessions</li>
                     </ul>
                 </div>
@@ -326,18 +328,17 @@
                         <li><strong>TCP Load Balancing:</strong> MySQL, PostgreSQL, Redis, custom TCP services</li>
                         <li><strong>UDP Load Balancing:</strong> DNS, RADIUS, gaming protocols</li>
                         <li><strong>TLS Passthrough:</strong> Pass encrypted traffic directly to backends</li>
-                        <li><strong>Health Checks:</strong> TCP/UDP health monitoring</li>
+                        <li><strong>Health Checks:</strong> TCP/UDP health monitoring (NGINX Plus; ignored on NGINX Open Source)</li>
                         <li><strong>Session Persistence:</strong> IP hash-based session affinity</li>
                     </ul>
                 </div>
 
                 <div class="feature-card">
                     <h3><span class="badge badge-globalconfiguration" style="margin:0 var(--space-base) 0 0; font-size: var(--fs-body-lg); line-height: var(--lh-body-lg); padding: var(--space-small) var(--space-2x);">GlobalConfiguration CRD</span></h3>
-                    <p class="description">Cluster-wide configuration for NGINX Ingress Controller. Defines global listeners for TCP/UDP and TLS passthrough that TransportServers can reference.</p>
+                    <p class="description">Cluster-wide listeners for NGINX Ingress Controller: the TCP, UDP and HTTP ports that TransportServers and VirtualServers reference by name.</p>
                     <ul>
                         <li><strong>TCP/UDP Listeners:</strong> Define ports for non-HTTP traffic</li>
-                        <li><strong>TLS Passthrough Listeners:</strong> Configure SNI-based routing</li>
-                        <li><strong>Global Settings:</strong> Controller-wide configuration options</li>
+                        <li><strong>HTTP Listeners:</strong> Extra HTTP or HTTPS ports a VirtualServer selects in <code>spec.listener</code></li>
                     </ul>
                 </div>
             </div>
@@ -501,10 +502,11 @@ spec:
                     <thead><tr><th scope="col">Aspect</th><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr><td>Repository</td><td><code>kubernetes/ingress-nginx</code></td><td><code>nginx/kubernetes-ingress</code></td></tr>
+                        <tr><td>Data plane</td><td>NGINX, built with OpenResty's Lua modules</td><td>NGINX (OSS or Plus)</td></tr>
                         <tr><td>Annotation prefix</td><td><code>nginx.ingress.kubernetes.io/</code></td><td><code>nginx.org/</code> or <code>nginx.com/</code> or <code>appprotect.f5.com/</code></td></tr>
                         <tr><td>ConfigMap name</td><td><code>ingress-nginx-controller</code></td><td><code>nginx-config</code></td></tr>
                         <tr><td>CRD support</td><td>None</td><td>VirtualServer, VirtualServerRoute, Policy, TransportServer, GlobalConfiguration</td></tr>
-                        <tr><td>NGINX Plus Support</td><td>No</td><td>Yes (with <code>nginx.com/</code> annotations)</td></tr>
+                        <tr><td>Enterprise support</td><td>None</td><td>NGINX Plus (F5 WAF for NGINX, F5 DoS for NGINX, JWT, OIDC, active health checks, zone sync)</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -5035,7 +5037,7 @@ spec:
             <h2>ConfigMap mappings</h2>
             <p>Both controllers use a Kubernetes ConfigMap for global NGINX settings. Many keys share the same name, but some are renamed or have different semantics. The keys listed below are community ConfigMap keys that have an equivalent NGINX Ingress Controller ConfigMap key.</p>
             <div class="info-box tip"><strong>Tip:</strong> A significant number of ConfigMap keys are identical between the two controllers — you can migrate those without any changes. The tables below highlight both the identical keys and the ones that need renaming or adjustment.</div>
-            <div class="info-box note"><strong>ConfigMap naming:</strong> The community controller typically uses a ConfigMap named <code>ingress-nginx-controller</code>. NGINX Ingress Controller uses <code>nginx-config</code> by default (configurable via <code>--configmap</code> flag). Remember to update the ConfigMap name in your deployment.</div>
+            <div class="info-box note"><strong>ConfigMap naming:</strong> The community controller typically uses a ConfigMap named <code>ingress-nginx-controller</code>. NGINX Ingress Controller reads the one its <code>-nginx-configmaps &lt;namespace&gt;/&lt;name&gt;</code> flag names: <code>nginx-config</code> in the manifests, and with Helm the release's name unless <code>controller.config.name</code> sets it (see <a href="#side-by-side-install">Install alongside the community controller</a>). The examples here use <code>nginx-config</code>.</div>
 
             <div class="controls">
                 <input type="search" id="searchInputConfigMap" placeholder="Search ConfigMap keys..." data-filter-source="configmap" aria-label="Search ConfigMap keys">
