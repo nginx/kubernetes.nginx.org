@@ -516,9 +516,9 @@
             // Policy takes exactly one of them. The community controller renders
             // deny first, then allow, then "deny all": an address both allowed
             // and denied is denied. So an allow AND a deny list become one allow
-            // Policy holding only the allowed ranges, with every denied address
-            // that falls inside them reported — never two Policies, which would
-            // silently drop the deny list. A deny list on its own is a deny Policy.
+            // list with the denies that overlap it ahead of it, in the same
+            // location (below) — never two Policies, which would silently drop
+            // the deny list. A deny list on its own is a deny Policy.
             generateAccessControlPolicy: function(a, f, ctx) {
                 let allow = commaList(a['whitelist-source-range']);
                 let deny = commaList(a['denylist-source-range']);
@@ -526,18 +526,26 @@
                 if (!allow.length && !deny.length) return;
                 let name = ctx.name('access-control');
                 if (allow.length) {
-                    f.policies.push({ name: name, spec: { accessControl: { allow: allow } }, onIngress: true, comments: { 'spec.accessControl.allow': 'whitelist-source-range' } });
+                    let policy = { name: name, spec: { accessControl: { allow: allow } }, onIngress: true, comments: { 'spec.accessControl.allow': 'whitelist-source-range' } };
                     if (deny.length) {
-                        // A location snippet renders BEFORE the Policy's allow
-                        // lines, and NGINX applies access rules in order, so a
-                        // deny there is checked first — the community order.
-                        // Verified on nginx 1.29: the denied address inside the
-                        // allowed range gets 403, the rest of the range 200.
-                        let inside = deny.filter(function(d) { return allow.some(function(al) { return cidrContains(al, d); }); });
-                        inside.forEach(function(d) { f.location.push('deny ' + d + ';'); ctx.snippetSource('deny ' + d + ';', 'denylist-source-range'); });
+                        // The community order is deny, allow, deny all, in the
+                        // location. A deny that overlaps an allowed range (inside
+                        // it, or holding it) must come first; one that misses
+                        // every allowed range is refused by deny all already.
+                        // A location with access rules of its own inherits none
+                        // from its server, and a Policy in spec.policies or
+                        // nginx.org/policies renders at server level: a
+                        // location-snippet deny beside it lifted the allow list
+                        // (nginx 1.31.7: an address outside it got 200). A
+                        // route's own Policy renders in the location after its
+                        // snippets; an Ingress cannot order a Policy after a
+                        // snippet, so it carries the whole list as a snippet.
+                        let overlap = deny.filter(function(d) { return allow.some(function(al) { return cidrContains(al, d) || cidrContains(d, al); }); });
+                        if (overlap.length) { policy.perRoute = true; policy.denyFirst = overlap; policy.denySource = 'denylist-source-range'; }
                         ctx.note('denylist-source-range', 'NGINX Ingress Controller applies only the allow list when a resource references allow and deny Policies, so the deny list is not a Policy here. '
-                            + (inside.length ? 'The denied addresses inside the allowed ranges (' + inside.join(', ') + ') are denied in a location snippet, which NGINX checks before the Policy\'s allow rules.' : 'None of the denied ranges falls inside an allowed one, so allow-only already blocks them.'));
+                            + (overlap.length ? 'The denied addresses that overlap the allowed ranges (' + overlap.join(', ') + ') are denied first in each route, ahead of the allow list: CRD-first references the allow Policy from every route (routes[].policies) beside a location-snippets deny; annotation-first writes the whole ordered list as nginx.org/location-snippets, as an Ingress cannot place a Policy after a snippet.' : 'None of the denied ranges overlaps an allowed one, so allow-only already blocks them.'));
                     }
+                    f.policies.push(policy);
                 } else {
                     f.policies.push({ name: name, spec: { accessControl: { deny: deny } }, onIngress: true, comments: { 'spec.accessControl.deny': 'denylist-source-range' } });
                 }
@@ -1694,7 +1702,10 @@
             });
 
             f.policies.forEach(function(p) { docs.push(policyDoc(p, model)); comments.push(prefixComments(p.comments, '')); });
-            let policyRefs = f.policies.map(function(p) { return { name: p.name }; });
+            // A per-route Policy (access control with denies first) goes on
+            // every route, where it renders after the route's own snippets.
+            let policyRefs = f.policies.filter(function(p) { return !p.perRoute; }).map(function(p) { return { name: p.name }; });
+            let routePolicies = f.policies.filter(function(p) { return p.perRoute; });
 
             if (!model.hosts.length) {
                 ctx.note('host', 'This Ingress has no rule with a host, and a VirtualServer needs one. Add a host, or keep the Ingress (annotation-first).', 'warning');
@@ -1818,7 +1829,13 @@
                     } else {
                         route.action = action;
                     }
-                    if (f.location.length) { route['location-snippets'] = snippetBlock(f.location); c['spec.routes.' + routes.length + '.location-snippets'] = snippetSourcesFor(f.location, ctx); }
+                    let denies = [].concat.apply([], routePolicies.map(function(p) { return p.denyFirst.map(function(d) { return 'deny ' + d + ';'; }); }));
+                    let lines = denies.concat(f.location);
+                    if (lines.length) {
+                        route['location-snippets'] = snippetBlock(lines);
+                        c['spec.routes.' + routes.length + '.location-snippets'] = [routePolicies.length ? 'denylist-source-range — checked before the route Policy\'s allow list' : null, snippetSourcesFor(f.location, ctx)].filter(Boolean).join(' + ');
+                    }
+                    if (routePolicies.length) { route.policies = routePolicies.map(function(p) { return { name: p.name }; }); c['spec.routes.' + routes.length + '.policies'] = 'the route Policy above: it renders after the snippet, so the denies come first'; }
                     if (errorCodes) {
                         // errorPages can return a body or redirect; it cannot proxy to the
                         // error Service the community controller used. A canned body keeps
@@ -1831,7 +1848,7 @@
                     }
                     // Key order: path, then the rest as NIC documents them.
                     let ordered = { path: route.path };
-                    ['location-snippets', 'matches', 'splits', 'action', 'errorPages'].forEach(function(k) { if (route[k] !== undefined) ordered[k] = route[k]; });
+                    ['policies', 'location-snippets', 'matches', 'splits', 'action', 'errorPages'].forEach(function(k) { if (route[k] !== undefined) ordered[k] = route[k]; });
                     routes.push(ordered);
                 });
                 if (f.appRoot) {
@@ -1949,8 +1966,19 @@
             }
             let docs = [];
             let comments = [];
+            // An access-control Policy whose denies must come first cannot be
+            // an Ingress Policy (it renders at server level, and the snippet
+            // holding the denies stops the location inheriting it): the whole
+            // ordered list becomes the snippet instead.
+            let aclSnippet = [];
+            f.policies.filter(function(p) { return p.perRoute && p.onIngress; }).forEach(function(p) {
+                p.denyFirst.forEach(function(d) { aclSnippet.push('deny ' + d + ';'); });
+                p.spec.accessControl.allow.forEach(function(al) { aclSnippet.push('allow ' + al + ';'); });
+                aclSnippet.push('deny all;');
+                aclSnippet.forEach(function(l) { ctx.snippetSource(l, 'denylist-source-range + whitelist-source-range (ordered: denies first)'); });
+            });
             f.policies.forEach(function(p) {
-                if (p.onIngress) { docs.push(policyDoc(p, model)); comments.push(prefixComments(p.comments, '')); }
+                if (p.onIngress && !p.perRoute) { docs.push(policyDoc(p, model)); comments.push(prefixComments(p.comments, '')); }
             });
             let unsupportedPolicies = f.policies.filter(function(p) { return !p.onIngress; });
             unsupportedPolicies.forEach(function(p) {
@@ -1964,9 +1992,10 @@
                 ann[k] = str(model.annotations[k]);
             });
             Object.keys(f.ann).forEach(function(k) { ann[k] = f.ann[k]; annComments[k] = ctx.annComments[k] || null; });
-            let refs = f.policies.filter(function(p) { return p.onIngress; }).map(function(p) { return p.name; });
+            let refs = f.policies.filter(function(p) { return p.onIngress && !p.perRoute; }).map(function(p) { return p.name; });
             if (refs.length) { ann['nginx.org/policies'] = refs.join(','); annComments['nginx.org/policies'] = 'the Policies above'; }
-            if (f.location.length) { ann['nginx.org/location-snippets'] = snippetBlock(f.location); annComments['nginx.org/location-snippets'] = snippetSourcesFor(f.location, ctx); }
+            let locLines = aclSnippet.concat(f.location);
+            if (locLines.length) { ann['nginx.org/location-snippets'] = snippetBlock(locLines); annComments['nginx.org/location-snippets'] = snippetSourcesFor(locLines, ctx); }
             if (f.server.length) { ann['nginx.org/server-snippets'] = snippetBlock(f.server); annComments['nginx.org/server-snippets'] = snippetSourcesFor(f.server, ctx); }
             // A rewrite with capture groups needs the path to be a regex, and NIC
             // matches Ingress paths literally unless told otherwise. The community
@@ -2160,7 +2189,7 @@
                     if (cr.matches) r.matches = cr.matches.map(function(m) { return { conditions: m.conditions, action: fix(m.action) }; });
                     if (cr.splits) { r.splits = [{ weight: cr.splits[0].weight, action: r.action }, { weight: cr.splits[1].weight, action: { pass: up } }]; delete r.action; }
                     let ordered = { path: r.path };
-                    ['location-snippets', 'matches', 'splits', 'action', 'errorPages'].forEach(function(k) { if (r[k] !== undefined) ordered[k] = r[k]; });
+                    ['policies', 'location-snippets', 'matches', 'splits', 'action', 'errorPages'].forEach(function(k) { if (r[k] !== undefined) ordered[k] = r[k]; });
                     v.spec.routes[ri] = ordered;
                     let cc = canaryOut.comments[canaryOut.docs.indexOf(c)];
                     Object.keys(cc).filter(function(k) { return /\.(matches|splits)$/.test(k); }).forEach(function(k) { stableOut.comments[stableOut.docs.indexOf(v)][k] = cc[k]; });

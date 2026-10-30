@@ -226,16 +226,73 @@ test('B3: a canary pasted with its stable Ingress merges into one VirtualServer'
     assert.equal(vs[0].spec.routes[0].splits[0].action.pass, 'stable-svc');
 });
 
-test('B4: an allow list beside a deny list still denies the addresses inside it', () => {
-    /* NIC uses only the allow list when a resource references both; the
-       community controller denied first. The denied addresses inside the
-       allowed ranges go into a location snippet, which NIC renders before the
-       Policy's allow rules (nginx 1.29: 10.1.2.3 -> 403, 10.9.9.9 -> 200). */
-    const r = run(ingress({ 'whitelist-source-range': '10.0.0.0/8', 'denylist-source-range': '10.1.2.3,192.168.1.1' }));
-    const p = kinds(r, 'Policy');
-    assert.equal(p.length, 1);
-    assert.deepEqual(p[0].spec.accessControl, { allow: ['10.0.0.0/8'] });
-    assert.equal(kinds(r, 'VirtualServer')[0].spec.routes[0]['location-snippets'], 'deny 10.1.2.3;\n');
+/* What NGINX does with a request from `ip`, given the access rules NGINX
+   Ingress Controller v5.7.0 renders from a resource. A Policy in spec.policies
+   or nginx.org/policies renders at server level (nginx.virtualserver.tmpl
+   183-195, nginx.ingress.tmpl 84-96); a route's own Policy in the location,
+   after its snippets (328, then 348-359); location-snippets in the location.
+   NGINX checks the location's rules and inherits the server's only when the
+   location has none, and the first allow or deny that matches decides. */
+function inRange(ip, cidr) {
+    const [base, bits] = cidr.includes('/') ? cidr.split('/') : [cidr, '32'];
+    const n = (a) => a.split('.').reduce((acc, o) => (acc << 8) + Number(o), 0) >>> 0;
+    const mask = Number(bits) === 0 ? 0 : (0xFFFFFFFF << (32 - Number(bits))) >>> 0;
+    return ((n(ip) & mask) >>> 0) === ((n(base) & mask) >>> 0);
+}
+function accessRules(acl) {
+    const out = [];
+    for (const a of acl.allow || []) out.push(['allow', a]);
+    if ((acl.allow || []).length) out.push(['deny', 'all']);
+    for (const d of acl.deny || []) out.push(['deny', d]);
+    if ((acl.deny || []).length) out.push(['allow', 'all']);
+    return out;
+}
+const snippetRules = (text) => String(text || '').split('\n').map((l) => l.trim().match(/^(allow|deny) (\S+);$/)).filter(Boolean).map((m) => [m[1], m[2]]);
+function nginxAccess(r, strategy, ip) {
+    const policies = Object.fromEntries(kinds(r, 'Policy').map((p) => [p.metadata.name, p.spec.accessControl || {}]));
+    let server = [], location = [];
+    if (strategy === 'crd') {
+        const vs = kinds(r, 'VirtualServer')[0];
+        for (const ref of vs.spec.policies || []) server = server.concat(accessRules(policies[ref.name] || {}));
+        const route = vs.spec.routes[0];
+        location = snippetRules(route['location-snippets']);
+        for (const ref of route.policies || []) location = location.concat(accessRules(policies[ref.name] || {}));
+    } else {
+        const a = kinds(r, 'Ingress')[0].metadata.annotations || {};
+        for (const name of String(a['nginx.org/policies'] || '').split(',').filter(Boolean)) server = server.concat(accessRules(policies[name] || {}));
+        location = snippetRules(a['nginx.org/location-snippets']);
+    }
+    for (const [verb, who] of (location.length ? location : server)) if (who === 'all' || inRange(ip, who)) return verb === 'allow' ? 200 : 403;
+    return 200;
+}
+
+test('B4: an allow list beside a deny list answers each client as the community controller did', () => {
+    /* The community controller renders deny, then allow, then deny all, in the
+       location (nginx.tmpl 1205-1212): denied if on the deny list, else
+       allowed if on the allow list, else denied. A location-snippet deny
+       beside a server-level allow Policy stopped the location inheriting the
+       allow list, and every address outside it was let in (nginx 1.31.7:
+       203.0.113.5 got 200). This test used to check only that the deny
+       appeared, so it passed. */
+    const cases = [
+        [{ 'whitelist-source-range': '10.0.0.0/8,172.16.0.0/12', 'denylist-source-range': '10.1.2.3,192.168.1.1' },
+            { '10.1.2.3': 403, '10.9.9.9': 200, '172.16.0.1': 200, '192.168.1.1': 403, '203.0.113.5': 403 }],
+        // A deny holding an allowed range denies all of it.
+        [{ 'whitelist-source-range': '10.1.0.0/16', 'denylist-source-range': '10.0.0.0/8' }, { '10.1.5.5': 403, '203.0.113.5': 403 }],
+        [{ 'whitelist-source-range': '10.0.0.0/8' }, { '10.9.9.9': 200, '203.0.113.5': 403 }],
+        [{ 'denylist-source-range': '10.1.2.3' }, { '10.1.2.3': 403, '203.0.113.5': 200 }]
+    ];
+    const broken = [];
+    for (const [ann, want] of cases) for (const strategy of ['crd', 'annotation']) {
+        const r = run(ingress(ann), strategy);
+        for (const ip of Object.keys(want)) {
+            const got = nginxAccess(r, strategy, ip);
+            if (got !== want[ip]) broken.push(strategy + ' ' + JSON.stringify(ann) + ': ' + ip + ' got ' + got + ', community ' + want[ip]);
+        }
+    }
+    assert.deepEqual(broken, []);
+    // Never two Policies: an allow Policy overrides a deny Policy beside it.
+    assert.ok(kinds(run(ingress(cases[0][0])), 'Policy').length <= 1);
 });
 
 test('B7: externalAuth names the Service, keeps the port and drops community-only variables', () => {
