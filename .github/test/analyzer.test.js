@@ -63,7 +63,7 @@ test('A2: quote escapes are decoded', () => {
     const r = run(ingress({ 'configuration-snippet': 'add_header X-Debug "#1";' }));
     const vs = kinds(r, 'VirtualServer')[0];
     assert.equal(vs.spec.routes[0]['location-snippets'], 'add_header X-Debug "#1";\n');
-    const r2 = run("apiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: app\n  annotations:\n    nginx.ingress.kubernetes.io/auth-realm: 'Bob''s'\n    nginx.ingress.kubernetes.io/auth-secret: s\nspec:\n  rules:\n  - host: a.example.com\n    http:\n      paths:\n      - path: /\n        pathType: Prefix\n        backend: {service: {name: web, port: {number: 80}}}\n");
+    const r2 = run("apiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: app\n  annotations:\n    nginx.ingress.kubernetes.io/auth-realm: 'Bob''s'\n    nginx.ingress.kubernetes.io/auth-secret: s\n    nginx.ingress.kubernetes.io/auth-type: basic\nspec:\n  rules:\n  - host: a.example.com\n    http:\n      paths:\n      - path: /\n        pathType: Prefix\n        backend: {service: {name: web, port: {number: 80}}}\n");
     assert.equal(kinds(r2, 'Policy')[0].spec.basicAuth.realm, "Bob's");
 });
 
@@ -598,7 +598,7 @@ test('what a reader sees names each product in full', () => {
        notes and YAML comments had drifted to "NIC" in 40-odd places. Runs the
        presets and every mapped annotation, under both strategies, and reads
        every string the plan holds, the mapping text and the page's own copy. */
-    const BAD = /\b(NIC|NGF)\b|F5 NGINX Ingress Controller|community NGINX|behaviour/;
+    const BAD = /\b(NIC|NGF)\b|F5 NGINX Ingress Controller|community NGINX|behaviour|\b\w*([Nn]ormalis|[Rr]ecognis|[Oo]rganis|[Hh]onour|[Cc]olour)\w*/;
     const found = new Set();
     const walk = (o, where) => {
         if (typeof o === 'string') { if (BAD.test(o)) found.add(where + ': ' + o.match(new RegExp('.{0,40}' + BAD.source + '.{0,20}'))[0]); return; }
@@ -622,6 +622,15 @@ test('what a reader sees names each product in full', () => {
         const text = html.replace(/<[^>]+>/g, ' ') + ' ' + [...html.matchAll(/(?:aria-label|title|alt)="([^"]*)"/g)].map((m) => m[1]).join(' ');
         walk(text, page);
     }
+    // Strings no input above reaches, such as the note for a mapped annotation
+    // its translator left unconsumed, and the gap and convert notes the CLI
+    // prints: every literal, comments (British, for agents) stripped.
+    // "Recognised" and four "NIC"s sat in those unseen.
+    const lib = path.join('tools', 'nic-migrate', 'lib');
+    for (const file of ['assets/js/migration-ingress-nginx.js', ...fs.readdirSync(path.join(ROOT, lib)).map((f) => path.join(lib, f))]) {
+        const code = fs.readFileSync(path.join(ROOT, file), 'utf8').replace(/\/\*[\s\S]*?\*\/|^\s*\/\/.*$/gm, '');
+        for (const m of code.matchAll(/'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"/g)) walk(m[0], file);
+    }
     assert.deepEqual([...found], []);
 });
 
@@ -639,6 +648,149 @@ test('an integer annotation the community controller would have ignored migrates
     }
     assert.equal(kinds(run(ingress({ 'auth-tls-secret': 'ns/ca', 'auth-tls-verify-depth': '0' })), 'Policy')[0].spec.ingressMTLS.verifyDepth, 1);
     assert.match(run(ingress({ 'limit-rate': '100' })).text, /limit_rate 100k;/);
+});
+
+test('an invalid limit-rps, limit-rpm or limit-connections says the community controller rejected the Ingress', () => {
+    /* ratelimit/main.go (controller-v1.15.1) returns these three's
+       ValidationError, so Extract fails: the webhook refuses the Ingress and
+       the store never loads it. They were filtered out with no note and
+       listed as "Also applied". limit-burst-multiplier's error is swallowed
+       (the default 5 is kept), but parseInt read "10m" as 10. */
+    for (const ann of ['limit-rps', 'limit-rpm', 'limit-connections']) {
+        for (const strategy of ['annotation', 'crd']) {
+            const r = run(ingress({ [ann]: 'x' }), strategy);
+            assert.match(notes(r), new RegExp(ann + ' "x" is not a whole number, so the community controller rejected this Ingress'), ann + ' under ' + strategy);
+            assert.doesNotMatch(notes(r), /Also applied/, ann + ' under ' + strategy);
+        }
+    }
+    const burst = kinds(run(ingress({ 'limit-rps': '10', 'limit-burst-multiplier': '10m' })), 'Policy')[0].spec.rateLimit.burst;
+    assert.equal(burst, 50, 'an invalid multiplier keeps the community default of 5');
+});
+
+test('only a mapping that wrote something is reported as folded in', () => {
+    /* "Also applied, folded into the fields above" listed every consumed
+       annotation no comment named, including ones whose translator wrote
+       nothing: 27 annotations under one value or another, among them a
+       cors-* without enable-cors right after the note saying nothing was
+       migrated. */
+    const cors = notes(run(ingress({ 'cors-allow-origin': 'https://a.example.com' })));
+    assert.match(cors, /enable-cors is not "true".*nothing is migrated/);
+    assert.doesNotMatch(cors, /Also applied|did not say why/, 'the enable-cors note covers the cors-* beside it');
+    // Wrote nothing, said nothing: the safety net. Every mapped annotation,
+    // alone, under values the community controller ignored, defaulted or
+    // rejected, has its own reason; one that falls through to the generic
+    // warning is a translator that dropped something silently. This sweep
+    // found 27 of them.
+    const lost = [];
+    for (const name of MAPPED) {
+        for (const value of ['true', 'false', 'on', '10', '10m', 'x', '', 'https://a.example.com/x', 'ns/secret']) {
+            for (const strategy of ['crd', 'annotation']) {
+                if (/did not say why/.test(notes(run(ingress({ [name]: value }), strategy)))) lost.push(name + '=' + JSON.stringify(value) + ' ' + strategy);
+            }
+        }
+    }
+    assert.deepEqual(lost, []);
+    // Wrote something no comment names: still listed as folded in.
+    assert.match(notes(run(ingress({ affinity: 'cookie' }))), /Also applied, folded into the fields above: affinity\./);
+});
+
+test('a boolean annotation is read as the community controller read it: strconv.ParseBool', () => {
+    /* truthy() took "on" and "yes" as true. ParseBool rejects them, and each
+       community parser then kept false, kept true, or rejected the Ingress
+       (controller-v1.15.1). enable-cors "on" became a CORS Policy that was
+       never on. */
+    const r = (ann, s) => run(ingress(ann), s || 'crd');
+    assert.equal(kinds(r({ 'enable-cors': 'on' }), 'Policy').length, 0, 'enable-cors "on" was off');
+    assert.match(notes(r({ 'enable-cors': 'on' })), /enable-cors "on" is not a boolean, so the community controller read it as false/);
+    assert.equal(kinds(r({ 'enable-cors': 'True' }), 'Policy').length, 1, 'Go accepts "True"');
+    assert.equal(kinds(r({ 'enable-cors': 'true', 'cors-allow-credentials': 'yes' }), 'Policy')[0].spec.cors.allowCredentials, true, 'invalid credentials kept the default, true');
+    for (const [ann, extra] of [['ssl-passthrough', {}], ['from-to-www-redirect', {}], ['upstream-hash-by-subset', { 'upstream-hash-by': '$remote_addr' }], ['auth-tls-pass-certificate-to-upstream', { 'auth-tls-secret': 'ns/ca' }]]) {
+        assert.match(notes(r(Object.assign({ [ann]: 'yes' }, extra))), new RegExp(ann + ' "yes" is not a boolean, so the community controller rejected this Ingress'), ann);
+    }
+    // A rejected value migrates nothing for itself.
+    assert.equal(kinds(r({ 'ssl-passthrough': 'yes' }), 'TransportServer').length, 0);
+    assert.equal(kinds(r({ 'ssl-passthrough': 'true' }), 'TransportServer').length, 1);
+    // An invalid auth-always-set-cookie failed authreq Parse: no external auth at all.
+    const auth = r({ 'auth-url': 'http://auth.ns.svc/verify', 'auth-always-set-cookie': 'yes' });
+    assert.equal(kinds(auth, 'Policy').length, 0);
+    assert.match(notes(auth), /dropped external auth for this Ingress/);
+});
+
+test('redirects follow redirect.go: temporal wins, out-of-range codes fall back, an invalid code rejects', () => {
+    const vs = (ann) => kinds(run(ingress(ann)), 'VirtualServer')[0].spec.routes[0].action.redirect;
+    assert.deepEqual(vs({ 'permanent-redirect': 'https://b.example.com', 'temporal-redirect': 'https://c.example.com' }), { url: 'https://c.example.com', code: 302 });
+    assert.equal(vs({ 'permanent-redirect': 'https://b.example.com', 'permanent-redirect-code': '299' }).code, 301);
+    assert.match(notes(run(ingress({ 'permanent-redirect': 'https://b.example.com', 'permanent-redirect-code': '299' }))), /299 is outside 300-308, so the community controller used 301/);
+    assert.equal(vs({ 'permanent-redirect': 'https://b.example.com', 'permanent-redirect-code': '308' }).code, 308);
+    assert.match(notes(run(ingress({ 'permanent-redirect-code': 'x' }))), /permanent-redirect-code "x" is not a whole number, so the community controller rejected this Ingress/);
+    assert.match(notes(run(ingress({ 'temporal-redirect-code': '307' }))), /applies only to temporal-redirect, which is not set/);
+});
+
+test('proxy-ssl-* without proxy-ssl-secret migrate to nothing, and verify takes on or off only', () => {
+    /* proxyssl Parse returns before reading the rest without the secret;
+       verify and server-name were off unless exactly "on". */
+    assert.equal(kinds(run(ingress({ 'proxy-ssl-verify': 'on', 'proxy-ssl-ciphers': 'HIGH' })), 'Policy').length, 0);
+    const p = kinds(run(ingress({ 'proxy-ssl-secret': 'ns/s', 'proxy-ssl-verify': 'true', 'proxy-ssl-server-name': 'yes' })), 'Policy')[0].spec.egressMTLS;
+    assert.equal(p.verifyServer, undefined);
+    assert.equal(p.serverName, undefined);
+    assert.equal(kinds(run(ingress({ 'proxy-ssl-secret': 'ns/s', 'proxy-ssl-verify': 'on' })), 'Policy')[0].spec.egressMTLS.verifyServer, true);
+});
+
+test('basic auth needs auth-type and client mTLS needs auth-tls-secret, as in the community parsers', () => {
+    /* auth and authtls Parse return before reading anything else without
+       them; auth-secret or auth-tls-verify-client alone built a Policy. */
+    for (const s of ['crd', 'annotation']) {
+        const basic = run(ingress({ 'auth-secret': 's', 'auth-realm': 'r' }), s);
+        assert.equal(kinds(basic, 'Policy').length, 0, s);
+        assert.equal((basic.docs[0].metadata.annotations || {})['nginx.org/basic-auth-secret'], undefined, s);
+        assert.match(notes(basic), /No auth-type, so the community controller ignored auth-secret, auth-realm/);
+        assert.equal(kinds(run(ingress({ 'auth-tls-verify-client': 'on' }), s), 'Policy').length, 0, s);
+    }
+    assert.equal(kinds(run(ingress({ 'auth-type': 'basic', 'auth-secret': 's' })), 'Policy')[0].spec.basicAuth.secret, 's');
+    assert.equal(kinds(run(ingress({ 'auth-tls-secret': 'ns/ca' })), 'Policy')[0].spec.ingressMTLS.clientCertSecret, 'ca');
+});
+
+test('values copied onto an NGINX Ingress Controller bool are the bool the community controller used', () => {
+    /* ssl-redirect, force-ssl-redirect and service-upstream were copied as
+       given: "on" reached nginx.org/redirect-to-https, which admission
+       validates as a bool, so the migrated Ingress was rejected. An invalid
+       value took the community default: true, false and false. */
+    const ann = (a) => run(ingress(a), 'annotation').docs[0].metadata.annotations;
+    assert.equal(ann({ 'force-ssl-redirect': 'on' })['nginx.org/redirect-to-https'], 'false');
+    assert.equal(ann({ 'ssl-redirect': 'x' })['nginx.org/ssl-redirect'], 'true');
+    assert.equal(ann({ 'ssl-redirect': 'False' })['nginx.org/ssl-redirect'], 'false');
+    assert.equal(ann({ 'service-upstream': 'yes' })['nginx.org/use-cluster-ip'], 'false');
+    // CRD-first: tls.redirect reads the same defaults, with a note.
+    const redirect = (a) => (kinds(run(ingress(a)), 'VirtualServer')[0].spec.tls || {}).redirect;
+    assert.ok(redirect({ 'ssl-redirect': 'off' }), 'an invalid ssl-redirect kept the default, true');
+    assert.equal(redirect({ 'ssl-redirect': 'false', 'force-ssl-redirect': 'on' }), undefined);
+    assert.match(notes(run(ingress({ 'force-ssl-redirect': 'on' }))), /force-ssl-redirect "on" is not a boolean, so the community controller used its default, false/);
+    // canary "yes" was not a canary: the Ingress is served as itself.
+    assert.match(notes(run(ingress({ canary: 'yes', 'canary-weight': '10' }))), /canary "yes" is not a boolean/);
+});
+
+test('custom-http-errors with any entry that is not a number migrates none, and proxy-redirect-to alone says why', () => {
+    /* customhttperrors Parse fails on the first entry Atoi rejects, and
+       Extract skips the parser: "404,x" set no error pages at all. */
+    for (const s of ['crd', 'annotation']) {
+        const r = run(ingress({ 'custom-http-errors': '404,x' }), s);
+        assert.doesNotMatch(r.text, /errorPages|nginx\.org\/custom-http-errors/, s);
+        assert.match(notes(r), /"x" is not a status code, so the community controller ignored custom-http-errors altogether/);
+        assert.doesNotMatch(notes(r), /Annotation-first is recommended/);
+    }
+    assert.match(notes(run(ingress({ 'proxy-redirect-to': 'x' }))), /proxy-redirect-to applies only with a proxy-redirect-from/);
+});
+
+test('limit-burst-multiplier is used as given: 0 is no burst, a negative one rejected the Ingress', () => {
+    /* The community template wrote burst=<rate × multiplier>; NGINX refuses a
+       negative burst (nginx 1.31.7: invalid burst value), and NGINX Ingress
+       Controller's Policy validator refuses 0, so 0 leaves burst out. */
+    const policy = (mult) => kinds(run(ingress({ 'limit-rps': '10', 'limit-burst-multiplier': mult })), 'Policy');
+    assert.equal(policy('0')[0].spec.rateLimit.burst, undefined);
+    assert.equal(run(ingress({ 'limit-rps': '10', 'limit-burst-multiplier': '0' }), 'annotation').docs[0].metadata.annotations['nginx.org/limit-req-burst'], undefined);
+    assert.equal(policy('-1').length, 0);
+    assert.match(notes(run(ingress({ 'limit-rps': '10', 'limit-burst-multiplier': '-1' }))), /negative burst, which NGINX refuses, so it rejected this Ingress/);
+    assert.equal(policy('3')[0].spec.rateLimit.burst, 30);
 });
 
 test('session-cookie annotations without affinity say so, rather than quoting "undefined"', () => {

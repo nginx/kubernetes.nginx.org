@@ -81,7 +81,7 @@
             { community: ["load-balance"], nic: "nginx.org/lb-method — or — VirtualServer CRD upstreams[].lb-method", type: "annotation", category: "Load balancing", anchor: "load-balancing", section: "oss", dualApproach: true, plusRequired: false, verified: "v5.7.0",
               nicMapping: { annotations: { "load-balance": { key: "nginx.org/lb-method", transform: "lbMethod", vsField: "lb-method" } }, crdKind: "VirtualServer", crdInstall: true, templateFn: "generateUpstreamSettingsVS" } },
             { community: ["service-upstream"], nic: "nginx.org/use-cluster-ip — or — VirtualServer CRD upstreams[].use-cluster-ip", type: "annotation", category: "Load balancing", anchor: "load-balancing", section: "oss", dualApproach: true, plusRequired: false, verified: "v5.7.0",
-              nicMapping: { annotations: { "service-upstream": { key: "nginx.org/use-cluster-ip", transform: "direct", vsField: "use-cluster-ip" } }, crdKind: "VirtualServer", crdInstall: true, templateFn: "generateUpstreamSettingsVS" } },
+              nicMapping: { annotations: { "service-upstream": { key: "nginx.org/use-cluster-ip", transform: "goBoolFalse", vsField: "use-cluster-ip" } }, crdKind: "VirtualServer", crdInstall: true, templateFn: "generateUpstreamSettingsVS" } },
             { community: ["upstream-hash-by", "upstream-hash-by-subset", "upstream-hash-by-subset-size"], nic: "nginx.org/lb-method — or — VirtualServer CRD upstreams[].lb-method", type: "virtualserver", category: "Load balancing", anchor: "load-balancing", section: "oss", dualApproach: true, plusRequired: false,
               nicMapping: { annotations: { "upstream-hash-by": { key: "nginx.org/lb-method", transform: "snippetWrap", template: "hash ${value} consistent" } }, crdKind: "VirtualServer", crdInstall: true, templateFn: "generateHashLBVirtualServer" } },
             // mTLS (Client)
@@ -120,7 +120,7 @@
               nicMapping: { annotations: { "proxy-next-upstream": { key: "nginx.org/proxy-next-upstream", transform: "direct" }, "proxy-next-upstream-timeout": { key: "nginx.org/proxy-next-upstream-timeout", transform: "direct" }, "proxy-next-upstream-tries": { key: "nginx.org/proxy-next-upstream-tries", transform: "direct" } }, crdKind: "VirtualServer", crdInstall: true, templateFn: "generateProxyNextUpstreamVS" } },
             // Rate Limiting
             { community: ["limit-burst-multiplier", "limit-connections", "limit-rate", "limit-rate-after", "limit-rpm", "limit-rps", "limit-whitelist"], nic: "nginx.org/limit-req-* annotations — or — Policy CRD rateLimit", type: "policy", category: "Rate limiting", anchor: "rate-limiting", section: "oss", dualApproach: true, plusRequired: false,
-              nicMapping: { annotations: { "limit-rps": { key: "nginx.org/limit-req-rate", transform: "appendRateUnit" }, "limit-burst-multiplier": { key: "nginx.org/limit-req-burst", transform: "burstMultiplier" } }, crdKind: "Policy", crdInstall: true, templateFn: "generateRateLimitPolicy" } },
+              nicMapping: { annotations: { "limit-rps": { key: "nginx.org/limit-req-rate", transform: "appendRateUnit" }, "limit-burst-multiplier": { key: "nginx.org/limit-req-burst" } }, crdKind: "Policy", crdInstall: true, templateFn: "generateRateLimitPolicy" } },
             // Redirects
             { community: ["from-to-www-redirect", "permanent-redirect", "permanent-redirect-code", "temporal-redirect", "temporal-redirect-code"], nic: "VirtualServer CRD action.redirect", type: "virtualserver", category: "Redirects", anchor: "redirects", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { crdKind: "VirtualServer", crdInstall: true, templateFn: "generateRedirectVirtualServer" } },
@@ -135,13 +135,13 @@
             { community: ["backend-protocol"], nic: "nginx.org/ssl-services or nginx.org/grpc-services — or — VirtualServer CRD upstreams[].tls.enable, upstreams[].type", type: "annotation", category: "SSL/TLS", anchor: "ssl-tls", section: "oss", dualApproach: true, plusRequired: false, verified: "v5.7.0",
               nicMapping: { annotations: { "backend-protocol": { key: "nginx.org/ssl-services", transform: "backendProtocol", vsField: "type" } }, crdKind: "VirtualServer", crdInstall: true, templateFn: "generateUpstreamSettingsVS" } },
             { community: ["force-ssl-redirect"], nic: "Annotation nginx.org/redirect-to-https", type: "annotation", category: "SSL/TLS", anchor: "ssl-tls", section: "oss", dualApproach: false, plusRequired: false,
-              nicMapping: { annotations: { "force-ssl-redirect": { key: "nginx.org/redirect-to-https", transform: "direct" } } } },
+              nicMapping: { annotations: { "force-ssl-redirect": { key: "nginx.org/redirect-to-https", transform: "goBoolFalse" } } } },
             { community: ["ssl-ciphers"], nic: "Annotation nginx.org/ssl-ciphers", type: "annotation", category: "SSL/TLS", anchor: "ssl-tls", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { annotations: { "ssl-ciphers": { key: "nginx.org/ssl-ciphers", transform: "direct" } } } },
             { community: ["ssl-prefer-server-ciphers"], nic: "Annotation nginx.org/ssl-prefer-server-ciphers", type: "annotation", category: "SSL/TLS", anchor: "ssl-tls", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { annotations: { "ssl-prefer-server-ciphers": { key: "nginx.org/ssl-prefer-server-ciphers", transform: "direct" } } } },
             { community: ["ssl-redirect"], nic: "Annotation nginx.org/ssl-redirect (or nginx.org/redirect-to-https)", type: "annotation", category: "SSL/TLS", anchor: "ssl-tls", section: "oss", dualApproach: false, plusRequired: false,
-              nicMapping: { annotations: { "ssl-redirect": { key: "nginx.org/ssl-redirect", transform: "direct" } } } },
+              nicMapping: { annotations: { "ssl-redirect": { key: "nginx.org/ssl-redirect", transform: "goBoolTrue" } } } },
             { community: ["ssl-passthrough"], nic: "TransportServer CRD TLS_PASSTHROUGH", type: "transportserver", category: "SSL/TLS", anchor: "ssl-tls", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { crdKind: "TransportServer", crdInstall: true, templateFn: "generateSSLPassthroughTransportServer" } },
             { community: ["preserve-trailing-slash"], nic: "Not needed (trailing slash preserved by default)", type: "unsupported", category: "SSL/TLS", anchor: "ssl-tls", section: "oss", dualApproach: false, plusRequired: false,
@@ -185,13 +185,23 @@
         // { value: null, note } means NIC has no annotation for this value:
         // the caller reports the note instead of emitting a swap.
         // `found` (the entry's found annotations) enables cross-annotation
-        // transforms like burstMultiplier.
+        // transforms like appendBufferSize.
         function translateValue(value, transform, template, found) {
             // defaultBackend never has an annotation form, so even an empty value
             // has to reach its case rather than become an empty swap.
             if (!value && value !== '0' && transform !== 'defaultBackend') return value;
             switch (transform) {
                 case 'direct': return value;
+                // A community boolean onto an NGINX Ingress Controller key that
+                // admission validates as a bool: ParseBool, then the community
+                // default for any other value, which copied would be rejected.
+                case 'goBoolTrue':
+                case 'goBoolFalse': {
+                    let dflt = transform === 'goBoolTrue';
+                    let b = goBool(value, null);
+                    if (b !== null) return String(b);
+                    return { value: String(dflt), note: '"' + value + '" is not a boolean, so the community controller used its default, ' + dflt };
+                }
                 case 'booleanInvert': return value === 'true' ? 'false' : value === 'false' ? 'true' : value;
                 case 'appendRateUnit': return /r\/[sm]$/.test(value) ? value : value + 'r/s';
                 case 'appendTimeUnit': return /[smhd]$/.test(value) ? value : value + 's';
@@ -227,16 +237,6 @@
                 }
                 case 'snippetWrap': return template ? template.replace('${value}', sanitizeSnippetValue(value)) : value;
                 case 'booleanOnOffSnippet': return template ? template.replace('${value}', value === 'true' ? 'on' : value === 'false' ? 'off' : sanitizeSnippetValue(value)) : value;
-                case 'burstMultiplier': {
-                    // Community semantics: burst = rate × limit-burst-multiplier
-                    // (default 5); nginx.org/limit-req-burst is the absolute burst.
-                    let rate = found ? parseInt(getAnnotationValue(found, 'limit-rps') || getAnnotationValue(found, 'limit-rpm') || '', 10) : NaN;
-                    let mult = parseInt(value, 10);
-                    if (!isNaN(rate) && !isNaN(mult)) {
-                        return { value: String(rate * mult), note: 'burst = rate (' + rate + ') × multiplier (' + mult + ')' };
-                    }
-                    return { value: value, note: 'community burst = rate × multiplier — replace with your computed burst size' };
-                }
                 case 'backendProtocol': return value; // the key depends on the value: translateBackendProtocol
                 case 'corsSnippet': return value; // CORS is a Policy under both strategies: generateCORSPolicy
                 case 'lbMethod': {
@@ -328,6 +328,8 @@
         function backendProtocolNote(upper) {
             if (upper === 'HTTP') return 'HTTP is the default protocol in NGINX Ingress Controller. Remove this annotation — no replacement is needed.';
             if (upper === 'AUTO_HTTP' || upper === 'FCGI') return upper + ' has no direct equivalent in NGINX Ingress Controller. Review your backend protocol strategy before migrating.';
+            // backendprotocol Parse logs the ValidationError and returns HTTP.
+            if (['HTTPS', 'GRPC', 'GRPCS'].indexOf(upper) === -1) return '"' + upper.toLowerCase() + '" is not a backend protocol the community controller knew (auto_http, http, https, grpc, grpcs, fcgi), so it used HTTP, the NGINX Ingress Controller default too. Remove this annotation.';
             return null;
         }
 
@@ -437,11 +439,36 @@
         // strconv.Atoi, so "10m" or "2.5" is not a number, and on an invalid
         // value it kept its default. Returns null for those, after a note, so
         // the caller emits nothing rather than parseInt's partial read or NaN.
-        function communityInt(a, name, ctx) {
+        // `rejects`: limit-rps, limit-rpm and limit-connections instead return
+        // their ValidationError (ratelimit/main.go, controller-v1.15.1), so
+        // Extract fails and the community controller rejects the whole Ingress.
+        function communityInt(a, name, ctx, rejects) {
             let s = str(a[name]).trim();
             if (/^[-+]?\d+$/.test(s)) return parseInt(s, 10);
-            ctx.note(name, name + ' "' + s + '" is not a whole number, so the community controller ignored it and kept its default; nothing was migrated.', 'warning');
+            ctx.note(name, name + ' "' + s + '" is not a whole number, so the community controller ' +
+                (rejects ? 'rejected this Ingress (annotation validation is on by default); fix the value before migrating. Nothing was migrated for it.' : 'ignored it and kept its default; nothing was migrated.'), 'warning');
             return null;
+        }
+
+        // A community boolean annotation as the community controller read it:
+        // strconv.ParseBool, so "on" and "yes" are not booleans. What it did
+        // with one depends on the parser (controller-v1.15.1): most kept their
+        // default (`invalid` true or false), and those that return the
+        // ValidationError made Extract reject the Ingress ('rejects': the note
+        // says so, and the caller emits nothing for it, as for false).
+        let GO_TRUE = /^(1|t|T|TRUE|true|True)$/, GO_FALSE = /^(0|f|F|FALSE|false|False)$/;
+        // custom-http-errors entries strconv.Atoi rejects; any one voids them all.
+        function badErrorCodes(a) { return commaList(a['custom-http-errors']).filter(function(c) { return !/^[-+]?\d+$/.test(c); }); }
+        // ParseBool without a note, for the assembler: `dflt` on any other value.
+        function goBool(v, dflt) { let s = str(v).trim(); return GO_TRUE.test(s) ? true : GO_FALSE.test(s) ? false : dflt; }
+        function communityBool(a, name, ctx, invalid) {
+            let s = str(a[name]).trim();
+            if (GO_TRUE.test(s)) return true;
+            if (GO_FALSE.test(s)) return false;
+            ctx.note(name, name + ' "' + s + '" is not a boolean, so the community controller ' + (invalid === 'rejects'
+                ? 'rejected this Ingress (annotation validation is on by default); fix the value before migrating. Nothing was migrated for it.'
+                : 'read it as ' + invalid + '; it migrates as ' + invalid + '.'), 'warning');
+            return invalid === 'true';
         }
 
         // Community header lists are comma-separated; CORS also accepts "*".
@@ -518,14 +545,15 @@
 
             generateCORSPolicy: function(a, f, ctx) {
                 ctx.use('enable-cors', 'cors-allow-origin', 'cors-allow-methods', 'cors-allow-headers', 'cors-allow-credentials', 'cors-expose-headers', 'cors-max-age');
-                if (!truthy(a['enable-cors'])) {
-                    ctx.note('enable-cors', 'CORS is configured but enable-cors is not "true", so the community controller ignored these annotations; nothing is migrated.');
+                if (!(a['enable-cors'] !== undefined && communityBool(a, 'enable-cors', ctx, 'false'))) {
+                    let set = Object.keys(a).filter(function(k) { return /^cors-/.test(k); });
+                    ctx.note('enable-cors', 'CORS is configured but enable-cors is not "true", so the community controller ignored ' + (set.length ? set.join(', ') : 'these annotations') + '; nothing is migrated.');
                     return;
                 }
                 // Community defaults (cors/main.go): every origin, credentials on,
                 // these methods and headers, a max-age of 20 days.
                 let origins = commaList(a['cors-allow-origin'] || '*');
-                let creds = a['cors-allow-credentials'] === undefined ? true : truthy(a['cors-allow-credentials']);
+                let creds = a['cors-allow-credentials'] === undefined ? true : communityBool(a, 'cors-allow-credentials', ctx, 'true');
                 let methods = commaList(a['cors-allow-methods'] || 'GET, PUT, POST, DELETE, PATCH, OPTIONS');
                 let headers = commaList(a['cors-allow-headers'] || 'DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization');
                 let maxAge = parseInt(a['cors-max-age'] || '1728000', 10);
@@ -557,6 +585,12 @@
 
             generateBasicAuthPolicy: function(a, f, ctx) {
                 ctx.use('auth-type', 'auth-secret', 'auth-secret-type', 'auth-realm');
+                // auth Parse returns first without auth-type (basic|digest).
+                if (!/basic|digest/.test(str(a['auth-type']))) {
+                    let set = ['auth-type', 'auth-secret', 'auth-secret-type', 'auth-realm'].filter(function(k) { return a[k] !== undefined; });
+                    ctx.note('auth-type', (a['auth-type'] === undefined ? 'No auth-type' : 'auth-type "' + a['auth-type'] + '" is neither basic nor digest') + ', so the community controller ignored ' + set.join(', ') + '; nothing is migrated.');
+                    return;
+                }
                 if (a['auth-type'] && a['auth-type'] !== 'basic') {
                     ctx.note('auth-type', 'auth-type "' + a['auth-type'] + '" (digest) has no NGINX Ingress Controller equivalent: NGINX Ingress Controller supports basic authentication only.', 'warning');
                     return;
@@ -587,8 +621,14 @@
                 ctx.use('auth-tls-secret', 'auth-tls-verify-client', 'auth-tls-verify-depth', 'auth-tls-pass-certificate-to-upstream', 'auth-tls-error-page');
                 let raw = String(a['auth-tls-secret'] || '');
                 let secret = raw.replace(/^[^/]+\//, '');
-                let spec = { clientCertSecret: secret || 'ca-secret' };
-                if (!secret) ctx.todo('spec.ingressMTLS.clientCertSecret', 'name the CA Secret');
+                // authtls Parse returns before reading the rest when
+                // auth-tls-secret is missing: none of them took effect.
+                if (!secret) {
+                    let set = ['auth-tls-verify-client', 'auth-tls-verify-depth', 'auth-tls-pass-certificate-to-upstream', 'auth-tls-error-page'].filter(function(k) { return a[k] !== undefined; });
+                    ctx.note('auth-tls-secret', 'No auth-tls-secret, so the community controller ignored ' + set.join(', ') + '; nothing is migrated.');
+                    return;
+                }
+                let spec = { clientCertSecret: secret };
                 let verify = a['auth-tls-verify-client'];
                 spec.verifyClient = verify ? String(verify) : 'on';
                 if (verify === 'optional_no_ca') ctx.note('auth-tls-verify-client', 'optional_no_ca keeps the connection without verifying the chain; NGINX Ingress Controller accepts it, but it is rarely what a migration wants.');
@@ -604,7 +644,7 @@
                 f.location.push('proxy_set_header ssl-client-subject-dn $ssl_client_s_dn;');
                 f.location.push('proxy_set_header ssl-client-issuer-dn $ssl_client_i_dn;');
                 ['proxy_set_header ssl-client-verify', 'proxy_set_header ssl-client-subject-dn', 'proxy_set_header ssl-client-issuer-dn'].forEach(function(l) { ctx.snippetSource(l, 'auth-tls-secret (the community controller sent these upstream)'); });
-                if (truthy(a['auth-tls-pass-certificate-to-upstream'])) {
+                if (a['auth-tls-pass-certificate-to-upstream'] !== undefined && communityBool(a, 'auth-tls-pass-certificate-to-upstream', ctx, 'rejects')) {
                     f.location.push('proxy_set_header ssl-client-cert $ssl_client_escaped_cert;');
                     ctx.snippetSource('proxy_set_header ssl-client-cert', 'auth-tls-pass-certificate-to-upstream');
                 }
@@ -618,30 +658,42 @@
                 ctx.use('proxy-ssl-secret', 'proxy-ssl-verify', 'proxy-ssl-verify-depth', 'proxy-ssl-ciphers', 'proxy-ssl-protocols', 'proxy-ssl-name', 'proxy-ssl-server-name');
                 let raw = String(a['proxy-ssl-secret'] || '');
                 let secret = raw.replace(/^[^/]+\//, '');
+                // proxyssl Parse returns before reading the rest when
+                // proxy-ssl-secret is missing: none of them took effect.
+                if (!secret) {
+                    let set = ['proxy-ssl-verify', 'proxy-ssl-verify-depth', 'proxy-ssl-ciphers', 'proxy-ssl-protocols', 'proxy-ssl-name', 'proxy-ssl-server-name'].filter(function(k) { return a[k] !== undefined; });
+                    ctx.note('proxy-ssl-secret', 'No proxy-ssl-secret, so the community controller ignored ' + set.join(', ') + '; nothing is migrated.');
+                    return;
+                }
+                // verify and server-name take on|off; any other value was off.
+                let onOff = function(name) {
+                    let s = str(a[name]).trim();
+                    if (s && s !== 'on' && s !== 'off') ctx.note(name, name + ' "' + s + '" is not on or off, so the community controller used off; it migrates as off.', 'warning');
+                    return s === 'on';
+                };
                 let spec = {};
                 let comments = {};
-                if (secret) { spec.tlsSecret = secret; comments['spec.egressMTLS.tlsSecret'] = 'proxy-ssl-secret (tls.crt, tls.key)'; }
-                let verify = String(a['proxy-ssl-verify'] || '').trim() === 'on';
+                spec.tlsSecret = secret; comments['spec.egressMTLS.tlsSecret'] = 'proxy-ssl-secret (tls.crt, tls.key)';
+                let verify = onOff('proxy-ssl-verify');
                 if (verify) {
                     spec.verifyServer = true;
                     // NIC v5.7.0 resolves tlsSecret with the TLS role and
                     // trustedCertSecret with the CA role, by keys, not type: the
                     // community proxy-ssl-secret carries tls.crt, tls.key and ca.crt,
                     // so the one Secret serves both.
-                    spec.trustedCertSecret = secret || 'backend-ca';
+                    spec.trustedCertSecret = secret;
                     comments['spec.egressMTLS.verifyServer'] = 'proxy-ssl-verify';
                     comments['spec.egressMTLS.trustedCertSecret'] = 'proxy-ssl-secret (its ca.crt)';
-                    if (!secret) ctx.todo('spec.egressMTLS.trustedCertSecret', 'name the Secret holding the backend CA (ca.crt)');
                 }
                 let sslDepth = a['proxy-ssl-verify-depth'] ? communityInt(a, 'proxy-ssl-verify-depth', ctx) : null;
                 if (sslDepth !== null) { spec.verifyDepth = sslDepth || 1; comments['spec.egressMTLS.verifyDepth'] = 'proxy-ssl-verify-depth'; }
                 if (a['proxy-ssl-ciphers']) { spec.ciphers = a['proxy-ssl-ciphers']; comments['spec.egressMTLS.ciphers'] = 'proxy-ssl-ciphers'; }
                 if (a['proxy-ssl-protocols']) { spec.protocols = a['proxy-ssl-protocols']; comments['spec.egressMTLS.protocols'] = 'proxy-ssl-protocols'; }
-                if (truthy(a['proxy-ssl-server-name'])) { spec.serverName = true; comments['spec.egressMTLS.serverName'] = 'proxy-ssl-server-name'; }
+                if (onOff('proxy-ssl-server-name')) { spec.serverName = true; comments['spec.egressMTLS.serverName'] = 'proxy-ssl-server-name'; }
                 if (a['proxy-ssl-name']) { spec.sslName = a['proxy-ssl-name']; comments['spec.egressMTLS.sslName'] = 'proxy-ssl-name'; }
                 if (!Object.keys(spec).length) return;
                 f.policies.push({ name: ctx.name('egress-mtls'), spec: { egressMTLS: spec }, onIngress: true, comments: comments });
-                if (secret) ctx.note('proxy-ssl-secret', 'NGINX Ingress Controller reads tls.crt and tls.key' + (verify ? ', and ca.crt for trustedCertSecret,' : '') + ' from the same Secret the community controller did, in the Policy\'s namespace' + (/\//.test(raw) ? ' (the namespace prefix was dropped)' : '') + '.');
+                ctx.note('proxy-ssl-secret', 'NGINX Ingress Controller reads tls.crt and tls.key' + (verify ? ', and ca.crt for trustedCertSecret,' : '') + ' from the same Secret the community controller did, in the Policy\'s namespace' + (/\//.test(raw) ? ' (the namespace prefix was dropped)' : '') + '.');
                 ctx.note('proxy-ssl-secret', 'The upstream connection must already be TLS: set backend-protocol HTTPS (or GRPCS), which this tool turns into ssl-services / upstream tls.');
             },
 
@@ -651,34 +703,49 @@
             // and it always rendered nodelay and rejected with 503.
             generateRateLimitPolicy: function(a, f, ctx) {
                 ctx.use('limit-rps', 'limit-rpm', 'limit-burst-multiplier', 'limit-connections', 'limit-rate', 'limit-rate-after', 'limit-whitelist');
-                let mult = parseInt(a['limit-burst-multiplier'] || '5', 10);
-                if (isNaN(mult) || mult < 1) mult = 5;
+                let mult = a['limit-burst-multiplier'] ? communityInt(a, 'limit-burst-multiplier', ctx) : 5;
+                if (mult === null) mult = 5;
                 let rates = [];
-                if (a['limit-rps']) rates.push({ n: parseInt(a['limit-rps'], 10), unit: 'r/s', src: 'limit-rps' });
-                if (a['limit-rpm']) rates.push({ n: parseInt(a['limit-rpm'], 10), unit: 'r/m', src: 'limit-rpm' });
-                rates = rates.filter(function(r) { return !isNaN(r.n) && r.n > 0; });
+                if (a['limit-rps']) rates.push({ n: communityInt(a, 'limit-rps', ctx, true), unit: 'r/s', src: 'limit-rps' });
+                if (a['limit-rpm']) rates.push({ n: communityInt(a, 'limit-rpm', ctx, true), unit: 'r/m', src: 'limit-rpm' });
+                rates = rates.filter(function(r) { return r.n !== null && r.n > 0; });
+                let rateSet = rates.length > 0;
+                // The community template wrote burst=<rate × multiplier> as given:
+                // 0 is NGINX's own default (and NGINX Ingress Controller rejects a
+                // burst of 0, so it is left out); a negative burst fails nginx -t,
+                // so the community controller rejected the Ingress.
+                if (rates.length && mult < 0) {
+                    ctx.note('limit-burst-multiplier', 'limit-burst-multiplier ' + mult + ' made the community controller write a negative burst, which NGINX refuses, so it rejected this Ingress. Fix the value before migrating; ' + rates.map(function(r) { return r.src; }).join(' and ') + (rates.length > 1 ? ' are' : ' is') + ' not migrated.', 'warning');
+                    rates = [];
+                } else if (rates.length && mult === 0) {
+                    ctx.note('limit-burst-multiplier', 'limit-burst-multiplier 0 gave the community controller burst=0, which is NGINX\'s default; burst is left out, since NGINX Ingress Controller rejects 0.');
+                }
+                let burst = function(r) { return r.n * mult || null; };
                 let allow = commaList(a['limit-whitelist']);
                 if (rates.length && ctx.strategy === 'annotation') {
                     let r = rates[0];
                     f.ann['nginx.org/limit-req-rate'] = r.n + r.unit; ctx.annComment('nginx.org/limit-req-rate', r.src);
-                    f.ann['nginx.org/limit-req-burst'] = String(r.n * mult); ctx.annComment('nginx.org/limit-req-burst', r.src + ' × limit-burst-multiplier (' + mult + ')');
+                    if (burst(r)) { f.ann['nginx.org/limit-req-burst'] = String(burst(r)); ctx.annComment('nginx.org/limit-req-burst', r.src + ' × limit-burst-multiplier (' + mult + ')'); }
                     f.ann['nginx.org/limit-req-no-delay'] = 'true'; ctx.annComment('nginx.org/limit-req-no-delay', 'the community controller always used nodelay');
                     f.ann['nginx.org/limit-req-reject-code'] = '503'; ctx.annComment('nginx.org/limit-req-reject-code', 'the community limit-req-status-code default');
                     if (rates.length > 1) ctx.note('limit-rpm', 'NGINX Ingress Controller takes one limit-req-rate per Ingress; ' + rates[1].src + ' is not migrated. CRD-first emits one rateLimit Policy per rate.', 'warning');
                 } else if (rates.length) {
                     rates.forEach(function(r) {
+                        let spec = { rate: r.n + r.unit, burst: burst(r), noDelay: true, key: '${binary_remote_addr}', zoneSize: '10M', rejectCode: 503 };
+                        if (!spec.burst) delete spec.burst;
                         f.policies.push({ name: ctx.name('rate-limit' + (rates.length > 1 ? '-' + r.unit.replace('r/', 'r') : '')), onIngress: false,
-                            spec: { rateLimit: { rate: r.n + r.unit, burst: r.n * mult, noDelay: true, key: '${binary_remote_addr}', zoneSize: '10M', rejectCode: 503 } },
+                            spec: { rateLimit: spec },
                             comments: { 'spec.rateLimit.rate': r.src, 'spec.rateLimit.burst': r.src + ' × limit-burst-multiplier (' + mult + ')', 'spec.rateLimit.noDelay': 'the community controller always used nodelay', 'spec.rateLimit.rejectCode': 'the community limit-req-status-code default' } });
                     });
                 }
                 if (allow.length && rates.length) ctx.note('limit-whitelist', 'NGINX Ingress Controller has no rate-limit exemption list. To keep ' + allow.join(', ') + ' unlimited, set the rateLimit key from a geo map (ConfigMap http-snippets) that yields an empty key for them — NGINX does not count an empty key.', 'warning');
                 else if (allow.length) ctx.note('limit-whitelist', 'limit-whitelist only exempts addresses from limit-rps / limit-rpm / limit-connections, and none is set; nothing to migrate.');
+                if (a['limit-burst-multiplier'] && !rateSet && !a['limit-connections']) ctx.note('limit-burst-multiplier', 'limit-burst-multiplier only scales limit-rps / limit-rpm / limit-connections, and none is set; nothing to migrate.');
                 // limit_conn needs a zone defined in the http context, which only
                 // the ConfigMap can add; without it NGINX refuses the config.
                 if (a['limit-connections']) {
-                    let conn = parseInt(a['limit-connections'], 10);
-                    if (!isNaN(conn) && conn > 0) {
+                    let conn = communityInt(a, 'limit-connections', ctx, true);
+                    if (conn !== null && conn > 0) {
                         f.http.push('limit_conn_zone $binary_remote_addr zone=' + ctx.zone('conn') + ':5m;');
                         f.location.push('limit_conn ' + ctx.zone('conn') + ' ' + conn + ';');
                         f.location.push('limit_conn_status 503;');
@@ -699,7 +766,7 @@
             // assembler pairs them; alone, the stable side stays a TODO.
             generateCanaryVirtualServer: function(a, f, ctx) {
                 ctx.use('canary', 'canary-weight', 'canary-weight-total', 'canary-by-header', 'canary-by-header-value', 'canary-by-header-pattern', 'canary-by-cookie');
-                if (!truthy(a.canary)) {
+                if (!(a.canary !== undefined && communityBool(a, 'canary', ctx, 'false'))) {
                     let names = Object.keys(a).filter(function(k) { return /^canary-/.test(k); });
                     ctx.note(names[0] || 'canary', names.join(', ') + ' without canary: "true" ' + (names.length === 1 ? 'is' : 'are') + ' ignored by the community controller; nothing is migrated.');
                     return;
@@ -722,19 +789,41 @@
                     splitSources: ['canary-weight', 'canary-weight-total'].filter(function(k) { return a[k] !== undefined; }).join(' / ') || 'canary-weight' };
             },
 
+            // redirect.go Parse (controller-v1.15.1), in its order: from-to-www-
+            // redirect, then temporal-redirect, which wins and is returned
+            // before permanent-redirect is read; a code outside 300-307 (308
+            // for permanent) became 302 (301). An invalid bool or code returns
+            // its ValidationError, so the community controller rejected the
+            // Ingress, even with the code's URL unset.
             generateRedirectVirtualServer: function(a, f, ctx) {
                 ctx.use('permanent-redirect', 'permanent-redirect-code', 'temporal-redirect', 'temporal-redirect-code', 'from-to-www-redirect');
-                let url = a['permanent-redirect'] || a['temporal-redirect'];
-                if (url) {
-                    let code = parseInt(a['permanent-redirect'] ? (a['permanent-redirect-code'] || '301') : (a['temporal-redirect-code'] || '302'), 10);
-                    if ([301, 302, 307, 308].indexOf(code) === -1) { ctx.note(a['permanent-redirect'] ? 'permanent-redirect-code' : 'temporal-redirect-code', 'NGINX Ingress Controller accepts only 301, 302, 307 and 308; using ' + (a['permanent-redirect'] ? 301 : 302) + '.', 'warning'); code = a['permanent-redirect'] ? 301 : 302; }
-                    let target = braceVariables(url);
-                    if (!/:\/\//.test(target)) { target = '${scheme}://${host}' + (target[0] === '/' ? '' : '/') + target; ctx.note(a['permanent-redirect'] ? 'permanent-redirect' : 'temporal-redirect', 'NGINX Ingress Controller requires a scheme in a redirect URL; the relative target was made absolute against the request host.'); }
-                    let codeSrc = a['permanent-redirect'] ? 'permanent-redirect-code' : 'temporal-redirect-code';
-                    f.redirect = { url: target, code: code, source: (a['permanent-redirect'] ? 'permanent-redirect' : 'temporal-redirect') + (a[codeSrc] ? ' + ' + codeSrc : '') };
-                    if (a['permanent-redirect'] && a['temporal-redirect']) ctx.note('temporal-redirect', 'permanent-redirect takes precedence, as in the community controller; temporal-redirect is not migrated.');
+                let www = a['from-to-www-redirect'] !== undefined ? communityBool(a, 'from-to-www-redirect', ctx, 'rejects') : undefined;
+                let temporal = !!a['temporal-redirect'];
+                let kind = temporal ? 'temporal' : 'permanent';
+                let codeSrc = kind + '-redirect-code';
+                let fallback = temporal ? 302 : 301;
+                let code = fallback;
+                let codeOk = true;
+                if (a[codeSrc] !== undefined) {
+                    let n = communityInt(a, codeSrc, ctx, true);
+                    codeOk = n !== null;
+                    if (n !== null && (n < 300 || n > (temporal ? 307 : 308))) ctx.note(codeSrc, codeSrc + ' ' + n + ' is outside 300-' + (temporal ? 307 : 308) + ', so the community controller used ' + fallback + '; it migrates as ' + fallback + '.');
+                    else if (n !== null) code = n;
                 }
-                if (truthy(a['from-to-www-redirect'])) f.wwwRedirect = true;
+                let other = temporal ? 'permanent-redirect-code' : 'temporal-redirect-code';
+                if (a[other] !== undefined) ctx.note(other, other + ' applies only to ' + other.replace('-code', '') + (temporal ? ', which temporal-redirect overrides' : ', which is not set') + '; the community controller ignored it.');
+                let url = a[kind + '-redirect'];
+                if (url) {
+                    if ([301, 302, 307, 308].indexOf(code) === -1) { ctx.note(codeSrc, 'NGINX Ingress Controller accepts only 301, 302, 307 and 308; using ' + fallback + '.', 'warning'); code = fallback; }
+                    let target = braceVariables(url);
+                    if (!/:\/\//.test(target)) { target = '${scheme}://${host}' + (target[0] === '/' ? '' : '/') + target; ctx.note(kind + '-redirect', 'NGINX Ingress Controller requires a scheme in a redirect URL; the relative target was made absolute against the request host.'); }
+                    f.redirect = { url: target, code: code, source: kind + '-redirect' + (a[codeSrc] ? ' + ' + codeSrc : '') };
+                    if (temporal && a['permanent-redirect']) ctx.note('permanent-redirect', 'temporal-redirect takes precedence, as in the community controller; permanent-redirect is not migrated.');
+                } else if (a[codeSrc] !== undefined && codeOk) {
+                    ctx.note(codeSrc, codeSrc + ' applies only to ' + kind + '-redirect, which is not set; the community controller ignored it.');
+                }
+                if (www) f.wwwRedirect = true;
+                else if (www === false) ctx.note('from-to-www-redirect', 'from-to-www-redirect is false, the community default; nothing to migrate.');
             },
 
             // rewrite-target, use-regex, app-root. The community controller makes
@@ -743,7 +832,9 @@
             // target. app-root is a 302 from "/" only — not a rewrite at all.
             generateRewriteVirtualServer: function(a, f, ctx) {
                 ctx.use('rewrite-target', 'use-regex', 'app-root');
-                let regex = truthy(a['use-regex']) || (a['rewrite-target'] !== undefined && a['rewrite-target'] !== '');
+                let useRegex = a['use-regex'] !== undefined ? communityBool(a, 'use-regex', ctx, 'false') : undefined;
+                let regex = useRegex || (a['rewrite-target'] !== undefined && a['rewrite-target'] !== '');
+                if (useRegex === false && !regex && GO_FALSE.test(str(a['use-regex']).trim())) ctx.note('use-regex', 'use-regex is false, the community default; nothing to migrate.');
                 if (regex) f.regexPaths = true;
                 if (a['rewrite-target'] !== undefined && a['rewrite-target'] !== '') f.rewrite = a['rewrite-target'];
                 if (a['app-root']) {
@@ -773,11 +864,11 @@
                 else if (f.regexPaths) { cookie.path = '/'; comments['sessionCookie.path'] = 'session-cookie-path — required with regex paths'; }
                 if (a['session-cookie-domain']) { cookie.domain = a['session-cookie-domain']; comments['sessionCookie.domain'] = 'session-cookie-domain'; }
                 cookie.httpOnly = true; comments['sessionCookie.httpOnly'] = 'the community controller always set HttpOnly';
-                if (a['session-cookie-secure'] !== undefined) { cookie.secure = truthy(a['session-cookie-secure']); comments['sessionCookie.secure'] = 'session-cookie-secure'; }
+                if (a['session-cookie-secure'] !== undefined) { cookie.secure = communityBool(a, 'session-cookie-secure', ctx, 'false'); comments['sessionCookie.secure'] = 'session-cookie-secure'; }
                 if (a['session-cookie-samesite']) { cookie.samesite = String(a['session-cookie-samesite']).toLowerCase(); comments['sessionCookie.samesite'] = 'session-cookie-samesite'; }
                 if (a['affinity-mode'] === 'persistent') ctx.note('affinity-mode', 'NGINX sticky cookies never rebalance existing sessions, which matches persistent; balanced (the community default) also shifted sessions when Pods scaled, and has no NGINX Ingress Controller equivalent.');
-                if (truthy(a['session-cookie-change-on-failure'])) ctx.note('session-cookie-change-on-failure', 'NGINX re-picks a server when the bound one fails without rewriting the cookie until the next response — close to, not the same as, what the community controller did.');
-                if (truthy(a['session-cookie-conditional-samesite-none'])) ctx.note('session-cookie-conditional-samesite-none', 'NGINX cannot drop SameSite=None for incompatible browsers; samesite is applied to every client.');
+                if (a['session-cookie-change-on-failure'] !== undefined && communityBool(a, 'session-cookie-change-on-failure', ctx, 'false')) ctx.note('session-cookie-change-on-failure', 'NGINX re-picks a server when the bound one fails without rewriting the cookie until the next response — close to, not the same as, what the community controller did.');
+                if (a['session-cookie-conditional-samesite-none'] !== undefined && communityBool(a, 'session-cookie-conditional-samesite-none', ctx, 'false')) ctx.note('session-cookie-conditional-samesite-none', 'NGINX cannot drop SameSite=None for incompatible browsers; samesite is applied to every client.');
                 if (a['session-cookie-max-age'] && a['session-cookie-expires'] && a['session-cookie-max-age'] !== a['session-cookie-expires']) ctx.note('session-cookie-expires', 'NGINX sets one expiry; session-cookie-max-age was used.');
                 f.upstream.sessionCookie = cookie;
                 f.upstreamComments = Object.assign(f.upstreamComments || {}, comments);
@@ -788,13 +879,33 @@
             // a Service, so the URL has to name one; an auth server outside the
             // cluster needs an ExternalName Service, which only NGINX Plus resolves.
             generateExternalAuthPolicy: function(a, f, ctx) {
-                ctx.use('auth-url', 'auth-signin', 'auth-snippet', 'auth-method', 'auth-response-headers', 'auth-request-redirect', 'auth-signin-redirect-param', 'auth-cache-key', 'auth-cache-duration', 'auth-proxy-set-headers');
+                let own = ['auth-url', 'auth-signin', 'auth-snippet', 'auth-method', 'auth-response-headers', 'auth-request-redirect', 'auth-signin-redirect-param', 'auth-cache-key', 'auth-cache-duration', 'auth-proxy-set-headers'];
+                ctx.use.apply(null, own);
                 let u = serviceFromURL(a['auth-url']);
                 let spec = {};
                 let comments = {};
+                if (!u && a['auth-url'] === undefined) {
+                    // authreq Parse returns ErrMissingAnnotations without it.
+                    let set = own.filter(function(k) { return a[k] !== undefined; });
+                    ctx.note('auth-url', 'No auth-url, so the community controller ignored ' + set.join(', ') + '; nothing is migrated.');
+                    return;
+                }
                 if (!u) {
                     ctx.note('auth-url', 'auth-url is not an http(s) URL, so no externalAuth Policy can be built from it.', 'warning');
                     return;
+                }
+                // An invalid auth-always-set-cookie fails the whole authreq Parse
+                // with a wrapped error Extract does not classify, so it skips the
+                // parser: the community controller served this Ingress with no
+                // external auth at all.
+                let setCookie = false;
+                if (a['auth-always-set-cookie'] !== undefined) {
+                    let s = str(a['auth-always-set-cookie']).trim();
+                    if (GO_TRUE.test(s)) setCookie = true;
+                    else if (!GO_FALSE.test(s)) {
+                        ctx.note('auth-always-set-cookie', 'auth-always-set-cookie "' + s + '" is not a boolean, so the community controller dropped external auth for this Ingress (auth-url included) and served it unauthenticated. No externalAuth Policy is migrated: fix the value, then migrate it.', 'warning');
+                        return;
+                    }
                 }
                 spec.authURI = u.path || '/';
                 comments['spec.externalAuth.authURI'] = 'auth-url (path)';
@@ -860,7 +971,7 @@
                 // (v5.6.3 and v5.7.0, OSS and Plus templates). Copying it takes snippets, which NIC
                 // disables by default, so only the annotation that asks for the
                 // cookie gets them; otherwise a note says how.
-                if (truthy(a['auth-always-set-cookie'])) {
+                if (setCookie) {
                     f.location.push('auth_request_set $auth_cookie $upstream_http_set_cookie;');
                     f.location.push('add_header Set-Cookie $auth_cookie always;');
                     ctx.snippetSource('auth_request_set $auth_cookie ', 'auth-always-set-cookie');
@@ -887,7 +998,11 @@
             generateMirrorSnippets: function(a, f, ctx) {
                 ctx.use('mirror-target', 'mirror-host', 'mirror-request-body');
                 let target = str(a['mirror-target']).trim();
-                if (!target) { ctx.note('mirror-target', 'No mirror-target, so the community controller mirrored nothing.'); return; }
+                if (!target) {
+                    let set = ['mirror-host', 'mirror-request-body'].filter(function(k) { return a[k] !== undefined; });
+                    ctx.note('mirror-target', 'No mirror-target, so the community controller mirrored nothing' + (set.length ? ' and ignored ' + set.join(', ') : '') + '.');
+                    return;
+                }
                 let host = str(a['mirror-host']).trim();
                 if (!host) {
                     let m = target.split('$')[0].match(/^[a-z]+:\/\/([^\/:?#]+)/i);
@@ -949,7 +1064,7 @@
                     ctx.note('opentelemetry-trust-incoming-span', 'Without enable-opentelemetry on this Ingress, this applied only where the community ConfigMap turned tracing on. In NGINX Ingress Controller, set otel-trace-context in the nginx-config ConfigMap: propagate to trust incoming spans, inject to start a new trace. It is global, not per Ingress.');
                     return;
                 }
-                if (!truthy(a['enable-opentelemetry'])) { ctx.note('enable-opentelemetry', 'This opted the Ingress out of tracing. NGINX Ingress Controller traces all requests or none (otel-trace-in-http), so there is no per-Ingress opt-out; tracing is off by default in NGINX Ingress Controller, so nothing is needed.'); return; }
+                if (!(a['enable-opentelemetry'] !== undefined && communityBool(a, 'enable-opentelemetry', ctx, 'false'))) { ctx.note('enable-opentelemetry', 'This opted the Ingress out of tracing. NGINX Ingress Controller traces all requests or none (otel-trace-in-http), so there is no per-Ingress opt-out; tracing is off by default in NGINX Ingress Controller, so nothing is needed.'); return; }
                 f.cm['otel-trace-in-http'] = 'true';
                 f.cmComments['otel-trace-in-http'] = 'enable-opentelemetry';
                 f.cm['otel-exporter-endpoint'] = 'otel-collector:4317';
@@ -957,7 +1072,7 @@
                 ctx.todo('data.otel-exporter-endpoint', 'the OpenTelemetry collector address (host:port), which NGINX Ingress Controller requires before tracing anything');
                 f.cm['otel-service-name'] = 'nginx';
                 f.cmComments['otel-service-name'] = 'the community default service name';
-                let trust = a['opentelemetry-trust-incoming-span'] === undefined || truthy(a['opentelemetry-trust-incoming-span']);
+                let trust = a['opentelemetry-trust-incoming-span'] === undefined || communityBool(a, 'opentelemetry-trust-incoming-span', ctx, 'false');
                 f.cm['otel-trace-context'] = trust ? 'propagate' : 'inject';
                 f.cmComments['otel-trace-context'] = trust
                     ? (a['opentelemetry-trust-incoming-span'] === undefined ? 'the community controller propagated trace context (NGINX Ingress Controller defaults to ignore)' : 'opentelemetry-trust-incoming-span')
@@ -979,9 +1094,19 @@
             generateHashLBVirtualServer: function(a, f, ctx) {
                 ctx.use('upstream-hash-by', 'upstream-hash-by-subset', 'upstream-hash-by-subset-size');
                 let by = String(a['upstream-hash-by'] || '').trim();
-                if (!by) return;
-                if (truthy(a['upstream-hash-by-subset'])) ctx.note('upstream-hash-by-subset', 'NGINX Ingress Controller has no subset hashing; the whole upstream is hashed consistently.');
-                if (a['upstream-hash-by-subset-size']) ctx.note('upstream-hash-by-subset-size', 'No NGINX Ingress Controller equivalent: only the community controller has subset hashing.');
+                // upstreamhashby Parse reads all three, returning an invalid
+                // one's ValidationError, but the balancer uses the subset only
+                // with upstream-hash-by set.
+                let subset = a['upstream-hash-by-subset'] !== undefined ? communityBool(a, 'upstream-hash-by-subset', ctx, 'rejects') : undefined;
+                let size = a['upstream-hash-by-subset-size'] !== undefined ? communityInt(a, 'upstream-hash-by-subset-size', ctx, true) : undefined;
+                if (!by) {
+                    let valid = { 'upstream-hash-by-subset': subset !== undefined && (GO_TRUE.test(str(a['upstream-hash-by-subset']).trim()) || GO_FALSE.test(str(a['upstream-hash-by-subset']).trim())), 'upstream-hash-by-subset-size': size !== undefined && size !== null };
+                    let set = Object.keys(valid).filter(function(k) { return valid[k]; });
+                    if (set.length) ctx.note(set[0], set.join(' and ') + (set.length > 1 ? ' only apply' : ' only applies') + ' with upstream-hash-by, which is not set; the community controller ignored ' + (set.length > 1 ? 'them' : 'it') + '.');
+                    return;
+                }
+                if (subset) ctx.note('upstream-hash-by-subset', 'NGINX Ingress Controller has no subset hashing; the whole upstream is hashed consistently.');
+                if (size !== undefined && size !== null) ctx.note('upstream-hash-by-subset-size', 'No NGINX Ingress Controller equivalent: only the community controller has subset hashing.');
                 let method = 'hash ' + braceVariables(by).replace(/^\$\{([^}]+)\}$/, '$$$1') + ' consistent';
                 f.upstream['lb-method'] = method; f.upstreamComments['lb-method'] = 'upstream-hash-by';
                 f.ann['nginx.org/lb-method'] = method; ctx.annComment('nginx.org/lb-method', 'upstream-hash-by'); ctx.annCovered('nginx.org/lb-method');
@@ -1054,7 +1179,8 @@
 
             generateSSLPassthroughTransportServer: function(a, f, ctx) {
                 ctx.use('ssl-passthrough');
-                if (!truthy(a['ssl-passthrough'])) { ctx.note('ssl-passthrough', 'ssl-passthrough is not "true", so it set nothing.'); return; }
+                let raw = str(a['ssl-passthrough']).trim();
+                if (!communityBool(a, 'ssl-passthrough', ctx, 'rejects')) { if (GO_FALSE.test(raw)) ctx.note('ssl-passthrough', 'ssl-passthrough is not "true", so it set nothing.'); return; }
                 // TLS passthrough is a TransportServer under both strategies: an
                 // Ingress has no form for it in NIC.
                 f.passthrough = true;
@@ -1072,7 +1198,15 @@
 
             generateErrorPagesVirtualServer: function(a, f, ctx) {
                 ctx.use('custom-http-errors', 'default-backend');
-                let codes = commaList(a['custom-http-errors']).map(function(c) { return parseInt(c, 10); }).filter(function(c) { return !isNaN(c); });
+                // customhttperrors Parse fails on any entry strconv.Atoi rejects,
+                // and Extract skips it: none of the codes took effect.
+                let entries = commaList(a['custom-http-errors']);
+                let bad = badErrorCodes(a);
+                if (bad.length) {
+                    ctx.note('custom-http-errors', bad.map(function(c) { return '"' + c + '"'; }).join(', ') + ' ' + (bad.length > 1 ? 'are not status codes' : 'is not a status code') + ', so the community controller ignored custom-http-errors altogether; nothing is migrated.', 'warning');
+                    entries = [];
+                }
+                let codes = entries.map(function(c) { return parseInt(c, 10); });
                 let kept = codes.filter(function(c) { return c !== 499 && c >= 300 && c <= 599; });
                 if (kept.length < codes.length) ctx.note('custom-http-errors', 'Dropped ' + codes.filter(function(c) { return kept.indexOf(c) === -1; }).join(', ') + ' — NGINX Ingress Controller accepts error pages for 300–599 only, and rejects 499.');
                 f.errorCodes = kept;
@@ -1315,12 +1449,13 @@
                 return JSON.stringify(c);
             };
             let track = function(entry, run) {
-                let h = hostState(), p = f.policies.length;
+                let h = hostState(), p = f.policies.length, cm = JSON.stringify(f.cm);
                 run();
                 entry.toHost = hostState() !== h;
                 let own = entry.found.map(function(x) { return x.annotation; });
                 f.policies.slice(p).forEach(function(pol) { pol.sources = own; });
                 entry.toPolicy = f.policies.length > p;
+                entry.toConfigMap = JSON.stringify(f.cm) !== cm;
             };
             let order = ['generateRewriteVirtualServer'];
             let entries = Array.from(matched.values()).filter(function(e) { return e.translator; });
@@ -1335,8 +1470,9 @@
                 // preferAnnotation (custom-http-errors): the annotation form is the
                 // better answer, but CRD-first emits a VirtualServer, which cannot
                 // carry it. So CRD-first emits the CRD form and says, as a warning,
-                // why annotation-first suits this Ingress better.
-                if (entry.mapping.preferAnnotation && strategy === 'crd' && !options.ignorePreferAnnotation) {
+                // why annotation-first suits this Ingress better — when there is
+                // anything to migrate.
+                if (entry.mapping.preferAnnotation && strategy === 'crd' && !options.ignorePreferAnnotation && !(entry.translator === 'generateErrorPagesVirtualServer' && badErrorCodes(a).length)) {
                     ctx.note(entry.found[0].annotation, 'Annotation-first is recommended for this Ingress: ' + entry.mapping.preferAnnotation, 'warning');
                 }
                 track(entry, function() {
@@ -1365,7 +1501,7 @@
             // Whatever a matched entry did not consume is named, not dropped.
             matched.forEach(function(entry) {
                 entry.found.forEach(function(x) {
-                    if (!ctx.consumed[x.annotation]) ctx.note(x.annotation, 'Recognised, but this tool has no translation for it: migrate it by hand (see the reference row).', 'warning');
+                    if (!ctx.consumed[x.annotation]) ctx.note(x.annotation, 'Recognized, but this tool has no translation for it: migrate it by hand (see the reference row).', 'warning');
                 });
             });
 
@@ -1382,13 +1518,29 @@
             Object.keys(f.cmComments).forEach(function(k) { addNames(f.cmComments[k]); });
             ctx.notes.forEach(function(n) { addNames(n.annotation); });
             ctx.todos.forEach(function(t) { addNames(t.message); });
-            let unnamed = [];
+            // Only a mapping that wrote something folded anything in. One that
+            // wrote nothing was either named by a note (enable-cors unset:
+            // "ignored cors-allow-origin") or said nothing, which is a lost
+            // setting and says so.
+            // An empty value skips validation and reads as invalid content, which
+            // no parser rejects on: each kept its default or was skipped.
+            let unnamed = [], lost = [], empty = [];
             matched.forEach(function(entry) {
                 if (entry.mapping.type === 'unsupported') return;
-                entry.found.forEach(function(x) { if (!named[x.annotation] && ctx.consumed[x.annotation]) unnamed.push(x.annotation); });
+                let wrote = entry.toHost || entry.toPolicy || entry.toConfigMap;
+                let explained = function(name) { return ctx.notes.some(function(n) { return new RegExp('(^|[^a-z-])' + name + '($|[^a-z-])').test(n.message); }); };
+                entry.found.forEach(function(x) {
+                    if (named[x.annotation] || !ctx.consumed[x.annotation]) return;
+                    if (wrote) unnamed.push(x.annotation);
+                    else if (explained(x.annotation)) return;
+                    else if (str(x.value).trim() === '') empty.push(x.annotation);
+                    else lost.push(x.annotation);
+                });
             });
+            if (empty.length) ctx.note('applied', 'Empty, so the community controller ignored ' + (empty.length > 1 ? 'them' : 'it') + ': ' + empty.join(', ') + '. Nothing is migrated.');
             if (unnamed.length && out.docs.length) ctx.note('applied', 'Also applied, folded into the fields above: ' + unnamed.join(', ') + '.');
             else if (unnamed.length) ctx.note('applied', 'Not migrated, because no resource was produced: ' + unnamed.join(', ') + '.', 'warning');
+            if (lost.length) ctx.note('applied', 'Recognized but not migrated, and this tool did not say why: ' + lost.join(', ') + '. Check what the community controller did with ' + (lost.length > 1 ? 'these values' : 'this value') + ' (it ignored some values and rejected the Ingress over others) and migrate by hand if it took effect; see the reference rows.', 'warning');
 
             out.notes = ctx.notes;
             out.todos = ctx.todos;
@@ -1495,6 +1647,12 @@
             let used = {};
             let cls = options.ingressClass || model.ingressClassName;
             let regex = !!f.regexPaths;
+            // The annotation-first swap carries this in its comment; tls.redirect
+            // below reads the same defaults.
+            [['ssl-redirect', true], ['force-ssl-redirect', false]].forEach(function(p) {
+                let v = model.community[p[0]];
+                if (v !== undefined && goBool(v, null) === null) ctx.note(p[0], p[0] + ' "' + v + '" is not a boolean, so the community controller used its default, ' + p[1] + '.', 'warning');
+            });
 
             if (f.passthrough) return buildPassthrough(model, f, ctx, options);
 
@@ -1515,7 +1673,12 @@
                 if (HANDLED[key] || ctx.covered[key]) return;
                 let src = (ctx.annComments[key] || key).split(' ')[0];
                 if (key === 'nginx.org/proxy-redirect-from' || key === 'nginx.org/proxy-redirect-to') {
-                    if (key === 'nginx.org/proxy-redirect-to') return;
+                    if (key === 'nginx.org/proxy-redirect-to') {
+                        // The community template wrote proxy_redirect <from> only
+                        // for default or off, and from defaults to off.
+                        if (redirectFrom === undefined || redirectFrom === 'default' || redirectFrom === 'off') ctx.note('proxy-redirect-to', 'proxy-redirect-to applies only with a proxy-redirect-from other than default or off, so the community controller ignored it.');
+                        return;
+                    }
                     let to = f.ann['nginx.org/proxy-redirect-to'];
                     let line = 'proxy_redirect ' + redirectFrom + (to !== undefined && redirectFrom !== 'default' && redirectFrom !== 'off' ? ' ' + to : '') + ';';
                     f.location.push(line); ctx.snippetSource(line, 'proxy-redirect-from / proxy-redirect-to');
@@ -1560,13 +1723,13 @@
                     // ssl-redirect (default true) and force-ssl-redirect both mean
                     // a redirect on the scheme, which is tls.redirect's default.
                     let sslRedirect = model.community['ssl-redirect'];
-                    let force = truthy(model.community['force-ssl-redirect']);
-                    if (sslRedirect === undefined || truthy(sslRedirect) || force) {
+                    let force = goBool(model.community['force-ssl-redirect'], false);
+                    if (goBool(sslRedirect, true) || force) {
                         spec.tls.redirect = { enable: true, code: 308 };
                         c['spec.tls.redirect'] = force ? 'force-ssl-redirect' : sslRedirect !== undefined ? 'ssl-redirect' : 'ssl-redirect (community default true with TLS)';
                         c['spec.tls.redirect.code'] = 'the community redirect code';
                     }
-                } else if (truthy(model.community['force-ssl-redirect'])) {
+                } else if (goBool(model.community['force-ssl-redirect'], false)) {
                     // No TLS on this host: TLS ends in front of the controller.
                     // The community controller still redirected on $scheme, which
                     // is http for every request here unless its global
@@ -1968,11 +2131,11 @@
         function pairCanaries(models) {
             let pairs = new Map();
             models.forEach(function(m) {
-                if (!truthy(m.community.canary)) return;
+                if (!goBool(m.community.canary, false)) return;
                 // The community controller pairs a canary with the main Ingress of
                 // the same namespace, host and path.
                 let key = function(x) { return (x.namespace || '') + '/' + x.hosts.map(function(h) { return h.host + '|' + h.paths.map(function(p) { return p.path; }).join(','); }).join(';'); };
-                let stable = models.find(function(o) { return o !== m && !truthy(o.community.canary) && key(o) === key(m); });
+                let stable = models.find(function(o) { return o !== m && !goBool(o.community.canary, false) && key(o) === key(m); });
                 if (stable) pairs.set(m, stable);
             });
             return pairs;

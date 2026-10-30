@@ -75,7 +75,7 @@ function detect(desc, result) {
     for (const [host, rs] of byHost) {
         if (rs.length > 1) {
             add('host-conflict', 'blocking', rs.length + ' resources claim host ' + host + ' (' +
-                rs.map((r) => r.kind + '/' + r.name).join(', ') + '); NIC serves the oldest and rejects the rest.');
+                rs.map((r) => r.kind + '/' + r.name).join(', ') + '); NGINX Ingress Controller serves the oldest and rejects the rest.');
         }
     }
 
@@ -91,7 +91,7 @@ function detect(desc, result) {
     }
     if ((desc.ingressClassName || desc.classAnnotation) && routable.length && !routable.some((r) => r.hasClass)) {
         add('class-dropped', 'review', 'Source selects controller "' + (desc.ingressClassName || desc.classAnnotation) +
-            '"; the generated resources set no ingressClassName. Pass --class with your NIC class.');
+            '"; the generated resources set no ingressClassName. Pass --class with your NGINX Ingress Controller class.');
     }
 
     /* 7. Placeholders and warnings the engine raised. */
@@ -117,7 +117,7 @@ function detect(desc, result) {
 
     /* 9. Snippets: NIC rejects the resource unless snippets are enabled. */
     if (/location-snippets|server-snippets/.test(yaml)) {
-        add('snippet-passthrough', 'blocking', 'Output uses snippets. NIC ships with snippets DISABLED and rejects the resource ' +
+        add('snippet-passthrough', 'blocking', 'Output uses snippets. NGINX Ingress Controller ships with snippets DISABLED and rejects the resource ' +
             '("snippet specified but snippets feature is not enabled") — install with helm --set controller.enableSnippets=true. ' +
             'Directives from community-only modules (more_set_headers, Lua) fail the reload.');
     }
