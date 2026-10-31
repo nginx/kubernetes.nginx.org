@@ -897,7 +897,7 @@
                         prev.click();
                     }
                 });
-                let container = tabList.closest('.example-content');
+                let container = tabList.closest('.example-content, .release-notes');
                 if (container) {
                     container.querySelectorAll('.approach-content').forEach(function(panel) {
                         let type = panel.getAttribute('data-approach');
@@ -1195,8 +1195,10 @@
             }
         }
 
+        // Approach tabs switch an example's panels; the same tabs switch the
+        // release notes' panels, one per NGINX Ingress Controller release.
         function switchApproach(btn, type) {
-            const container = btn.closest('.example-content');
+            const container = btn.closest('.example-content, .release-notes');
             container.querySelectorAll('.approach-tab').forEach(function(t) {
                 t.classList.remove('active');
                 t.setAttribute('aria-selected', 'false');

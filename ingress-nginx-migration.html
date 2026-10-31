@@ -502,7 +502,7 @@ spec:
                     <thead><tr><th scope="col">Aspect</th><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr><td>Repository</td><td><code>kubernetes/ingress-nginx</code></td><td><code>nginx/kubernetes-ingress</code></td></tr>
-                        <tr><td>Data plane</td><td>NGINX, built with OpenResty's Lua modules</td><td>NGINX (OSS or Plus)</td></tr>
+                        <tr><td>Data plane</td><td>NGINX, built with OpenResty's Lua modules</td><td>NGINX Open Source or NGINX Plus</td></tr>
                         <tr><td>Annotation prefix</td><td><code>nginx.ingress.kubernetes.io/</code></td><td><code>nginx.org/</code> or <code>nginx.com/</code> or <code>appprotect.f5.com/</code></td></tr>
                         <tr><td>ConfigMap name</td><td><code>ingress-nginx-controller</code></td><td><code>nginx-config</code></td></tr>
                         <tr><td>CRD support</td><td>None</td><td>VirtualServer, VirtualServerRoute, Policy, TransportServer, GlobalConfiguration</td></tr>
@@ -511,10 +511,18 @@ spec:
                 </table>
             </div>
             <div class="info-box note" style="margin: var(--space-2hx) 0 0;"><strong>Note:</strong> Many Ingress-NGINX capabilities that do not have direct NGINX Ingress Controller annotations or CRDs can still be achieved through NGINX configuration snippets (via either snippet annotations or VirtualServer/VirtualServerRoute CRDs). We recommend that users proceed with caution when using snippets, as they inject raw NGINX configuration and are intended for more advanced use cases.</div>
-            <div class="info-box note" style="margin: var(--space-2x) 0 0;"><strong>New in v5.4.0 &mdash; Policy CRDs on Ingress objects:</strong> Policy CRDs (e.g. <code>accessControl</code>, <code>cors</code>) can now be referenced directly from Ingress resources using the <code>nginx.org/policies</code> annotation &mdash; no VirtualServer required. This is the recommended migration path for features that support it. Look for the <strong>(Recommended)</strong> tab in the mapping examples.</div>
-            <div class="info-box note" style="margin: var(--space-2x) 0 0;"><strong>New in v5.5.0 &mdash; ExternalAuth Policy and expanded Policy CRDs on Ingress:</strong> A brand new <code>externalAuth</code> Policy CRD provides an OSS-capable replacement for the community's generic <code>auth_request</code> annotations (<code>auth-url</code>, <code>auth-signin</code>, <code>auth-snippet</code>) &mdash; the headline migration win of this release. The <code>ingressMTLS</code>, <code>egressMTLS</code>, and <code>waf</code> (Plus, via <code>nginx.com/policies</code>) Policy CRDs can now also be attached directly to Ingress resources. New direct annotation mappings arrived for <code>proxy-redirect-from</code>/<code>proxy-redirect-to</code>, alongside a new inline <code>nginx.org/add-header</code> (plus <code>nginx.org/add-header-inherit</code>) for response header injection.</div>
-            <div class="info-box note" style="margin: var(--space-2x) 0 0;"><strong>New in v5.6.0 &mdash; Custom error pages and upstream Host on Ingress:</strong> Two community annotations now have direct Ingress equivalents: <code>nginx.org/custom-http-errors</code> serves intercepted errors from the Ingress's <code>spec.defaultBackend</code>, and <code>nginx.org/upstream-vhost</code> sets the <code>Host</code> header sent upstream. A new <code>hsts</code> Policy CRD sets HSTS on a VirtualServer, including <code>preload</code> on request. With NGINX Plus, the new <code>oidcNative</code> Policy runs OpenID Connect in the built-in module and attaches to Ingress through <code>nginx.com/policies</code>.</div>
-            <div class="info-box note" style="margin: var(--space-2x) 0 0;"><strong>New in v5.7.0 &mdash; Fewer snippets, and the Secrets you already have:</strong> <code>proxy-http-version</code> maps to <code>nginx.org/proxy-http-version</code> or a VirtualServer upstream's <code>proxy-http-version</code> instead of a snippet, and HTTP/2 to upstreams joins it. gRPC turns HTTP/2 on per host with <code>nginx.org/http2</code> or <code>spec.http2</code>, with or without TLS. <code>opentelemetry-trust-incoming-span</code> maps to the <code>otel-trace-context</code> ConfigMap key, and the community's <code>ewma</code> load balancing to <code>least_time last_byte</code>, now on NGINX Open Source. An <code>Opaque</code> Secret works wherever a CA, TLS, or htpasswd Secret did, so the community controller's Secrets can be used as they are; basic auth still needs its key renamed from <code>auth</code> to <code>htpasswd</code>. The <code>use-forwarded-headers</code> ConfigMap key keeps the forwarded headers a proxy in front has set. cert-manager HTTP-01 challenges pass the HTTPS redirect and authentication, as the community controller's defaults let them, and <code>-enable-topology-aware-routing</code> arrives with the community flag's name.</div>
+            <div class="info-box note release-notes" style="margin: var(--space-2x) 0 0;"><strong>New in NGINX Ingress Controller</strong>
+                <div class="approach-tabs" aria-label="NGINX Ingress Controller release">
+                    <button class="approach-tab active" data-action="switchApproach" data-approach="v5-7-0">v5.7.0</button>
+                    <button class="approach-tab" data-action="switchApproach" data-approach="v5-6-0">v5.6.0</button>
+                    <button class="approach-tab" data-action="switchApproach" data-approach="v5-5-0">v5.5.0</button>
+                    <button class="approach-tab" data-action="switchApproach" data-approach="v5-4-0">v5.4.0</button>
+                </div>
+                <div class="approach-content active" data-approach="v5-7-0"><strong>Fewer snippets, and the Secrets you already have:</strong> <code>proxy-http-version</code> maps to <code>nginx.org/proxy-http-version</code> or a VirtualServer upstream's <code>proxy-http-version</code> instead of a snippet, and HTTP/2 to upstreams joins it. gRPC turns HTTP/2 on per host with <code>nginx.org/http2</code> or <code>spec.http2</code>, with or without TLS. <code>opentelemetry-trust-incoming-span</code> maps to the <code>otel-trace-context</code> ConfigMap key, and the community's <code>ewma</code> load balancing to <code>least_time last_byte</code>, now on NGINX Open Source. An <code>Opaque</code> Secret works wherever a CA, TLS, or htpasswd Secret did, so the community controller's Secrets can be used as they are; basic auth still needs its key renamed from <code>auth</code> to <code>htpasswd</code>. The <code>use-forwarded-headers</code> ConfigMap key keeps the forwarded headers a proxy in front has set. cert-manager HTTP-01 challenges pass the HTTPS redirect and authentication, as the community controller's defaults let them, and <code>-enable-topology-aware-routing</code> arrives with the community flag's name.</div>
+                <div class="approach-content" data-approach="v5-6-0"><strong>Custom error pages and upstream Host on Ingress:</strong> Two community annotations now have direct Ingress equivalents: <code>nginx.org/custom-http-errors</code> serves intercepted errors from the Ingress's <code>spec.defaultBackend</code>, and <code>nginx.org/upstream-vhost</code> sets the <code>Host</code> header sent upstream. A new <code>hsts</code> Policy CRD sets HSTS on a VirtualServer, including <code>preload</code> on request. With NGINX Plus, the new <code>oidcNative</code> Policy runs OpenID Connect in the built-in module and attaches to Ingress through <code>nginx.com/policies</code>.</div>
+                <div class="approach-content" data-approach="v5-5-0"><strong>ExternalAuth Policy and expanded Policy CRDs on Ingress:</strong> A new <code>externalAuth</code> Policy CRD replaces the community's generic <code>auth_request</code> annotations (<code>auth-url</code>, <code>auth-signin</code>, <code>auth-snippet</code>) &mdash; the headline migration win of this release. The <code>ingressMTLS</code>, <code>egressMTLS</code>, and <code>waf</code> (Plus, via <code>nginx.com/policies</code>) Policy CRDs can now also be attached directly to Ingress resources. New direct annotation mappings arrived for <code>proxy-redirect-from</code>/<code>proxy-redirect-to</code>, alongside a new inline <code>nginx.org/add-header</code> (plus <code>nginx.org/add-header-inherit</code>) for response header injection.</div>
+                <div class="approach-content" data-approach="v5-4-0"><strong>Policy CRDs on Ingress objects:</strong> Policy CRDs (e.g. <code>accessControl</code>, <code>cors</code>) can now be referenced directly from Ingress resources using the <code>nginx.org/policies</code> annotation &mdash; no VirtualServer required. This is the recommended migration path for features that support it. Look for the <strong>(Recommended)</strong> tab in the mapping examples.</div>
+            </div>
         </section>
 
         <!-- OSS Mappings -->
@@ -792,7 +800,7 @@ spec:
 
             <!-- Authentication (External) -->
             <h3 id="authentication-external">Authentication (external)</h3>
-            <div class="info-box note" style="margin: 0 0 var(--space-2x);"><strong>New in v5.5.0 &mdash; ExternalAuth Policy:</strong> The new <code>externalAuth</code> Policy CRD is the recommended migration path for the community's generic <code>auth_request</code> pattern (<code>auth-url</code>, <code>auth-signin</code>, <code>auth-snippet</code>). Unlike the OIDC Policies (<code>oidcNative</code> and <code>oidc</code>, NGINX Plus only), <code>externalAuth</code> works in NGINX OSS and Plus and can be attached directly to Ingress, VirtualServer, and VirtualServerRoute resources via <code>nginx.org/policies</code>. For OIDC itself, see the <a href="#oidc-authentication">OIDC authentication</a> section in Plus Mappings.</div>
+            <div class="info-box note" style="margin: 0 0 var(--space-2x);"><strong>New in v5.5.0 &mdash; ExternalAuth Policy:</strong> The new <code>externalAuth</code> Policy CRD is the recommended migration path for the community's generic <code>auth_request</code> pattern (<code>auth-url</code>, <code>auth-signin</code>, <code>auth-snippet</code>). Unlike the OIDC Policies (<code>oidcNative</code> and <code>oidc</code>, NGINX Plus only), <code>externalAuth</code> works in NGINX Open Source and NGINX Plus and can be attached directly to Ingress, VirtualServer, and VirtualServerRoute resources via <code>nginx.org/policies</code>. For OIDC itself, see the <a href="#oidc-authentication">OIDC authentication</a> section in NGINX Plus mappings.</div>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="authentication-external"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -879,7 +887,7 @@ spec:
         pass: backend</code></pre></div>
                                 </div>
                             </div>
-                                                        <div class="info-box note"><strong>Note:</strong> NGINX Ingress Controller adds the <code>auth_request</code> directive for the <code>externalAuth</code> Policy itself, so the snippet carries only the cookie lines. It does not pass the auth service's <code>Set-Cookie</code> on by itself, as the community controller did for every <code>auth-url</code>; <code>always</code> sends it with every response code, which is what <code>auth-always-set-cookie</code> added. The auth service is reached through a Service: <code>auth.example.com</code> lies outside the cluster, so <code>auth-svc</code> stands for an ExternalName Service in front of it, which NGINX Ingress Controller supports only with NGINX Plus. On NGINX OSS, run the auth service in the cluster and name its Service. Snippets need the controller's <code>-enable-snippets</code> flag. (The Plus-only <code>oidc</code> Policy handles cookies internally.)</div>
+                                                        <div class="info-box note"><strong>Note:</strong> NGINX Ingress Controller adds the <code>auth_request</code> directive for the <code>externalAuth</code> Policy itself, so the snippet carries only the cookie lines. It does not pass the auth service's <code>Set-Cookie</code> on by itself, as the community controller did for every <code>auth-url</code>; <code>always</code> sends it with every response code, which is what <code>auth-always-set-cookie</code> added. The auth service is reached through a Service: <code>auth.example.com</code> lies outside the cluster, so <code>auth-svc</code> stands for an ExternalName Service in front of it, which NGINX Ingress Controller supports only with NGINX Plus. On NGINX Open Source, run the auth service in the cluster and name its Service. Snippets need the controller's <code>-enable-snippets</code> flag. (The Plus-only <code>oidc</code> Policy handles cookies internally.)</div>
                         </div></td></tr>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/auth-cache-duration</code><br><code>nginx.ingress.kubernetes.io/auth-cache-key</code><br><code>nginx.ingress.kubernetes.io/auth-method</code><br><code>nginx.ingress.kubernetes.io/auth-proxy-set-headers</code><br><code>nginx.ingress.kubernetes.io/auth-request-redirect</code><br><code>nginx.ingress.kubernetes.io/auth-response-headers</code><br><code>nginx.ingress.kubernetes.io/auth-signin</code><br><code>nginx.ingress.kubernetes.io/auth-signin-redirect-param</code><br><code>nginx.ingress.kubernetes.io/auth-snippet</code><br><code>nginx.ingress.kubernetes.io/auth-url</code></td>
@@ -1059,7 +1067,7 @@ spec:
                                 </div>
                             </div>
                             <div class="info-box warning"><strong>No direct equivalent:</strong> The community controller's <code>auth-keepalive</code>, <code>auth-keepalive-requests</code>, <code>auth-keepalive-share-vars</code>, and <code>auth-keepalive-timeout</code> annotations kept a dedicated pool of connections to the external auth service open between checks. NGINX Ingress Controller has no setting for the auth Service alone. On a VirtualServer it opens a new connection for each check; on an Ingress, the auth Service shares the Ingress's <code>nginx.org/keepalive</code> (or the ConfigMap's <code>keepalive</code>) with every other upstream. Nothing replaces <code>auth-keepalive-requests</code>, <code>auth-keepalive-timeout</code>, or <code>auth-keepalive-share-vars</code>. Expect more connections to the auth Service, and size it for that.</div>
-                            <div class="info-box note"><strong>Note:</strong> The auth service is reached through a Service: <code>auth.example.com</code> lies outside the cluster, so <code>auth-svc</code> stands for an ExternalName Service in front of it, which NGINX Ingress Controller supports only with NGINX Plus. On NGINX OSS, run the auth service in the cluster and name its Service. The <code>externalAuth</code> Policy is covered in the row above.</div>
+                            <div class="info-box note"><strong>Note:</strong> The auth service is reached through a Service: <code>auth.example.com</code> lies outside the cluster, so <code>auth-svc</code> stands for an ExternalName Service in front of it, which NGINX Ingress Controller supports only with NGINX Plus. On NGINX Open Source, run the auth service in the cluster and name its Service. The <code>externalAuth</code> Policy is covered in the row above.</div>
                         </div></td></tr>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/enable-global-auth</code></td>
@@ -3065,7 +3073,7 @@ spec:
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/enable-modsecurity</code><br><code>nginx.ingress.kubernetes.io/enable-owasp-core-rules</code><br><code>nginx.ingress.kubernetes.io/modsecurity-snippet</code><br><code>nginx.ingress.kubernetes.io/modsecurity-transaction-id</code></td>
-                            <td>No direct replacement (OSS) — see <a href="#waf">WAF (Plus)</a></td>
+                            <td>No direct replacement on NGINX Open Source — see <a href="#waf">WAF</a> (NGINX Plus)</td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="comparison">
@@ -3080,11 +3088,11 @@ metadata:
       SecRuleEngine On
       SecRule ARGS "@contains &lt;script&gt;" "id:1,deny,status:403"
     nginx.ingress.kubernetes.io/modsecurity-transaction-id: "$request_id"</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># No direct OSS replacement
+                                <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># No direct NGINX Open Source replacement
 # For WAF capabilities, see the Plus WAF section
 # which uses the F5 WAF for NGINX (App Protect)</code></pre></div>
                             </div>
-                            <div class="info-box warning"><strong>No OSS Equivalent:</strong> NGINX Ingress Controller does not include ModSecurity or any built-in WAF module. For WAF capabilities, <a href="#waf">F5 WAF for NGINX</a> is available with NGINX Plus — see the <a href="#waf">WAF section</a> in Plus Mappings for migration examples.</div>
+                            <div class="info-box warning"><strong>No NGINX Open Source equivalent:</strong> NGINX Ingress Controller does not include ModSecurity or any built-in WAF module. For WAF capabilities, <a href="#waf">F5 WAF for NGINX</a> is available with NGINX Plus — see the <a href="#waf">WAF section</a> in NGINX Plus mappings for migration examples.</div>
                             <div class="info-box note"><strong>Note:</strong> The community controller's ModSecurity support relies on a third-party module compiled into the controller image — it is not a native Kubernetes-integrated WAF solution. Neither controller provides an open-source WAF alternative.</div>
                         </div></td></tr>
                     </tbody>
@@ -3220,7 +3228,7 @@ spec:
       fail-timeout: 30s
       max-fails: 3</code></pre></div>
                                 </div>
-                                <div class="info-box note"><strong>Note:</strong> The VirtualServer CRD allows passive health check settings per upstream. For active health checks that proactively probe endpoints, see <a href="#active-health-checks">Active health checks</a> in Plus Mappings.</div>
+                                <div class="info-box note"><strong>Note:</strong> The VirtualServer CRD allows passive health check settings per upstream. For active health checks that proactively probe endpoints, see <a href="#active-health-checks">Active health checks</a> in NGINX Plus mappings.</div>
                             </div>
                         </div></td></tr>
                     </tbody>
@@ -3957,7 +3965,7 @@ metadata:
   annotations:
     nginx.org/sticky-cookie-services: "serviceName=my-service SERVERID expires=2d httponly path=/"  # affinity + session-cookie-*</code></pre></div>
                                 </div>
-                                <div class="info-box note"><strong>Note:</strong> The <code>nginx.org/sticky-cookie-services</code> annotation works with both NGINX OSS and NGINX Plus and provides a simpler way to configure session persistence via Ingress annotations (the legacy <code>nginx.com/sticky-cookie-services</code> form is Plus-only and kept for backward compatibility). For more granular control (domain, secure, samesite, httpOnly), use the VirtualServer CRD approach.</div>
+                                <div class="info-box note"><strong>Note:</strong> The <code>nginx.org/sticky-cookie-services</code> annotation works with both NGINX Open Source and NGINX Plus and provides a simpler way to configure session persistence via Ingress annotations (the legacy <code>nginx.com/sticky-cookie-services</code> form is Plus-only and kept for backward compatibility). For more granular control (domain, secure, samesite, httpOnly), use the VirtualServer CRD approach.</div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
                                 <div class="comparison">
@@ -4001,7 +4009,7 @@ spec:
       action:
         pass: backend</code></pre></div>
                                 </div>
-                                <div class="info-box note"><strong>New in v5.4.0:</strong> Session persistence via <code>sessionCookie</code> is now available in both NGINX OSS and NGINX Plus. Community-specific features <code>affinity-mode</code>, <code>session-cookie-change-on-failure</code>, and <code>session-cookie-conditional-samesite-none</code> have no direct equivalents.</div>
+                                <div class="info-box note"><strong>New in v5.4.0:</strong> Session persistence via <code>sessionCookie</code> is now available in both NGINX Open Source and NGINX Plus. Community-specific features <code>affinity-mode</code>, <code>session-cookie-change-on-failure</code>, and <code>session-cookie-conditional-samesite-none</code> have no direct equivalents.</div>
                             </div>
                         </div></td></tr>
                         <tr class="expandable">
@@ -4050,7 +4058,7 @@ spec:
       action:
         pass: main</code></pre></div>
                             </div>
-                            <div class="info-box warning"><strong>No direct equivalent:</strong> The community controller's <code>affinity-canary-behavior: "sticky"</code> (the default) kept a client that a canary had served on the canary. NGINX Ingress Controller picks the split for every request, and <code>sessionCookie</code> keeps a client on one Pod within the chosen upstream, not on the canary. To pin a client to the canary, route it with a cookie or header match (<code>canary-by-cookie</code> or <code>canary-by-header</code>), as above. The <code>sessionCookie</code> feature is available in both NGINX OSS and NGINX Plus.</div>
+                            <div class="info-box warning"><strong>No direct equivalent:</strong> The community controller's <code>affinity-canary-behavior: "sticky"</code> (the default) kept a client that a canary had served on the canary. NGINX Ingress Controller picks the split for every request, and <code>sessionCookie</code> keeps a client on one Pod within the chosen upstream, not on the canary. To pin a client to the canary, route it with a cookie or header match (<code>canary-by-cookie</code> or <code>canary-by-header</code>), as above. The <code>sessionCookie</code> feature is available in both NGINX Open Source and NGINX Plus.</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -4735,7 +4743,7 @@ metadata:
   nginx.com/health-checks-mandatory: "true"
   nginx.com/health-checks-mandatory-queue: "5"
   nginx.com/slow-start: "30s"</code></pre>
-                                <div class="info-box note"><strong>Note:</strong> Active health checks proactively probe upstream endpoints at configurable intervals, rather than waiting for client requests to fail. These require NGINX Plus. For more granular control (custom paths, intervals, status matching), use the VirtualServer CRD approach. For passive health checks (OSS), see <a href="#passive-health-checks">Passive health checks</a> in OSS Mappings.</div>
+                                <div class="info-box note"><strong>Note:</strong> Active health checks proactively probe upstream endpoints at configurable intervals, rather than waiting for client requests to fail. These require NGINX Plus. For more granular control (custom paths, intervals, status matching), use the VirtualServer CRD approach. For passive health checks, which NGINX Open Source has, see <a href="#passive-health-checks">Passive health checks</a> in NGINX mappings.</div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
                                 <pre><code>apiVersion: k8s.nginx.org/v1
@@ -4757,7 +4765,7 @@ spec:
         port: 8080
         statusMatch: "200-399"
       slowStart: 30s  # slow-start</code></pre>
-                                <div class="info-box note"><strong>Note:</strong> The VirtualServer CRD provides the most granular control over active health checks. Active health checks and <code>slowStart</code> require NGINX Plus. For passive health checks (OSS), see <a href="#passive-health-checks">Passive health checks</a> in OSS Mappings.</div>
+                                <div class="info-box note"><strong>Note:</strong> The VirtualServer CRD provides the most granular control over active health checks. Active health checks and <code>slowStart</code> require NGINX Plus. For passive health checks, which NGINX Open Source has, see <a href="#passive-health-checks">Passive health checks</a> in NGINX mappings.</div>
                             </div>
                         </div></td></tr>
                     </tbody>
@@ -4818,7 +4826,7 @@ spec:
 
             <!-- External Authentication & OIDC -->
             <h3 id="oidc-authentication">OIDC authentication</h3>
-            <div class="info-box note" style="margin: 0 0 var(--space-2x);"><strong>Looking for generic <code>auth_request</code> (non-OIDC) migration?</strong> Use the new <code>externalAuth</code> Policy CRD documented in the <a href="#authentication-external">Authentication (external)</a> section &mdash; it works in NGINX OSS and Plus. The <code>oidcNative</code> and <code>oidc</code> Policies below make NGINX Plus the OpenID Connect client itself, with no oauth2-proxy.</div>
+            <div class="info-box note" style="margin: 0 0 var(--space-2x);"><strong>Looking for generic <code>auth_request</code> (non-OIDC) migration?</strong> Use the new <code>externalAuth</code> Policy CRD documented in the <a href="#authentication-external">Authentication (external)</a> section &mdash; it works in NGINX Open Source and NGINX Plus. The <code>oidcNative</code> and <code>oidc</code> Policies below make NGINX Plus the OpenID Connect client itself, with no oauth2-proxy.</div>
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="oidc-authentication"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
                     <tbody>
@@ -4934,7 +4942,7 @@ spec:
                                 </div>
                                 <div class="info-box note"><strong>Note:</strong> A VirtualServer takes either Policy: <code>oidcNative</code> as in the first tab, or the NJS-based <code>oidc</code> shown here, which needs the provider's endpoints set by hand and cannot be used on an Ingress. The two are mutually exclusive on a route.</div>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> Either Policy removes the oauth2-proxy sidecar. The community <code>auth-url</code>/<code>auth-signin</code> pattern uses the <code>auth_request</code> module (typically with oauth2-proxy) and supports any external auth service, not just OIDC. The community annotations <code>auth-cache-duration</code>, <code>auth-cache-key</code>, <code>auth-method</code>, <code>auth-proxy-set-headers</code>, <code>auth-request-redirect</code>, <code>auth-response-headers</code>, and <code>auth-signin-redirect-param</code> have no direct OIDC Policy equivalents — the Policy manages these concerns internally. If you need generic external auth (non-OIDC), prefer the new <code>externalAuth</code> Policy CRD (v5.5.0+, OSS-capable) documented in the <a href="#authentication-external">Authentication (external)</a> section, or fall back to <code>nginx.org/location-snippets</code> with the <code>auth_request</code> directive.</div>
+                            <div class="info-box note"><strong>Note:</strong> Either Policy removes the oauth2-proxy sidecar. The community <code>auth-url</code>/<code>auth-signin</code> pattern uses the <code>auth_request</code> module (typically with oauth2-proxy) and supports any external auth service, not just OIDC. The community annotations <code>auth-cache-duration</code>, <code>auth-cache-key</code>, <code>auth-method</code>, <code>auth-proxy-set-headers</code>, <code>auth-request-redirect</code>, <code>auth-response-headers</code>, and <code>auth-signin-redirect-param</code> have no direct OIDC Policy equivalents — the Policy manages these concerns internally. If you need generic external auth (non-OIDC), prefer the new <code>externalAuth</code> Policy CRD (v5.5.0 and later, no NGINX Plus needed) documented in the <a href="#authentication-external">Authentication (external)</a> section, or fall back to <code>nginx.org/location-snippets</code> with the <code>auth_request</code> directive.</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -4946,7 +4954,7 @@ spec:
                 <table class="mapping-table" aria-labelledby="waf"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
-                            <td>No direct equivalent — see <a href="#modsecurity">ModSecurity / WAF (OSS)</a></td>
+                            <td>No direct equivalent — see <a href="#modsecurity">ModSecurity / WAF</a> (NGINX mappings)</td>
                             <td><span class="badge badge-policy">Policy CRD</span> <span class="badge badge-plus">Plus</span> <code>waf</code> (F5 WAF for NGINX) + <code>nginx.com/policies</code> <span class="badge badge-new">New v5.5.0</span><span class="or-text">— or —</span><code>appprotect.f5.com/app-protect-enable</code><br><code>appprotect.f5.com/app-protect-policy</code><br><code>appprotect.f5.com/app-protect-security-log-enable</code><br><code>appprotect.f5.com/app-protect-security-log</code><br><code>appprotect.f5.com/app-protect-security-log-destination</code></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
@@ -5022,7 +5030,7 @@ spec:
   appprotect.f5.com/app-protect-security-log-enable: "True"</code></pre>
                                 <div class="info-box note"><strong>Note:</strong> The <code>appprotect.f5.com/</code> annotations enable F5 WAF for NGINX directly on the Ingress without a Policy CRD. The Policy + Ingress approach (v5.5.0+) is recommended for new deployments as it provides reusability and a more consistent configuration model with the other NGINX Ingress Controller Policies.</div>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> F5 WAF for NGINX provides enterprise WAF capabilities beyond ModSecurity. The Policy CRD approach allows WAF policies to be shared across multiple Ingress / VirtualServer resources. For community ModSecurity annotations, see the <a href="#modsecurity">ModSecurity / WAF</a> section in OSS Mappings. WAF IP Intelligence (threat-feed-based blocking) can also be enabled in v5.5.0 via the <code>-enable-app-protect-ip-intelligence</code> controller flag (or the <code>controller.appprotect.ipIntelligence.enable</code> Helm value) and configured inside the APPolicy resource.</div>
+                            <div class="info-box note"><strong>Note:</strong> F5 WAF for NGINX provides enterprise WAF capabilities beyond ModSecurity. The Policy CRD approach allows WAF policies to be shared across multiple Ingress / VirtualServer resources. For community ModSecurity annotations, see the <a href="#modsecurity">ModSecurity / WAF</a> section in NGINX mappings. WAF IP Intelligence (threat-feed-based blocking) can also be enabled in v5.5.0 via the <code>-enable-app-protect-ip-intelligence</code> controller flag (or the <code>controller.appprotect.ipIntelligence.enable</code> Helm value) and configured inside the APPolicy resource.</div>
                             <div class="info-box note"><strong>New in v5.6.0:</strong> The <code>waf</code> Policy can fetch compiled bundles itself: <code>apBundleSource</code> for the policy and <code>apLogBundleSource</code> for each security log, from an HTTPS URL, F5 NGINX Instance Manager, or F5 NGINX One Console, optionally polling for updates. Use one of <code>apPolicy</code>, <code>apBundle</code>, or <code>apBundleSource</code>.</div>
                             </div>
                         </td></tr>

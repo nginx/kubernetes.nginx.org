@@ -527,7 +527,7 @@ test('snippet output warns that NIC rejects snippets by default', () => {
 });
 
 test('session affinity reaches the ingress target as nginx.org/sticky-cookie-services', () => {
-    /* NIC 5.6 reads nginx.org/sticky-cookie-services on NGINX OSS (since NGINX
+    /* NIC 5.6 reads nginx.org/sticky-cookie-services on NGINX Open Source (since NGINX
        1.29.6); this was reported as lost. The cookie name and expiry carry
        over; the community default name is INGRESSCOOKIE. */
     const { out } = runConvert(INGRESS, { target: 'ingress', strategy: 'annotation' });
