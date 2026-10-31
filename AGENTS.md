@@ -101,4 +101,4 @@ Commit bodies are the record of what was tried and rejected: run `git log --grep
 
 ## Deeper references
 
-`.claude/skills/*/SKILL.md`, plain markdown that any agent can read: **f5ds-design** (design values and every deviation), **migration-tool** (mappings, generators, the test harness, the accuracy check, research sources), **repo-checks** (what each check asserts, when to run them, how to add one), **release-update** (version bumps, patch and minor), **verify-visually** (rendering, measuring, the CDP helper).
+`.claude/skills/*/SKILL.md`, plain markdown that any agent can read: **f5ds-design** (design values and every deviation), **migration-tool** (mappings, generators, the test harness, the accuracy check, research sources), **repo-checks** (what each check asserts, when to run them, how to add one), **release-update** (version bumps, patch and minor), **verify-visually** (rendering, measuring, the CDP helper). Two commands in `.claude/commands/` run only when the maintainer types them: `/checks` and `/site-audit` (the multi-perspective audit).

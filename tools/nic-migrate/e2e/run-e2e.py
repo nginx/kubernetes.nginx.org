@@ -319,7 +319,7 @@ def install_community(args):
 
 
 def install_nic(args):
-    # NGINX OSS. The chart's default image is the OSS build, which is the scope
+    # NGINX Open Source. The chart's default image is the OSS build, which is the scope
     # of this pipeline: everything asserted has to be satisfiable without a
     # subscription. Nothing currently asserted needs Plus. A Plus run would set controller.nginxplus=true
     # and an image pull secret, and could add cases for JWT, OIDC and WAF, which
@@ -508,7 +508,7 @@ CASES = [
          compare=('status',), expect_status=200, header_present='access-control-allow-origin'),
     # Session affinity: VirtualServer upstreams[].sessionCookie on the
     # virtualserver target, nginx.org/sticky-cookie-services on the ingress
-    # target. Both run on NGINX OSS, so both targets assert it.
+    # target. Both run on NGINX Open Source, so both targets assert it.
     dict(name='affinity-cookie-present', host='shop.example.com', path='/api/x',
          compare=('status',), expect_status=200, header_present='set-cookie'),
     dict(name='tls-terminates', host='shop.example.com', path='/', scheme='https',

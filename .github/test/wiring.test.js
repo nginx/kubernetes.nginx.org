@@ -155,8 +155,9 @@ for (const p of PAGES) {
         const count = (re) => [...page.matchAll(re)].reduce((acc, m) => {
             acc[m[1]] = (acc[m[1]] || 0) + 1; return acc;
         }, {});
-        const tabs = count(/class="approach-tab[^"]*" data-action="switchApproach" data-approach="(\w+)"/g);
-        const panes = count(/class="approach-content[^"]*" data-approach="(\w+)"/g);
+        // [\w-]: \w alone skipped every hyphenated value (vs-policy, v5-7-0).
+        const tabs = count(/class="approach-tab[^"]*" data-action="switchApproach" data-approach="([\w-]+)"/g);
+        const panes = count(/class="approach-content[^"]*" data-approach="([\w-]+)"/g);
         assert.deepEqual(tabs, panes, 'approach tab/pane pairing');
     });
 

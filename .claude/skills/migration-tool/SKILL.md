@@ -203,18 +203,22 @@ The wiring suite asserts placement from the rendered rows (`every mapping row si
 - **Every NIC-side line carrying a translated value names its community source** in a trailing comment, two spaces before the `#`: `client-max-body-size: "10m"  # proxy-body-size`. It goes after the value, or after the `|` on a block scalar. Several sources collapsing into one line join with `+` when they combine (`# enable-cors + cors-*`, `# otlp-collector-host + otlp-collector-port`) and `/` when they are alternatives (`# log-format-escape-json / log-format-escape-none`); add a parenthetical when the mapping is not obvious (`# limit-rps (also covers limit-rpm)`). A commented parent covers its children — `errorPages:  # custom-http-errors` means the `codes:` beneath it stays bare, as do `number:`/`size:` under `buffers:`. **Three kinds of line stay bare**: scaffolding a resource needs anyway (`service`, `port`, `host`, `pass`), required companions that translate nothing (`real-ip-recursive` beside `set-real-ip-from`), and NIC-only constructs on a "No direct equivalent" row — naming a source there would invent one. Where the value itself is the puzzle rather than its origin, the comment documents the value instead (`# on | off | merge`). The wiring suite asserts the mechanical half — `mapping comments agree across a row's approach tabs` — because which lines are translated is a judgement no regex can make.
 - **Collapsed cells stay terse.** The always-visible cells (both columns of a `tr.expandable`) show only badges + `<code>` + a short blurb of at most ~6 words — `No direct equivalent`, `Not applicable`, `No direct equivalent (use <code>basicAuth</code>)`. Never put a full explanatory sentence, caveat or workaround in a collapsed cell. Any such explanation belongs in the expanded panel (`tr.example-row`) as an `info-box` banner: `info-box warning` for hard "no equivalent / no replacement" cases, with a bold lead-in like `<strong>No direct equivalent:</strong>`, and `info-box note` for softer guidance. A `warning` added alongside an existing `note` precedes it.
 - **CRD first, when a row offers both.** A row with a CRD and an annotation approach leads with the CRD in all three places a reader meets it: the collapsed NIC cell lists the CRD option before the `— or —`, the CRD tab comes first, and the CRD tab is the one marked `active` (with its pane). This matches the analyzer, whose default strategy is CRD-first, and holds even when the annotation is the newer answer. **One exception: `custom-http-errors`** leads with the annotation, because `nginx.org/custom-http-errors` proxies to a Service like the community controller while `errorPages[]` can only return or redirect; the row says so in a `Recommended` tip. An exception needs that tip and `preferAnnotation: "<reason>"` on its mapping: the analyzer then keeps it as an annotation under CRD-first too and shows the reason as an info note, and the wiring test reads the flag to know which rows lead with the annotation. The wiring suite asserts it (`rows with a CRD and an annotation approach lead with the CRD`). Rows whose first tab is a Policy (`Policy + Ingress (Recommended)`) are outside this rule; they have no plain annotation tab.
-- **A bold lead-in capitalises the word after an em dash.** The clause after the dash is a title: `New in v5.6.0 &mdash; Custom error pages and upstream Host on Ingress:`, not `— custom error pages`. A `<code>` identifier straight after the dash keeps its own case (`&mdash; <code>oidcNative</code> on Ingress` would pass), because the assertion reads the markup. Asserted by the wiring suite (`a bold lead-in capitalises the word after an em dash`).
+- **A bold lead-in capitalises the word after an em dash.** The clause after the dash is a title: `New in v5.5.0 &mdash; ExternalAuth Policy:`, not `— externalAuth policy`. A `<code>` identifier straight after the dash keeps its own case (`&mdash; <code>oidcNative</code> on Ingress` would pass), because the assertion reads the markup. Asserted by the wiring suite (`a bold lead-in capitalises the word after an em dash`).
 
 ## Accuracy: check all four, not just "does it exist?"
 
 Every annotation, ConfigMap key, CRD field or feature documented here **must exist in the version the tool's Version Reference banner names**. Verify with `mcp__github__get_file_contents` against that tag — not `main`, and never from memory. Never document unreleased features.
 
-**Record the result.** When you complete the four-point check for a mapping, add
-`verified: "<tag>"` to it. The Version-reference banner makes one claim about
-every mapping at once, so a version bump silently re-asserts all of them;
-`node .github/scripts/test-analyzer.js -v` prints how many carry a tag and how many are behind the
-current pin, which turns an unbounded re-audit into a queue that shrinks. It
-never fails on it — an empty queue is a goal, not a gate.
+**Record the result, in the same commit.** A mapping you touch is a mapping
+you check: run the four-point check on it as part of the change — a fix, a
+version bump, a new mapping — and set `verified: "<tag>"` there and then. The
+tag is a receipt for work done, never a task of its own: stamping tags after
+the fact means redoing the checks, which is an unasked audit. The
+Version-reference banner makes one claim about every mapping at once, so a
+version bump silently re-asserts all of them; `node
+.github/scripts/test-analyzer.js -v` prints how many carry a tag and how many
+are behind the current pin, so the next change knows what it has not
+re-checked. It never fails on it.
 
 That rule catches **fabrication**. It does not catch **staleness** — a construct that does exist but is described with outdated semantics, wrong defaults or status codes, or an incomplete field set. Staleness is the more dangerous of the two because an existence check passes straight over it, and adversarial intuition about these constructs is wrong roughly half the time. So check all four against the tagged source in both repos:
 
@@ -222,6 +226,34 @@ That rule catches **fabrication**. It does not catch **staleness** — a constru
 2. **Semantics match** — behaviour, status codes, defaults and value formats match the pinned source. *Example:* the community `auth-signin` accepts a full URL, but NIC's externalAuth `authSigninURI` is a **relative** URI (CRD pattern `^/.*$`), so the tool must strip the scheme and host rather than pass the URL through.
 3. **Complete** — no omitted fields or sub-options that exist in the pinned version and that a migrator would hit, and no combination NIC quietly reduces. *Example:* NIC's `accessControl` Policy is allow **xor** deny, and a resource that references an allow Policy and a deny Policy gets **only the allow list** (policy reference: "uses only the allow list policies"). Two Policies looked complete and let denied addresses inside the allowed range through. The first fix, one allow Policy plus a location-snippet `deny`, was then verified only inside the range (denied address 403, the rest of the range 200) and was a bypass: that Policy renders at server level, a location with access rules of its own inherits none from its server, and every address *outside* the allow list got 200 (nginx 1.31.7). The analyzer now puts the denies first in the same location — a route's own `routes[].policies` on a VirtualServer, the whole ordered list as `nginx.org/location-snippets` on an Ingress — and the test evaluates each client against the rendered rules. Verify a security control with the addresses it must refuse, not only the ones it must allow.
 4. **NIC side checked both ways** — NIC-side claims are neither overstated (e.g. "no HTTP fallback-service field" when VirtualServer/VirtualServerRoute upstreams have `backup`/`backupPort`) nor understated, and any Plus-only NIC capability (e.g. `least_time`, ExternalName upstream services) is labelled as such.
+
+### Settling what a controller does
+
+The four points are only as good as how "the pinned source" is read.
+
+- **The source controller's parsers, not its docs.** Read how it reads each
+  value: the bool parser (ingress-nginx's is `strconv.ParseBool`, so `on` and
+  `yes` are not booleans), the time and integer parsers, and the gates (a
+  setting that only fills in another's rule — `auth-realm` without `auth-type`
+  — did nothing). Then what an **invalid** value does, parser by parser: the
+  Ingress rejected, the default kept, or the setting dropped. The analyzer
+  migrates exactly what took effect, and says why for everything else.
+- **Values, swept.** The sweep tests (`analyzer.test.js`, and each preview
+  branch's counterpart) run every mapped key over a spread that tells the
+  readers apart — `''`, `true`, `t`, `1`, `on`, `yes`, `0`, `-1`, `100abc`,
+  `5 seconds`, `500us`, an address list with one bad entry, a header value with
+  a comma and one with a colon — against ports of NGINX Ingress Controller's
+  validators. Extend them rather than writing a one-off. `http-snippets` is the
+  blind spot: a bad line reaches `nginx.conf` unchecked and fails the reload
+  for every resource.
+- **Real binaries when the source leaves it open**: `docker run nginx:<the
+  version NGINX Ingress Controller ships>` (its `build/Dockerfile`). Three
+  traps: `return` answers in the rewrite phase, before access checks, so proxy
+  to a backend instead; Docker's port mapping hides the client address, so set
+  it per request (`set_real_ip_from 0.0.0.0/0; real_ip_header X-Test-IP;`) and
+  run a control that must fail first; and test the addresses a security
+  control must refuse, not only those it admits — the first allow-plus-deny
+  fix passed inside the range and let every address outside it through.
 
 ## Research sources
 

@@ -1,6 +1,7 @@
 ---
 description: Run every repository check and report which ones ran
 allowed-tools: Bash(python3 .github/scripts/check-all.py)
+disable-model-invocation: true
 ---
 
 Run the checks:

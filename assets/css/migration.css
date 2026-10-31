@@ -397,6 +397,10 @@ pre code { background: none; border: 0; padding: 0; color: inherit; }
 }
 .approach-content { display: none; }
 .approach-content.active { display: block; }
+/* The release notes: one info box, an approach tab per NGINX Ingress
+   Controller release, newest first. Under the box's lead-in the tabs take
+   the box's own 8px rhythm above and 16px to the panel. */
+.release-notes .approach-tabs { margin: var(--space-base) 0 var(--space-2x); }
 
 
 /* ── Badges ───────────────────────────────────────────────────────────────

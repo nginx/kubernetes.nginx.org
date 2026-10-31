@@ -654,8 +654,10 @@ test('what a reader sees names each product in full', () => {
     /* AGENTS.md: "NGINX Ingress Controller", "Ingress-NGINX" in titles. The
        notes and YAML comments had drifted to "NIC" in 40-odd places. Runs the
        presets and every mapped annotation, under both strategies, and reads
-       every string the plan holds, the mapping text and the page's own copy. */
-    const BAD = /\b(NIC|NGF)\b|F5 NGINX Ingress Controller|community NGINX|behaviour|\b\w*([Nn]ormalis|[Rr]ecognis|[Oo]rganis|[Hh]onour|[Cc]olour)\w*/;
+       every string the plan holds, the mapping text and the page's own copy.
+       "NGINX Open Source" is never shortened either, to "NGINX OSS" or a bare
+       "OSS" (F5 terminology); ten had sat on the page unseen by this list. */
+    const BAD = /\b(NIC|NGF|OSS)\b|F5 NGINX Ingress Controller|community NGINX|behaviour|\b\w*([Nn]ormalis|[Rr]ecognis|[Oo]rganis|[Hh]onour|[Cc]olour)\w*/;
     const found = new Set();
     const walk = (o, where) => {
         if (typeof o === 'string') { if (BAD.test(o)) found.add(where + ': ' + o.match(new RegExp('.{0,40}' + BAD.source + '.{0,20}'))[0]); return; }

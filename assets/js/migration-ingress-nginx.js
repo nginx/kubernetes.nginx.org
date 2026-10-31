@@ -168,7 +168,7 @@
               nicMapping: { crdKind: "VirtualServer", crdInstall: true, templateFn: "generateSessionAffinityVS" } },
             // Plus: WAF
             // ModSecurity / WAF — no OSS replacement; Plus users can use F5 WAF for NGINX
-            { community: ["enable-modsecurity", "enable-owasp-core-rules", "modsecurity-snippet", "modsecurity-transaction-id"], nic: "No direct replacement (OSS) — F5 WAF for NGINX available with Plus", type: "unsupported", category: "ModSecurity / WAF", anchor: "modsecurity", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["enable-modsecurity", "enable-owasp-core-rules", "modsecurity-snippet", "modsecurity-transaction-id"], nic: "No direct replacement on NGINX Open Source — F5 WAF for NGINX needs NGINX Plus", type: "unsupported", category: "ModSecurity / WAF", anchor: "modsecurity", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: {} }
         ];
 
@@ -248,7 +248,7 @@
                     // NIC rejects the Ingress for any of them.
                     // ewma scored each backend by a decayed average of connect plus
                     // response time (ewma.lua). least_time last_byte also picks by
-                    // average time to the full response, and is NGINX OSS since
+                    // average time to the full response, and is NGINX Open Source since
                     // 1.31.0, accepted on OSS by NIC v5.7.0's ParseLBMethod.
                     let lbAliases = { 'ewma': 'least_time last_byte', 'round_robin': 'round_robin' };
                     let trimmed = (value || '').trim();
@@ -2025,7 +2025,7 @@
             if (f.aliases && f.aliases.length) ctx.note('server-alias', 'Add ' + f.aliases.join(', ') + ' as further rules on the Ingress (and its TLS hosts), or switch to CRD-first, which emits a VirtualServer per alias.', 'warning');
             if (f.proxy.responseHeaders) { /* custom-headers placeholder already on nginx.org/add-header */ }
             if (f.sticky) {
-                // nginx.org/sticky-cookie-services works on NGINX OSS since 1.29.6.
+                // nginx.org/sticky-cookie-services works on NGINX Open Source since 1.29.6.
                 let services = [];
                 model.hosts.forEach(function(h) { h.paths.forEach(function(p) { if (p.backend && p.backend.service && services.indexOf(p.backend.service) === -1) services.push(p.backend.service); }); });
                 let s = f.sticky;
