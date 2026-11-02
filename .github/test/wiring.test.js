@@ -146,6 +146,19 @@ for (const p of PAGES) {
         assert.ok(checked >= 3, `expected several multi-category sections, checked ${checked}`);
     });
 
+    // A mapping's category is the label the analyzer prints beside a finding, and
+    // the reader then looks for that heading in the reference tables. Nothing
+    // renders them together, so drift is invisible until someone hunts for a
+    // heading that does not exist — "Access Control" against "Access control".
+    test(`${p.name}: every mapping category is a heading on the page, verbatim`, () => {
+        const headings = new Set([...page.matchAll(/<h3 id="[\w-]+">(.*?)<\/h3>/g)]
+            .map((m) => m[1].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').trim()));
+        const categories = new Set([...mod.matchAll(/category: ['"]([^'"]+)['"]/g)].map((m) => m[1])
+            .filter((c) => !c.startsWith('categoryFilter')));
+        assert.ok(categories.size > 5, 'categories found');
+        assert.deepEqual([...categories].filter((c) => !headings.has(c)), [], 'categories without a matching h3');
+    });
+
     test(`${p.name}: version-binding attributes are present with static fallbacks`, () => {
         const attrs = [...mod.matchAll(/attr: '([\w-]+)'/g)].map((m) => m[1]);
         assert.ok(attrs.length >= 1);

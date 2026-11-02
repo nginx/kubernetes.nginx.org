@@ -70,7 +70,7 @@ shape below is illustrative:
 | `community` | source annotation names, alphabetical, without the prefix |
 | `nic` | the display string shown in the right-hand column |
 | `type` | `annotation`, `policy`, `virtualserver`, `transportserver`, `configmap`, `unsupported` — drives which plan step it lands in |
-| `category` | **must equal the `<h3>` text verbatim**, sentence case — asserted by `check-classes.py` |
+| `category` | **must equal the `<h3>` text verbatim**, sentence case — asserted by `check-classes.py` (against the heading its `anchor` names) and by the wiring suite (some heading on the page carries it) |
 | `anchor` | the `<h3 id>` this row lives under |
 | `section` | `oss` or `plus` — where the analyzer's "See Reference Guide" link points (`plus-mappings` or `mappings`) |
 | `dualApproach` | the row offers both an annotation and a CRD; the chosen strategy picks which one the analyzer emits |
