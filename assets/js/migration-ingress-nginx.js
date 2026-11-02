@@ -1423,6 +1423,27 @@
         //   options   { ingressClass, nameSuffix, canaryStable (model), target }
         // Returns { docs, comments (per doc), notes, todos, swaps, configMap,
         //           consumedBy (annotation → mapping), unmatched, unsupported }.
+        // What an Ingress carries that no VirtualServer field or snippet can:
+        // a preferAnnotation mapping that took effect (custom-http-errors serves
+        // pages from a Service; errorPages only redirect or return), an
+        // nginx.org annotation buildCrd has no form for, or a rule with no host.
+        // Each is a reason the Ingress stays an Ingress under CRD-first.
+        function ingressOnly(model, a, matched, f, ctx) {
+            let why = [];
+            matched.forEach(function(entry) {
+                if (!entry.mapping.preferAnnotation) return;
+                if (entry.translator === 'generateErrorPagesVirtualServer' && !(f.errorCodes && f.errorCodes.length && f.defaultBackendService)) return;
+                why.push(entry.found.map(function(x) { return x.annotation; }).join(', ') + ' (' + entry.mapping.preferAnnotation + ')');
+            });
+            let FORMS = { 'nginx.org/ssl-redirect': 1, 'nginx.org/redirect-to-https': 1, 'nginx.org/http-redirect-code': 1,
+                'nginx.org/proxy-redirect-from': 1, 'nginx.org/proxy-redirect-to': 1, 'nginx.org/proxy-max-temp-file-size': 1,
+                'nginx.org/ssl-ciphers': 1, 'nginx.org/ssl-prefer-server-ciphers': 1 };
+            let noForm = Object.keys(f.ann).filter(function(k) { return !FORMS[k] && !ctx.covered[k] && k !== 'nginx.org/custom-http-errors'; });
+            if (noForm.length) why.push(noForm.join(', ') + ' (no VirtualServer field or snippet carries ' + (noForm.length > 1 ? 'them' : 'it') + ')');
+            if (!model.hosts.length && !f.passthrough) why.push('a rule with no host (a VirtualServer needs one)');
+            return why;
+        }
+
         function migrateIngress(model, strategy, options) {
             options = options || {};
             let ctx = makeCtx(model, strategy);
@@ -1475,14 +1496,6 @@
             ctx.model = model;
             entries.forEach(function(entry) {
                 ctx.entry = entry;
-                // preferAnnotation (custom-http-errors): the annotation form is the
-                // better answer, but CRD-first emits a VirtualServer, which cannot
-                // carry it. So CRD-first emits the CRD form and says, as a warning,
-                // why annotation-first suits this Ingress better — when there is
-                // anything to migrate.
-                if (entry.mapping.preferAnnotation && strategy === 'crd' && !options.ignorePreferAnnotation && !(entry.translator === 'generateErrorPagesVirtualServer' && badErrorCodes(a).length)) {
-                    ctx.note(entry.found[0].annotation, 'Annotation-first is recommended for this Ingress: ' + entry.mapping.preferAnnotation, 'warning');
-                }
                 track(entry, function() {
                     try {
                         TRANSLATORS[entry.translator](a, f, ctx, entry);
@@ -1513,6 +1526,20 @@
                 });
             });
 
+            // CRD-first, except where a setting has no CRD form: the Ingress
+            // stays an Ingress, as annotation-first builds it, with the reason.
+            // nic-migrate's virtualserver target asks for a VirtualServer
+            // regardless (keepIngress false) and is told what it loses.
+            if (strategy === 'crd') {
+                let why = ingressOnly(model, a, matched, f, ctx);
+                if (why.length && options.keepIngress === false) ctx.note('strategy', 'A VirtualServer was asked for, and loses what only an Ingress carries: ' + why.join('; ') + '. Annotation-first (or --target ingress) keeps it.', 'warning');
+                else if (why.length) {
+                    let kept = migrateIngress(model, 'annotation', options);
+                    kept.notes.unshift({ annotation: 'strategy', message: 'Kept as an Ingress under CRD-first: ' + why.join('; ') + '. A VirtualServer would lose ' + (why.length > 1 ? 'them' : 'it') + '.', severity: 'warning' });
+                    kept.keptIngress = why;
+                    return kept;
+                }
+            }
             let out = strategy === 'crd' ? buildCrd(model, f, ctx, options) : buildIngress(model, f, ctx, options);
 
             // Every recognised annotation must be findable in the output: named
@@ -2598,7 +2625,7 @@
                     initial: 'crd',
                     descriptions: {
                         annotation: 'Keep the Ingress with NGINX annotations, plus the Policies it references',
-                        crd: 'A VirtualServer per host plus Policies; settings with no VirtualServer field go into its snippets'
+                        crd: 'A VirtualServer per host plus Policies; an Ingress stays one only where a setting has no VirtualServer form'
                     }
                 },
                 samplePresets: SAMPLE_PRESETS,

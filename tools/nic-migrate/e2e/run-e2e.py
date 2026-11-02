@@ -130,6 +130,19 @@ def wait_for(what, fn, timeout=300, interval=3):
     raise Fail('timed out after %ds waiting for %s (last: %s)' % (timeout, what, last))
 
 
+def steady(fn, times=5):
+    """A condition that holds `times` checks in a row, for wait_for. A
+    controller reloads more than once as the source settles (the Ingress, then
+    its TLS Secret, then annotated Services): one 200 between two reloads let
+    the baseline start, and the next request got the default server's 404."""
+    streak = {'n': 0}
+
+    def check():
+        streak['n'] = streak['n'] + 1 if fn() else 0
+        return streak['n'] >= times
+    return check
+
+
 # ----------------------------------------------------------------- phases
 
 def reachable_context():
@@ -225,6 +238,10 @@ def self_test():
     check('connect-to redirects to the service', 'h:443:svc.ns.svc:443' in cmd, True)
     check('no Host header override', not any(a.startswith('Host:') for a in cmd), True)
 
+    seq = iter([True, False, True, True, True, True, True])
+    st = steady(lambda: next(seq))
+    check('steady needs an unbroken run', [st() for _ in range(7)], [False, False, False, False, False, False, True])
+
     plain = curl_argv('svc.ns.svc', dict(host='h', path='/'))
     check('http uses port 80', plain[-1], 'http://h:80/')
     check('http omits -k', '-k' not in plain, True)
@@ -248,6 +265,19 @@ def self_test():
             check('readiness polls through refusals', True, True)
         except Fail as err:
             check('readiness polls through refusals', str(err), 'no failure')
+        # Readiness asks over plain HTTP even when the first case is HTTPS: no
+        # TLS server exists for the host before the converted resources do.
+        asked = []
+        saved_cases = g['CASES']
+        g['CASES'] = [dict(name='tls-first', host='h', path='/', scheme='https')]
+        g['http'] = lambda target, case: asked.append(case.get('scheme', 'http')) or {'status': 404}
+        try:
+            check_nic_ready('t')
+            check('readiness probes over plain HTTP', asked[:1], ['http'])
+        except Fail as err:
+            check('readiness probes over plain HTTP', str(err), 'no failure')
+        finally:
+            g['CASES'] = saved_cases
         g['http'] = lambda target, case: {'status': 0, 'error': 'refused'}
         try:
             check_nic_ready('t')
@@ -762,8 +792,8 @@ def main():
         versions['ingress-nginx'] = install_community(args)
         apply_source(args)
         community_target = controller_service(COMMUNITY_NS, COMMUNITY_SELECTOR)
-        wait_for('the community controller to serve the Ingress',
-                 lambda: http(community_target, CASES[0])['status'] == 200, timeout=180)
+        wait_for('the community controller to serve the Ingress, five times running',
+                 steady(lambda: http(community_target, CASES[0])['status'] == 200), timeout=180, interval=1)
         baseline, failures = probe_absolute(args, community_target, 'ingress-nginx')
         stages_run.append('baseline')
         if failures:
@@ -786,8 +816,8 @@ def main():
         phase('Stage 3 — converted, both controllers serving')
         converted = convert(args)
         apply_converted(args, converted)
-        wait_for('NIC to serve the converted resources',
-                 lambda: http(nic_target, CASES[0])['status'] in (200, 301, 308), timeout=180)
+        wait_for('NIC to serve the converted resources, five times running',
+                 steady(lambda: http(nic_target, CASES[0])['status'] in (200, 301, 308)), timeout=180, interval=1)
 
         say('\n  ingress-nginx, still serving the original:')
         _, regressions = probe_absolute(args, community_target, 'ingress-nginx')
@@ -844,10 +874,14 @@ def check_nic_ready(nic_target):
     # http() returns a dict even for a refused connection (status 0), and a
     # dict is truthy: `http(...) or None` returned on the first attempt, so a
     # controller still starting read as one that never answered. Poll the status.
+    # Over plain HTTP whatever the first case's scheme: with no resource yet,
+    # NIC has no TLS server for the host, and a handshake failure (curl exit
+    # 35) would read as a controller that is not up.
     last = {}
+    plain = dict(CASES[0], scheme='http')
 
     def answered():
-        last.update(http(nic_target, CASES[0]))
+        last.update(http(nic_target, plain))
         return last if last['status'] else None
     try:
         probe = wait_for('NIC to answer on its Service', answered, timeout=120)

@@ -1393,6 +1393,8 @@ def command_failures():
 # whose own row must still match. An entry that stops differing fails too, so
 # the list cannot outlive its reason.
 ALTERNATIVE_TABS = {
+    ('error-handling', 'crd'): 'VirtualServer errorPages, what a VirtualServer can do instead: CRD-first keeps this '
+                             'Ingress an Ingress (custom-http-errors has no CRD form); --target virtualserver emits it',
     ('cors', 'annotation'): 'CORS as server snippets: the hand-written alternative to the Policy the analyzer emits',
     ('cors', 'crd-headers'): 'CORS as VirtualServer responseHeaders: the declarative alternative to the Policy',
     ('oidc-authentication', 'ingress-policy'): 'NGINX Plus oidcNative: needs an issuer and client credentials no annotation carries',

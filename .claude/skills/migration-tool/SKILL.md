@@ -79,7 +79,7 @@ shape below is illustrative:
 | `templateFn` | the translator in `TRANSLATORS` that turns this mapping's annotations into fragments; it must exist, and every translator must be named (asserted) |
 | `nicMapping.crdKind` | the kind of resource the mapping's CRD form produces, for the reference row and the mapping index |
 | `vsField` | on an annotation entry, the VirtualServer upstream field it sets under CRD-first (`generateUpstreamSettingsVS`, every upstream), converted with the entry's own `transform`; under annotation-first the entry's `key` is written instead |
-| `preferAnnotation` | on a `dualApproach` mapping, a reason string: the annotation form is the better answer. CRD-first still emits the CRD form (there is no Ingress to carry the annotation) and shows the reason as a warning recommending annotation-first (only `custom-http-errors`) |
+| `preferAnnotation` | on a `dualApproach` mapping, a reason string: the annotation has no CRD form. CRD-first keeps that Ingress an Ingress (`ingressOnly`: also an `nginx.org/*` annotation `buildCrd` has no snippet for, or a rule with no host), as annotation-first builds it, and gives the reason as a warning; the row leads with the annotation. `nic-migrate convert --target virtualserver` passes `keepIngress: false` and gets the CRD form with a note of what it loses (only `custom-http-errors`) |
 
 `transform` is nested inside each annotation entry, not a top-level field — a
 misspelling there falls through `translateValue`'s `default: return value` and

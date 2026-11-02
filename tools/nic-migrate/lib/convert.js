@@ -12,10 +12,13 @@
    cluster for spec.defaultBackend, and report each note as a line on stderr.
    ========================================================================= */
 
-/* The page's analyzer keeps a preferAnnotation mapping as an annotation under
-   annotation-first; the targets pick the strategy, so nothing to override. */
+/* The page's CRD-first keeps an Ingress whose settings no VirtualServer
+   carries (custom-http-errors, a rule with no host). The virtualserver
+   target promises a VirtualServer per host, so it asks for one regardless
+   (keepIngress false) and the notes say what it loses; --target ingress
+   keeps every Ingress. */
 function planOptions(opts) {
-    return { ingressClass: opts.ingressClass || null, nameSuffix: opts.nameSuffix || '' };
+    return { ingressClass: opts.ingressClass || null, nameSuffix: opts.nameSuffix || '', keepIngress: opts.target !== 'virtualserver' };
 }
 
 /* A minimal model for naming and reporting: the assembler builds its own. */

@@ -582,16 +582,17 @@ const ERRORS = (extra) => {
     return doc;
 };
 
-test('custom-http-errors under CRD-first gets errorPages and recommends annotation-first', () => {
-    /* preferAnnotation: the annotation serves error pages from a Service, which
-       VirtualServer errorPages cannot. CRD-first emits one VirtualServer per
-       host, which cannot carry the annotation, so it emits errorPages (a
-       canned body keeping the status) and says why annotation-first is better. */
+test('custom-http-errors under CRD-first keeps the Ingress, which alone serves the pages', () => {
+    /* CRD by default, an Ingress where a setting has no CRD form: the
+       annotation serves error pages from a Service, which VirtualServer
+       errorPages cannot (they redirect or return a canned body). So CRD-first
+       keeps this Ingress an Ingress, as annotation-first builds it, and says
+       why. The virtualserver target asks for a VirtualServer regardless. */
     const result = engine.analyze(Y.stringify(ERRORS()), 'crd');
-    assert.match(result.yaml, /errorPages:/);
-    assert.ok(!/nginx\.org\/custom-http-errors/.test(result.yaml), result.yaml);
-    assert.ok(result.plan.infoNotes.some((n) => /Annotation-first is recommended/.test(n.message) && n.severity === 'warning'),
-        'the recommendation must be a warning');
+    assert.match(result.yaml, /nginx\.org\/custom-http-errors/);
+    assert.ok(!/errorPages:/.test(result.yaml) && !/kind: VirtualServer/.test(result.yaml), result.yaml);
+    assert.ok(result.plan.infoNotes.some((n) => /Kept as an Ingress under CRD-first/.test(n.message) && n.severity === 'warning'),
+        'the reason must be a warning');
 });
 
 test('the virtualserver target gets errorPages, and is told what it loses', () => {
