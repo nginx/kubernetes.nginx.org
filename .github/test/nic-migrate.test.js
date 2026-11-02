@@ -296,6 +296,21 @@ test('an unmapped annotation is reported rather than silently dropped', () => {
     assert.match(note.message, /not-a-real-annotation/);
 });
 
+test('the report prints a ConfigMap change once, under ConfigMap changes', () => {
+    /* The ConfigMap step is a comparison block too, and "Annotation swaps"
+       read every comparison: the ConfigMap printed twice, and under crd it was
+       the only thing listed as an annotation swap. */
+    const { renderReport } = require(path.join(TOOL, 'lib', 'render.js'));
+    const yaml = ing(['proxy-body-size: "8m"', 'enable-access-log: "false"'], ONE_RULE);
+    for (const strategy of ['annotation', 'crd']) {
+        const result = engine.analyze(yaml, strategy);
+        const item = { desc: describeIngress(yaml), result, gaps: sortGaps(detect(describeIngress(yaml), result)) };
+        const out = renderReport([item], { strategy, colour: false });
+        assert.equal((out.match(/^\s*kind: ConfigMap$/gm) || []).length, 1, strategy + ':\n' + out);
+        assert.equal(/Annotation swaps/.test(out), strategy === 'annotation', strategy + ':\n' + out);
+    }
+});
+
 test('the checklist is read from the published page, not duplicated here', () => {
     const items = loadChecklist();
     assert.ok(items.length >= 20, 'expected the full checklist, got ' + items.length + ' items');

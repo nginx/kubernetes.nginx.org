@@ -564,31 +564,22 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/denylist-source-range: "10.1.2.3"
     nginx.ingress.kubernetes.io/whitelist-source-range: "10.0.0.0/8,172.16.0.0/12"</code></pre></div>
-                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># 1. One allow Policy — NGINX Ingress Controller applies only the allow
-#    list when a resource references allow and deny Policies,
-#    so the deny list is not a Policy.
-apiVersion: k8s.nginx.org/v1
-kind: Policy
-metadata:
-  name: my-app-access-control
-spec:
-  accessControl:
-    allow:  # whitelist-source-range
-      - "10.0.0.0/8"
-      - "172.16.0.0/12"
----
-# 2. Reference it from the Ingress, and deny the addresses inside the
-#    allowed ranges in a location snippet, which NGINX checks first.
+                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># The community order — deny, then allow, then deny all — as one location
+# snippet. An Ingress cannot place a Policy after its snippet: an
+# nginx.org/policies allow list renders at server level, and a snippet
+# deny in the location would stop the location inheriting it.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: my-app
   annotations:
-    nginx.org/policies: "my-app-access-control"  # attaches the Policy above
-    nginx.org/location-snippets: |  # denylist-source-range
-      deny 10.1.2.3;</code></pre></div>
+    nginx.org/location-snippets: |  # denylist-source-range + whitelist-source-range
+      deny 10.1.2.3;
+      allow 10.0.0.0/8;
+      allow 172.16.0.0/12;
+      deny all;</code></pre></div>
                                 </div>
-                                <div class="info-box warning"><strong>Allow plus deny:</strong> When a resource references an allow and a deny Policy, NGINX Ingress Controller applies only the allow list. The community controller checked the deny list first, so an address inside an allowed range could still be denied. Keep that by denying those addresses in a location snippet: NGINX evaluates it before the Policy's <code>allow</code> rules. Denied addresses outside every allowed range need nothing, because allow-only already blocks them. Snippets need the controller's <code>-enable-snippets</code> flag.</div>
+                                <div class="info-box warning"><strong>Allow plus deny:</strong> When a resource references an allow and a deny Policy, NGINX Ingress Controller applies only the allow list. The community controller checked the deny list first, so an address inside an allowed range could still be denied. NGINX takes the first <code>allow</code> or <code>deny</code> that matches, and a location with rules of its own inherits none from its server, where a Policy in <code>spec.policies</code> or <code>nginx.org/policies</code> renders. So never pair a location-snippet <code>deny</code> with such a Policy: it lifts the allow list for every client (verified on nginx 1.31.7: an address outside it got <code>200</code>). Put the denies first in the same location instead, as above. Denied ranges that overlap no allowed range need nothing, because allow-only already blocks them. Snippets need the controller's <code>-enable-snippets</code> flag.</div>
                                 <div class="info-box note"><strong>New in v5.4.0:</strong> AccessControl policies can now be referenced directly from Ingress resources using the <code>nginx.org/policies</code> annotation. This is the simplest migration path — you stay on Ingress resources.</div>
                             </div>
                             <div class="approach-content" data-approach="vs-policy">
@@ -613,28 +604,28 @@ spec:
       - "10.0.0.0/8"
       - "172.16.0.0/12"
 ---
-# 2. Reference it from the VirtualServer, and deny the addresses inside the
-#    allowed ranges in a location snippet, which NGINX checks first.
+# 2. Reference it from each route, not spec.policies: a route's Policy
+#    renders in the location after its snippet, so the deny comes first.
 apiVersion: k8s.nginx.org/v1
 kind: VirtualServer
 metadata:
   name: my-app
 spec:
   host: app.example.com
-  policies:
-    - name: my-app-access-control
   upstreams:
     - name: backend
       service: backend-svc
       port: 80
   routes:
     - path: /
+      policies:
+        - name: my-app-access-control
       location-snippets: |  # denylist-source-range
         deny 10.1.2.3;
       action:
         pass: backend</code></pre></div>
                                 </div>
-                                <div class="info-box warning"><strong>Allow plus deny:</strong> When a resource references an allow and a deny Policy, NGINX Ingress Controller applies only the allow list. The community controller checked the deny list first, so an address inside an allowed range could still be denied. Keep that by denying those addresses in a location snippet: NGINX evaluates it before the Policy's <code>allow</code> rules. Denied addresses outside every allowed range need nothing, because allow-only already blocks them. Snippets need the controller's <code>-enable-snippets</code> flag.</div>
+                                <div class="info-box warning"><strong>Allow plus deny:</strong> When a resource references an allow and a deny Policy, NGINX Ingress Controller applies only the allow list. The community controller checked the deny list first, so an address inside an allowed range could still be denied. NGINX takes the first <code>allow</code> or <code>deny</code> that matches, and a location with rules of its own inherits none from its server, where a Policy in <code>spec.policies</code> or <code>nginx.org/policies</code> renders. So never pair a location-snippet <code>deny</code> with such a Policy: it lifts the allow list for every client (verified on nginx 1.31.7: an address outside it got <code>200</code>). Put the denies first in the same location instead, as above. Denied ranges that overlap no allowed range need nothing, because allow-only already blocks them. Snippets need the controller's <code>-enable-snippets</code> flag.</div>
                                 <div class="info-box note"><strong>Note:</strong> The VirtualServer approach has been available since before v5.4.0. Use this if you are already migrating to VirtualServer resources for other reasons (e.g., advanced routing, traffic splitting).</div>
                             </div>
                         </div></td></tr>
@@ -1733,15 +1724,20 @@ spec:
                             <td><span class="badge badge-configmap">ConfigMap</span> <code>stream-snippets</code><span class="or-text">— or —</span><span class="badge badge-globalconfiguration">GlobalConfiguration CRD</span> +<span class="badge badge-transportserver">TransportServer CRD</span></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code>apiVersion: networking.k8s.io/v1
+                            <div class="approach-tabs">
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="configmap">ConfigMap Snippet</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="transportserver">TransportServer CRD</button>
+                            </div>
+                            <div class="approach-content active" data-approach="configmap">
+                                <div class="comparison">
+                                    <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code>apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/stream-snippet: |
       server { listen 3306; proxy_pass mysql; }</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># 1. As-is: the stream-snippets key of the global ConfigMap
+                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># As-is: the stream-snippets key of the global ConfigMap
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -1764,9 +1760,19 @@ spec:
   routes:
     - path: /
       action:
-        pass: backend
----
-# 2. Long-term: a GlobalConfiguration listener + TransportServer
+        pass: backend</code></pre></div>
+                                </div>
+                            </div>
+                            <div class="approach-content" data-approach="transportserver">
+                                <div class="comparison">
+                                    <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.ingress.kubernetes.io/stream-snippet: |
+      server { listen 3306; proxy_pass mysql; }</code></pre></div>
+                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># Long-term: a listener and a TransportServer
 apiVersion: k8s.nginx.org/v1
 kind: GlobalConfiguration
 metadata:
@@ -1784,7 +1790,7 @@ metadata:
   name: mysql-tcp
 spec:
   listener:
-    name: mysql-tcp  # references GlobalConfiguration listener
+    name: mysql-tcp  # the GlobalConfiguration listener
     protocol: TCP
   upstreams:
     - name: mysql
@@ -1792,6 +1798,7 @@ spec:
       port: 3306
   action:
     pass: mysql</code></pre></div>
+                                </div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> The analyzer moves the snippet as-is into the <code>stream-snippets</code> ConfigMap key, which, like <code>http-snippets</code>, does not need the <code>-enable-snippets</code> flag. Its upstreams name Services by DNS, which NGINX resolves once at reload, so a Pod change is not picked up until the next one. A TransportServer behind a GlobalConfiguration listener tracks the Pod endpoints instead, which makes it the long-term form.</div>
                         </div></td></tr>
@@ -6326,14 +6333,19 @@ data:
                             <td><code>server-snippets</code><span class="or-text">— or —</span><code>nginx.org/custom-http-errors</code> <span class="badge badge-new">New v5.6.0</span></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
+                            <div class="approach-tabs">
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="snippet">Snippet Approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                            </div>
+                            <div class="approach-content active" data-approach="snippet">
+                                <div class="comparison">
+                                    <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ingress-nginx-controller
 data:
   custom-http-errors: "404,503"</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+                                    <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
 kind: ConfigMap
 metadata:
   name: nginx-config
@@ -6346,6 +6358,41 @@ data:
       proxy_intercept_errors off;
       proxy_pass http://error-pages.default.svc.cluster.local;
     }</code></pre></div>
+                                </div>
+                            </div>
+                            <div class="approach-content" data-approach="annotation">
+                                <div class="comparison">
+                                    <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
+  custom-http-errors: "404,503"</code></pre></div>
+                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># Per Ingress: on each Ingress that intercepts errors
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/custom-http-errors: "404,503"  # custom-http-errors
+spec:
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-svc
+                port:
+                  number: 80
+  defaultBackend:  # the community controller's default backend
+    service:
+      name: error-pages
+      port:
+        number: 80</code></pre></div>
+                                </div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> The community key is controller-wide and sends errors to the controller's default backend; NGINX Ingress Controller has no ConfigMap key for it. Controller-wide, a <code>server-snippets</code> entry must define both the <code>error_page</code> and the named location it targets, and the Service in <code>proxy_pass</code> must exist when NGINX reloads or the reload fails. Per Ingress, <code>nginx.org/custom-http-errors</code> (v5.6.0+) does the same without snippets, sending errors to that Ingress's <code>spec.defaultBackend</code> — see <a href="#error-handling">Error handling</a>.</div>
                         </div></td></tr>

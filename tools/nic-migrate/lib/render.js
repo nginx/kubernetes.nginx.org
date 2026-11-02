@@ -23,11 +23,14 @@ function makeStyle(useColour) {
     };
 }
 
-/* The annotation-swap YAML the engine produced, dug out of the presentation
-   model. steps[].blocks[] of type 'comparison' hold the before/after pair. */
+/* The migrated Ingress the engine produced, dug out of the presentation
+   model: the annotation-first step (analyzer-step-1). The ConfigMap step is a
+   comparison too, and is shown under "ConfigMap changes"; reading every
+   comparison here printed it twice. */
 function swapYaml(plan) {
     const out = [];
     for (const step of (plan && plan.steps) || []) {
+        if (step.id !== 'analyzer-step-1') continue;
         for (const block of step.blocks || []) {
             if (block.type === 'comparison' && block.new && block.new.yaml) out.push(block.new.yaml);
         }

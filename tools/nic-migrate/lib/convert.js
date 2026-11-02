@@ -65,7 +65,7 @@ function format(model, out, opts) {
     if (out.unrecognized.length) notes.push('not in the mapping database: ' + out.unrecognized.join(', '));
     if (strategy === 'crd' && docs.some((d) => /snippets/.test(JSON.stringify(d.spec || {}))) ||
         docs.some((d) => d.metadata && d.metadata.annotations && /snippets/.test(Object.keys(d.metadata.annotations).join(',')))) {
-        notes.push('output uses snippets, which NIC REJECTS unless the controller runs with snippets enabled — helm --set controller.enableSnippets=true');
+        notes.push('output uses snippets, which NGINX Ingress Controller rejects unless NGINX Ingress Controller runs with -enable-snippets (Helm: controller.enableSnippets=true)');
     }
     resolveDefaultBackend(docs, model, opts, notes);
     return {

@@ -271,7 +271,7 @@
    "type": "annotation",
    "crdKind": "VirtualServer",
    "templateFn": "generateUpstreamSettingsVS",
-   "transform": "direct"
+   "transform": "goBoolFalse"
   },
   {
    "community": [
@@ -521,7 +521,7 @@
    "type": "annotation",
    "crdKind": null,
    "templateFn": null,
-   "transform": "direct"
+   "transform": "goBoolFalse"
   },
   {
    "community": [
@@ -554,7 +554,7 @@
    "type": "annotation",
    "crdKind": null,
    "templateFn": null,
-   "transform": "direct"
+   "transform": "goBoolTrue"
   },
   {
    "community": [

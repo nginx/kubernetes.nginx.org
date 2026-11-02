@@ -495,7 +495,7 @@ def token_table():
 def list_tokens(needle='', verbose=False):
     """Every token with its light and dark value, on one line each.
 
-    tokens.css is 32KB, and reading it whole to answer "which green do I use
+    tokens.css is 34KB, and reading it whole to answer "which green do I use
     for text" is the single most wasteful habit here. This is the same
     information at roughly a fifth the size, and a needle narrows it to almost
     nothing.
@@ -1399,6 +1399,9 @@ ALTERNATIVE_TABS = {
     ('oidc-authentication', 'vs-policy'): 'NGINX Plus oidc on a VirtualServer: same reason',
     ('headers', '(single)'): 'nginx.org/add-header, a NIC-only annotation, written by hand in place of a '
                              'configuration-snippet; the analyzer carries the snippet over unchanged',
+    ('configuration-snippets', 'transportserver'): 'stream-snippet as a GlobalConfiguration listener and '
+                             'TransportServer: the long-term form, read from the snippet by hand; the analyzer '
+                             'moves the snippet to the stream-snippets key',
 }
 
 
