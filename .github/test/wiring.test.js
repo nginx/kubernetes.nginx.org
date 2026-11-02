@@ -354,3 +354,31 @@ for (const p of PAGES) {
         assert.deepEqual(lower, [], 'lead-ins with a lowercase letter after the em dash');
     });
 }
+
+test('shell commands are highlighted without losing a character', () => {
+    /* highlightShell() rebuilds a command as spans, so a regex gap drops text
+       from what a reader sees, though Copy still reads the raw text. Run it
+       over every command block on the page and a few that exercise pipes,
+       quotes and variables: the text must survive whole, and each role land
+       where index.html's hand-highlighted commands put it. */
+    const start = core.indexOf('        let SHELL_START');
+    const end = core.indexOf('        // Build an inline SVG icon');
+    assert.ok(start > 0 && end > start, 'highlightShell() is where this test expects it');
+    const doc = {
+        createDocumentFragment: () => ({ kids: [], appendChild(n) { this.kids.push(n); } }),
+        createElement: () => ({ className: '', textContent: '' }),
+        createTextNode: (t) => ({ className: '', textContent: t })
+    };
+    const { highlightShell, SHELL_START } = new Function('document', core.slice(start, end) + '; return { highlightShell, SHELL_START };')(doc);
+    const run = (t) => highlightShell(t).kids;
+    const page = read('ingress-nginx-migration.html');
+    const blocks = [...page.matchAll(/<pre[^>]*><code[^>]*>([^<]*)<\/code><\/pre>/g)].map((m) => m[1].replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'))
+        .filter((t) => SHELL_START.test(t.trimStart()));
+    assert.ok(blocks.length >= 3, 'the page still has command blocks: ' + blocks.length);
+    const extra = ['kubectl get svc -o jsonpath="{.spec.ports[0].port}" | grep 80 && echo "ok $HOME ${X}"', '# comment\nhelm upgrade --install x y --version 2.8.0 --namespace=nginx'];
+    for (const t of blocks.concat(extra)) assert.equal(run(t).map((k) => k.textContent).join(''), t);
+    const roles = (t) => run(t).filter((k) => k.className).map((k) => k.className.replace('sh-', '') + ':' + k.textContent);
+    assert.deepEqual(roles('helm install x \\\n  --set a.b=nginx-nic \\\n  --set c=true --version 2.8.0'),
+        ['cmd:helm', 'punct:\\', 'flag:--set', 'key:a.b', 'punct:=', 'str:nginx-nic', 'punct:\\', 'flag:--set', 'key:c', 'punct:=', 'cmd:true', 'flag:--version', 'num:2.8.0']);
+    assert.deepEqual(roles('a | b && c'), ['cmd:a', 'punct:|', 'cmd:b', 'punct:&&', 'cmd:c']);
+});

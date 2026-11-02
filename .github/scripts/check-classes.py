@@ -426,10 +426,12 @@ def classes_used_in_js(js_path):
         compared = set(re.findall(r"[=!]==?\s*'([^']+)'", expr))
         found += [lit for lit in re.findall(r"'([^']+)'", expr) if lit not in compared]
     found += re.findall(r"setAttribute\(\s*'class'\s*,\s*([^)]*)\)", text)
-    # A class chosen by a helper: a function named *Class returns one
-    # (commentClass). Its literals were invisible here, so their live rules
-    # read as unreachable and failed this check.
+    # Classes chosen by a helper: a function named *Class returns one
+    # (commentClass, shellValueClass), and the shell highlighter's span()
+    # takes one as its first argument. Both were invisible here, so their
+    # live rules read as unreachable and failed this check.
     found += re.findall(r"function \w+Class\([^)]*\)\s*\{\s*return ([^;\n]+)", text)
+    found += re.findall(r"\bspan\(\s*'([^']+)'", text)
     # Also catch classes inside HTML the renderer builds as a string —
     # otherwise a live class looks unreferenced and could be deleted.
     found += re.findall(r'class="([^"]+)"', text)

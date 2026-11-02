@@ -794,6 +794,16 @@ pre code { background: none; border: 0; padding: 0; color: inherit; }
 .yaml-bool      { color: var(--code-keyword); }
 .yaml-number    { color: var(--code-number); }
 .yaml-separator { color: var(--code-punct); }
+/* Shell commands: the roles index.html's .code-block uses (.cmd, .flag,
+   .str, .comment), on the same code palette. A --set key is a Helm values
+   path, so it is plain, with its value as a string after the =. */
+.sh-cmd     { color: var(--code-keyword); }
+.sh-flag    { color: var(--code-key); }
+.sh-key     { color: var(--code-fg); }
+.sh-num     { color: var(--code-number); }
+.sh-str     { color: var(--code-string); }
+.sh-comment { color: var(--code-comment); font-style: italic; }
+.sh-punct   { color: var(--code-punct); }
 
 
 /* ── Analyzer ─────────────────────────────────────────────────────────────── */
@@ -1565,6 +1575,11 @@ button.analyzer-pill { font-family: var(--font); }
     .yaml-number { color: var(--pomegranate-text) !important; }
     .yaml-comment, .yaml-separator { color: var(--n550) !important; }
     .yaml-todo { color: var(--n700) !important; background: var(--n300) !important; }
+    .sh-cmd, .sh-flag { color: var(--blue-deep) !important; }
+    .sh-str  { color: var(--java-text) !important; }
+    .sh-key  { color: var(--n700) !important; }
+    .sh-num  { color: var(--pomegranate-text) !important; }
+    .sh-comment, .sh-punct { color: var(--n550) !important; }
 
     .analyzer-success-banner { border: 1px solid var(--n300); }
     body { background: var(--n0); }

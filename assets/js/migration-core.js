@@ -979,7 +979,9 @@
         function highlightBlock(block) {
             if (block.dataset.highlighted) return;
             try {
-                let frag = highlightYaml(block.textContent);
+                // A command block is shell; everything else on this page is YAML.
+                let shell = block.getAttribute('data-lang') === 'shell' || SHELL_START.test(block.textContent.replace(/^(\s*#.*\n)+/, '').trimStart());
+                let frag = shell ? highlightShell(block.textContent) : highlightYaml(block.textContent);
                 block.textContent = '';
                 block.appendChild(frag);
                 block.dataset.highlighted = '1';
@@ -1570,6 +1572,51 @@
             return frag;
         }
 
+        // Shell commands get the landing page's four roles (index.html's
+        // .code-block: .cmd, .flag, .str, .comment), on the same code palette
+        // as YAML. A command word opens the line and follows |, &&, || and ;;
+        // a flag is -x or --name, and on `--set k=v` the key reads as a flag
+        // and the value as a string. Quotes, $VAR and ${…} are strings; a
+        // trailing \ is punctuation. Only colour changes, never width.
+        let SHELL_START = /^(helm|kubectl|curl|docker|git|node|python3?|nic-migrate|ingress2gateway|export|cd|echo|cat|go|brew)\b/;
+        // Values after "=" take YAML's colours: true/false a keyword, a number a number.
+        function shellValueClass(v) { return /^(true|false)$/.test(v) ? 'sh-cmd' : /^\d+(\.\d+)*$/.test(v) ? 'sh-num' : 'sh-str'; }
+        function highlightShell(text) {
+            let frag = document.createDocumentFragment();
+            // Each call names its class as a literal, which check-classes.py reads.
+            let span = function(cls, t) { let e = document.createElement('span'); e.className = cls; e.textContent = t; frag.appendChild(e); };
+            let plain = function(t) { if (t) frag.appendChild(document.createTextNode(t)); };
+            text.split('\n').forEach(function(line, i) {
+                if (i > 0) plain('\n');
+                let re = /(\s+)|(#.*$)|("(?:[^"\\]|\\.)*"|'[^']*')|(\$\{[^}]*\}|\$[A-Za-z_]\w*)|(\|\||&&|[|;])|(\\$)|([^\s"'|;&]+)/g;
+                let m, expectCmd = !/^\s/.test(line) || i === 0, afterSet = false;
+                while ((m = re.exec(line))) {
+                    if (m[1]) plain(m[1]);
+                    else if (m[2]) span('sh-comment', m[2]);
+                    else if (m[3] || m[4]) span('sh-str', m[0]);
+                    else if (m[5]) { span('sh-punct', m[5]); expectCmd = true; }
+                    else if (m[6]) span('sh-punct', m[6]);
+                    else {
+                        let w = m[7];
+                        if (expectCmd) { span('sh-cmd', w); expectCmd = false; }
+                        else if (/^--?[A-Za-z]/.test(w)) {
+                            let eq = w.indexOf('=');
+                            if (eq > 0) { span('sh-flag', w.slice(0, eq)); span('sh-punct', '='); span(shellValueClass(w.slice(eq + 1)), w.slice(eq + 1)); }
+                            else span('sh-flag', w);
+                            afterSet = /^--set(-string|-file|-json)?$/.test(w);
+                            continue;
+                        } else if (afterSet && w.indexOf('=') > 0) {
+                            let eq = w.indexOf('=');
+                            span('sh-key', w.slice(0, eq)); span('sh-punct', '='); span(shellValueClass(w.slice(eq + 1)), w.slice(eq + 1));
+                        } else if (/^\d+(\.\d+)*$/.test(w)) span('sh-num', w);
+                        else plain(w);
+                        afterSet = false;
+                    }
+                }
+            });
+            return frag;
+        }
+
         // Build an inline SVG icon: makeSvg({attrs}, [['path', {d}], …]).
         // No default attributes on purpose — these icons are a mix of stroked
         // and filled, and silently defaulting a stroke onto a filled path
@@ -1591,7 +1638,7 @@
         // used to have the same accessible name, "Copy", so a screen reader
         // listing buttons heard a column of identical entries.
         let _yamlBlockSeq = 0;
-        function buildYamlBlock(text, collapsible, label) {
+        function buildYamlBlock(text, collapsible, label, lang) {
             let pre = document.createElement('div');
             pre.className = 'analyzer-yaml-output';
             pre.id = 'analyzer-yaml-' + (++_yamlBlockSeq);
@@ -1599,10 +1646,10 @@
             copyBtn.type = 'button';
             copyBtn.className = 'analyzer-copy-btn';
             copyBtn.textContent = 'Copy';
-            if (label) copyBtn.setAttribute('aria-label', 'Copy YAML: ' + label);
+            if (label) copyBtn.setAttribute('aria-label', (lang === 'shell' ? 'Copy command: ' : 'Copy YAML: ') + label);
             copyBtn.addEventListener('click', function() { copyAnalyzerBlock(copyBtn); });
             pre.appendChild(copyBtn);
-            pre.appendChild(highlightYaml(text));
+            pre.appendChild(lang === 'shell' ? highlightShell(text) : highlightYaml(text));
             pre.setAttribute('data-raw', text);
             let lineCount = text.split('\n').length;
             if (collapsible && lineCount > 12 && !/#[^\n]*TODO:/.test(text)) {
@@ -1871,7 +1918,7 @@
                 pre.items.forEach(function(n) {
                     step0.appendChild(buildNoteCard(n.severity === 'warning' ? 'warning' : 'note', { code: n.code, text: n.message }));
                 });
-                step0.appendChild(buildYamlBlock(pre.command, false, 'Helm install command'));
+                step0.appendChild(buildYamlBlock(pre.command, false, 'Helm install command', 'shell'));
                 let why = document.createElement('ul');
                 why.className = 'analyzer-flag-list';
                 pre.flags.forEach(function(x) {
