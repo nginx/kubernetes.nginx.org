@@ -696,6 +696,44 @@ spec:
                 </table>
             </div>
 
+            <!-- Authentication (API Key) -->
+            <h3 id="authentication-api-key">Authentication (API key)</h3>
+            <div class="table-wrapper">
+                <table class="mapping-table" aria-labelledby="authentication-api-key"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
+                    <tbody>
+                        <tr class="expandable">
+                            <td>No direct equivalent</td>
+                            <td><span class="badge badge-policy">Policy CRD</span> <code>apiKey.suppliedIn</code> / <code>apiKey.clientSecret</code></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="comparison">
+                                <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code># No direct equivalent
+# Requires custom Lua or external service</code></pre></div>
+                                <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code>apiVersion: v1
+kind: Secret
+metadata:
+  name: api-keys
+type: nginx.org/apikey
+data:
+  client1: YXBpa2V5MTIzNDU=
+---
+apiVersion: k8s.nginx.org/v1
+kind: Policy
+metadata:
+  name: api-key-auth
+spec:
+  apiKey:
+    clientSecret: api-keys
+    suppliedIn:
+      header: [X-API-Key]
+      query: [api_key]</code></pre></div>
+                            </div>
+                                <div class="info-box note"><strong>Note:</strong> The <code>apiKey</code> Policy works with NGINX Open Source &mdash; unlike the <code>jwt</code>, <code>oidc</code>, and <code>waf</code> Policies, it is <strong>not</strong> gated on NGINX Plus. Attach it to a VirtualServer or VirtualServerRoute via <code>spec.policies</code> (the <code>apiKey</code> Policy is not attachable to an Ingress via <code>nginx.org/policies</code>).</div>
+                        </div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
             <!-- Authentication - Basic -->
             <h3 id="authentication-basic">Authentication (basic)</h3>
             <div class="table-wrapper">
@@ -1088,44 +1126,6 @@ metadata:
 # No migration action needed for this annotation.</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> The community controller supports global external authentication via ConfigMap keys (<code>global-auth-url</code>, etc.). The <code>enable-global-auth: "false"</code> annotation opts an Ingress out of this global setting. NGINX Ingress Controller does not have global external auth — authentication is always configured per-resource (via the <code>externalAuth</code>/<code>oidc</code>/<code>jwt</code> Policy CRDs or <code>location-snippets</code>). This annotation can be safely removed during migration.</div>
-                        </div></td></tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Authentication (API Key) -->
-            <h3 id="authentication-api-key">Authentication (API key)</h3>
-            <div class="table-wrapper">
-                <table class="mapping-table" aria-labelledby="authentication-api-key"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
-                    <tbody>
-                        <tr class="expandable">
-                            <td>No direct equivalent</td>
-                            <td><span class="badge badge-policy">Policy CRD</span> <code>apiKey.suppliedIn</code> / <code>apiKey.clientSecret</code></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code># No direct equivalent
-# Requires custom Lua or external service</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code>apiVersion: v1
-kind: Secret
-metadata:
-  name: api-keys
-type: nginx.org/apikey
-data:
-  client1: YXBpa2V5MTIzNDU=
----
-apiVersion: k8s.nginx.org/v1
-kind: Policy
-metadata:
-  name: api-key-auth
-spec:
-  apiKey:
-    clientSecret: api-keys
-    suppliedIn:
-      header: [X-API-Key]
-      query: [api_key]</code></pre></div>
-                            </div>
-                                <div class="info-box note"><strong>Note:</strong> The <code>apiKey</code> Policy works with NGINX Open Source &mdash; unlike the <code>jwt</code>, <code>oidc</code>, and <code>waf</code> Policies, it is <strong>not</strong> gated on NGINX Plus. Attach it to a VirtualServer or VirtualServerRoute via <code>spec.policies</code> (the <code>apiKey</code> Policy is not attachable to an Ingress via <code>nginx.org/policies</code>).</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -2702,82 +2702,150 @@ spec:
                 </table>
             </div>
 
-            <!-- Request Mirroring -->
-            <h3 id="mirroring">Request mirroring</h3>
+            <!-- ModSecurity / WAF -->
+            <h3 id="modsecurity">ModSecurity / WAF</h3>
             <div class="table-wrapper">
-                <table class="mapping-table" aria-labelledby="mirroring"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="modsecurity"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
-                            <td><code>nginx.ingress.kubernetes.io/mirror-host</code><br><code>nginx.ingress.kubernetes.io/mirror-request-body</code><br><code>nginx.ingress.kubernetes.io/mirror-target</code></td>
-                            <td><span class="badge badge-virtualserver">VirtualServer CRD</span> <code>routes[].location-snippets</code> / <span class="badge badge-virtualserver">VirtualServer CRD</span> <code>spec.server-snippets</code><span class="or-text">— or —</span><code>nginx.org/location-snippets</code><br><code>nginx.org/server-snippets</code></td>
+                            <td><code>nginx.ingress.kubernetes.io/enable-modsecurity</code><br><code>nginx.ingress.kubernetes.io/enable-owasp-core-rules</code><br><code>nginx.ingress.kubernetes.io/modsecurity-snippet</code><br><code>nginx.ingress.kubernetes.io/modsecurity-transaction-id</code></td>
+                            <td>No direct replacement on NGINX Open Source — see <a href="#waf">WAF</a> (NGINX Plus)</td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="comparison">
+                                <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.ingress.kubernetes.io/enable-modsecurity: "true"
+    nginx.ingress.kubernetes.io/enable-owasp-core-rules: "true"
+    nginx.ingress.kubernetes.io/modsecurity-snippet: |
+      SecRuleEngine On
+      SecRule ARGS "@contains &lt;script&gt;" "id:1,deny,status:403"
+    nginx.ingress.kubernetes.io/modsecurity-transaction-id: "$request_id"</code></pre></div>
+                                <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># No direct NGINX Open Source replacement
+# For WAF capabilities, see the Plus WAF section
+# which uses the F5 WAF for NGINX (App Protect)</code></pre></div>
+                            </div>
+                            <div class="info-box warning"><strong>No NGINX Open Source equivalent:</strong> NGINX Ingress Controller does not include ModSecurity or any built-in WAF module. For WAF capabilities, <a href="#waf">F5 WAF for NGINX</a> is available with NGINX Plus — see the <a href="#waf">WAF section</a> in NGINX Plus mappings for migration examples.</div>
+                            <div class="info-box note"><strong>Note:</strong> The community controller's ModSecurity support relies on a third-party module compiled into the controller image — it is not a native Kubernetes-integrated WAF solution. Neither controller provides an open-source WAF alternative.</div>
+                        </div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- mTLS (Backend) -->
+            <h3 id="mtls-backend">mTLS (backend/egress)</h3>
+            <div class="table-wrapper">
+                <table class="mapping-table" aria-labelledby="mtls-backend"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
+                    <tbody>
+                        <tr class="expandable">
+                            <td><code>nginx.ingress.kubernetes.io/proxy-ssl-ciphers</code><br><code>nginx.ingress.kubernetes.io/proxy-ssl-name</code><br><code>nginx.ingress.kubernetes.io/proxy-ssl-protocols</code><br><code>nginx.ingress.kubernetes.io/proxy-ssl-secret</code><br><code>nginx.ingress.kubernetes.io/proxy-ssl-server-name</code><br><code>nginx.ingress.kubernetes.io/proxy-ssl-verify</code><br><code>nginx.ingress.kubernetes.io/proxy-ssl-verify-depth</code></td>
+                            <td><span class="badge badge-policy">Policy CRD</span> <code>egressMTLS.*</code> + <code>nginx.org/policies</code> <span class="badge badge-new">New v5.5.0</span><span class="or-text">— or —</span><span class="badge badge-policy">Policy CRD</span> <code>egressMTLS.*</code> + <span class="badge badge-virtualserver">VirtualServer</span> <code>policies[]</code></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="ingress-policy">Policy + Ingress (Recommended)</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="vs-policy">Policy + VirtualServer</button>
                             </div>
-                            <div class="approach-content" data-approach="annotation">
+                            <div class="approach-content active" data-approach="ingress-policy">
                                 <div class="comparison">
                                     <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code>apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: my-app
   annotations:
-    nginx.ingress.kubernetes.io/mirror-host: "mirror.example.com"
-    nginx.ingress.kubernetes.io/mirror-request-body: "on"
-    nginx.ingress.kubernetes.io/mirror-target: "https://mirror.example.com$request_uri"</code></pre></div>
-                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/proxy-ssl-ciphers: "HIGH:!aNULL:!MD5"
+    nginx.ingress.kubernetes.io/proxy-ssl-name: "backend.example.com"
+    nginx.ingress.kubernetes.io/proxy-ssl-protocols: "TLSv1.2 TLSv1.3"
+    nginx.ingress.kubernetes.io/proxy-ssl-secret: "ns/client-cert"
+    nginx.ingress.kubernetes.io/proxy-ssl-server-name: "on"
+    nginx.ingress.kubernetes.io/proxy-ssl-verify: "on"
+    nginx.ingress.kubernetes.io/proxy-ssl-verify-depth: "2"</code></pre></div>
+                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># 1. Create the EgressMTLS Policy
+apiVersion: k8s.nginx.org/v1
+kind: Policy
+metadata:
+  name: my-app-egress-mtls
+spec:
+  egressMTLS:
+    tlsSecret: client-cert  # proxy-ssl-secret (tls.crt, tls.key)
+    verifyServer: true  # proxy-ssl-verify
+    trustedCertSecret: client-cert  # proxy-ssl-secret (its ca.crt)
+    verifyDepth: 2  # proxy-ssl-verify-depth
+    ciphers: "HIGH:!aNULL:!MD5"  # proxy-ssl-ciphers
+    protocols: "TLSv1.2 TLSv1.3"  # proxy-ssl-protocols
+    serverName: true  # proxy-ssl-server-name
+    sslName: "backend.example.com"  # proxy-ssl-name
+---
+# 2. Reference from Ingress (new in v5.5.0)
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: my-app
   annotations:
-    nginx.org/location-snippets: |  # mirror-target + mirror-request-body
-      mirror /_mirror-my-app;
-      mirror_request_body on;
-    nginx.org/server-snippets: |  # mirror-target + mirror-host
-      location = /_mirror-my-app {
-          internal;
-          proxy_set_header Host mirror.example.com;
-          proxy_pass https://mirror.example.com$request_uri;
-      }</code></pre></div>
+    nginx.org/policies: "my-app-egress-mtls"  # attaches the Policy above
+    nginx.org/ssl-services: "my-service"  # backend-protocol HTTPS (the Ingress's backend Service)</code></pre></div>
                                 </div>
+                                <div class="info-box warning"><strong>Secrets and upstream TLS:</strong> The community controller read the client certificate and the CA from one <code>proxy-ssl-secret</code>. NGINX Ingress Controller reads <code>tls.crt</code> and <code>tls.key</code> for <code>tlsSecret</code> and <code>ca.crt</code> for <code>trustedCertSecret</code>, by key rather than by Secret type since v5.7.0, so both fields can name that same Secret, in the Policy's namespace. The Policy applies only to an upstream that already speaks TLS, which <code>backend-protocol: "HTTPS"</code> sets up as <code>nginx.org/ssl-services</code> or upstream <code>tls.enable</code>.</div>
+                                <div class="info-box note"><strong>New in v5.5.0:</strong> The <code>egressMTLS</code> Policy CRD can now be referenced directly from Ingress resources using the <code>nginx.org/policies</code> annotation. This is the simplest migration path — you stay on Ingress resources. Combine with <code>nginx.org/ssl-services</code> to identify which backend services should use TLS.</div>
                             </div>
-                            <div class="approach-content active" data-approach="crd">
+                            <div class="approach-content" data-approach="vs-policy">
                                 <div class="comparison">
                                     <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code>apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: my-app
   annotations:
-    nginx.ingress.kubernetes.io/mirror-host: "mirror.example.com"
-    nginx.ingress.kubernetes.io/mirror-request-body: "on"
-    nginx.ingress.kubernetes.io/mirror-target: "https://mirror.example.com$request_uri"</code></pre></div>
-                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code>apiVersion: k8s.nginx.org/v1
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    nginx.ingress.kubernetes.io/proxy-ssl-ciphers: "HIGH:!aNULL:!MD5"
+    nginx.ingress.kubernetes.io/proxy-ssl-name: "backend.example.com"
+    nginx.ingress.kubernetes.io/proxy-ssl-protocols: "TLSv1.2 TLSv1.3"
+    nginx.ingress.kubernetes.io/proxy-ssl-secret: "ns/client-cert"
+    nginx.ingress.kubernetes.io/proxy-ssl-server-name: "on"
+    nginx.ingress.kubernetes.io/proxy-ssl-verify: "on"
+    nginx.ingress.kubernetes.io/proxy-ssl-verify-depth: "2"</code></pre></div>
+                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># 1. Create the EgressMTLS Policy
+apiVersion: k8s.nginx.org/v1
+kind: Policy
+metadata:
+  name: my-app-egress-mtls
+spec:
+  egressMTLS:
+    tlsSecret: client-cert  # proxy-ssl-secret (tls.crt, tls.key)
+    verifyServer: true  # proxy-ssl-verify
+    trustedCertSecret: client-cert  # proxy-ssl-secret (its ca.crt)
+    verifyDepth: 2  # proxy-ssl-verify-depth
+    ciphers: "HIGH:!aNULL:!MD5"  # proxy-ssl-ciphers
+    protocols: "TLSv1.2 TLSv1.3"  # proxy-ssl-protocols
+    serverName: true  # proxy-ssl-server-name
+    sslName: "backend.example.com"  # proxy-ssl-name
+---
+# 2. Reference from VirtualServer
+apiVersion: k8s.nginx.org/v1
 kind: VirtualServer
 metadata:
   name: my-app
 spec:
   host: app.example.com
-  server-snippets: |  # mirror-target + mirror-host
-    location = /_mirror-my-app {
-        internal;
-        proxy_set_header Host mirror.example.com;
-        proxy_pass https://mirror.example.com$request_uri;
-    }
+  policies:  # attaches the Policy above
+    - name: my-app-egress-mtls
   upstreams:
     - name: backend
       service: backend-svc
       port: 80
+      tls:  # backend-protocol HTTPS
+        enable: true
   routes:
     - path: /
-      location-snippets: |  # mirror-target + mirror-request-body
-        mirror /_mirror-my-app;
-        mirror_request_body on;
       action:
         pass: backend</code></pre></div>
                                 </div>
+                                <div class="info-box warning"><strong>Secrets and upstream TLS:</strong> The community controller read the client certificate and the CA from one <code>proxy-ssl-secret</code>. NGINX Ingress Controller reads <code>tls.crt</code> and <code>tls.key</code> for <code>tlsSecret</code> and <code>ca.crt</code> for <code>trustedCertSecret</code>, by key rather than by Secret type since v5.7.0, so both fields can name that same Secret, in the Policy's namespace. The Policy applies only to an upstream that already speaks TLS, which <code>backend-protocol: "HTTPS"</code> sets up as <code>nginx.org/ssl-services</code> or upstream <code>tls.enable</code>.</div>
+                                <div class="info-box note"><strong>Note:</strong> The VirtualServer approach has been available since before v5.5.0. TLS to upstream is enabled per-upstream via <code>tls.enable: true</code> (replacing the Ingress-level <code>nginx.org/ssl-services</code> annotation).</div>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> This is the internal location the community controller generated for <code>mirror-target</code>. Without <code>mirror-host</code>, set <code>Host</code> to the target's hostname, as the community controller did; <code>mirror_request_body</code> is <code>on</code> unless <code>mirror-request-body</code> is <code>off</code>. A target with NGINX variables, such as <code>$request_uri</code>, makes NGINX resolve its hostname per request, and that needs a <code>resolver</code>. The community controller always configured one; NGINX Ingress Controller does not, so add a <code>resolver</code> line to the server snippet (on NGINX Plus, the <code>resolver-addresses</code> ConfigMap key also works), or the mirror requests fail. Snippets need the controller's <code>-enable-snippets</code> flag.</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -2945,155 +3013,6 @@ spec:
                                 </div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> The NGINX Ingress Controller's <code>ingressMTLS</code> Policy does not have a built-in CN matching feature. Use <code>location-snippets</code> to add custom CN validation logic.</div>
-                        </div></td></tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- mTLS (Backend) -->
-            <h3 id="mtls-backend">mTLS (backend/egress)</h3>
-            <div class="table-wrapper">
-                <table class="mapping-table" aria-labelledby="mtls-backend"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
-                    <tbody>
-                        <tr class="expandable">
-                            <td><code>nginx.ingress.kubernetes.io/proxy-ssl-ciphers</code><br><code>nginx.ingress.kubernetes.io/proxy-ssl-name</code><br><code>nginx.ingress.kubernetes.io/proxy-ssl-protocols</code><br><code>nginx.ingress.kubernetes.io/proxy-ssl-secret</code><br><code>nginx.ingress.kubernetes.io/proxy-ssl-server-name</code><br><code>nginx.ingress.kubernetes.io/proxy-ssl-verify</code><br><code>nginx.ingress.kubernetes.io/proxy-ssl-verify-depth</code></td>
-                            <td><span class="badge badge-policy">Policy CRD</span> <code>egressMTLS.*</code> + <code>nginx.org/policies</code> <span class="badge badge-new">New v5.5.0</span><span class="or-text">— or —</span><span class="badge badge-policy">Policy CRD</span> <code>egressMTLS.*</code> + <span class="badge badge-virtualserver">VirtualServer</span> <code>policies[]</code></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="approach-tabs">
-                                <button class="approach-tab active" data-action="switchApproach" data-approach="ingress-policy">Policy + Ingress (Recommended)</button>
-                                <button class="approach-tab" data-action="switchApproach" data-approach="vs-policy">Policy + VirtualServer</button>
-                            </div>
-                            <div class="approach-content active" data-approach="ingress-policy">
-                                <div class="comparison">
-                                    <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code>apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: my-app
-  annotations:
-    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
-    nginx.ingress.kubernetes.io/proxy-ssl-ciphers: "HIGH:!aNULL:!MD5"
-    nginx.ingress.kubernetes.io/proxy-ssl-name: "backend.example.com"
-    nginx.ingress.kubernetes.io/proxy-ssl-protocols: "TLSv1.2 TLSv1.3"
-    nginx.ingress.kubernetes.io/proxy-ssl-secret: "ns/client-cert"
-    nginx.ingress.kubernetes.io/proxy-ssl-server-name: "on"
-    nginx.ingress.kubernetes.io/proxy-ssl-verify: "on"
-    nginx.ingress.kubernetes.io/proxy-ssl-verify-depth: "2"</code></pre></div>
-                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># 1. Create the EgressMTLS Policy
-apiVersion: k8s.nginx.org/v1
-kind: Policy
-metadata:
-  name: my-app-egress-mtls
-spec:
-  egressMTLS:
-    tlsSecret: client-cert  # proxy-ssl-secret (tls.crt, tls.key)
-    verifyServer: true  # proxy-ssl-verify
-    trustedCertSecret: client-cert  # proxy-ssl-secret (its ca.crt)
-    verifyDepth: 2  # proxy-ssl-verify-depth
-    ciphers: "HIGH:!aNULL:!MD5"  # proxy-ssl-ciphers
-    protocols: "TLSv1.2 TLSv1.3"  # proxy-ssl-protocols
-    serverName: true  # proxy-ssl-server-name
-    sslName: "backend.example.com"  # proxy-ssl-name
----
-# 2. Reference from Ingress (new in v5.5.0)
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: my-app
-  annotations:
-    nginx.org/policies: "my-app-egress-mtls"  # attaches the Policy above
-    nginx.org/ssl-services: "my-service"  # backend-protocol HTTPS (the Ingress's backend Service)</code></pre></div>
-                                </div>
-                                <div class="info-box warning"><strong>Secrets and upstream TLS:</strong> The community controller read the client certificate and the CA from one <code>proxy-ssl-secret</code>. NGINX Ingress Controller reads <code>tls.crt</code> and <code>tls.key</code> for <code>tlsSecret</code> and <code>ca.crt</code> for <code>trustedCertSecret</code>, by key rather than by Secret type since v5.7.0, so both fields can name that same Secret, in the Policy's namespace. The Policy applies only to an upstream that already speaks TLS, which <code>backend-protocol: "HTTPS"</code> sets up as <code>nginx.org/ssl-services</code> or upstream <code>tls.enable</code>.</div>
-                                <div class="info-box note"><strong>New in v5.5.0:</strong> The <code>egressMTLS</code> Policy CRD can now be referenced directly from Ingress resources using the <code>nginx.org/policies</code> annotation. This is the simplest migration path — you stay on Ingress resources. Combine with <code>nginx.org/ssl-services</code> to identify which backend services should use TLS.</div>
-                            </div>
-                            <div class="approach-content" data-approach="vs-policy">
-                                <div class="comparison">
-                                    <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code>apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: my-app
-  annotations:
-    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
-    nginx.ingress.kubernetes.io/proxy-ssl-ciphers: "HIGH:!aNULL:!MD5"
-    nginx.ingress.kubernetes.io/proxy-ssl-name: "backend.example.com"
-    nginx.ingress.kubernetes.io/proxy-ssl-protocols: "TLSv1.2 TLSv1.3"
-    nginx.ingress.kubernetes.io/proxy-ssl-secret: "ns/client-cert"
-    nginx.ingress.kubernetes.io/proxy-ssl-server-name: "on"
-    nginx.ingress.kubernetes.io/proxy-ssl-verify: "on"
-    nginx.ingress.kubernetes.io/proxy-ssl-verify-depth: "2"</code></pre></div>
-                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># 1. Create the EgressMTLS Policy
-apiVersion: k8s.nginx.org/v1
-kind: Policy
-metadata:
-  name: my-app-egress-mtls
-spec:
-  egressMTLS:
-    tlsSecret: client-cert  # proxy-ssl-secret (tls.crt, tls.key)
-    verifyServer: true  # proxy-ssl-verify
-    trustedCertSecret: client-cert  # proxy-ssl-secret (its ca.crt)
-    verifyDepth: 2  # proxy-ssl-verify-depth
-    ciphers: "HIGH:!aNULL:!MD5"  # proxy-ssl-ciphers
-    protocols: "TLSv1.2 TLSv1.3"  # proxy-ssl-protocols
-    serverName: true  # proxy-ssl-server-name
-    sslName: "backend.example.com"  # proxy-ssl-name
----
-# 2. Reference from VirtualServer
-apiVersion: k8s.nginx.org/v1
-kind: VirtualServer
-metadata:
-  name: my-app
-spec:
-  host: app.example.com
-  policies:  # attaches the Policy above
-    - name: my-app-egress-mtls
-  upstreams:
-    - name: backend
-      service: backend-svc
-      port: 80
-      tls:  # backend-protocol HTTPS
-        enable: true
-  routes:
-    - path: /
-      action:
-        pass: backend</code></pre></div>
-                                </div>
-                                <div class="info-box warning"><strong>Secrets and upstream TLS:</strong> The community controller read the client certificate and the CA from one <code>proxy-ssl-secret</code>. NGINX Ingress Controller reads <code>tls.crt</code> and <code>tls.key</code> for <code>tlsSecret</code> and <code>ca.crt</code> for <code>trustedCertSecret</code>, by key rather than by Secret type since v5.7.0, so both fields can name that same Secret, in the Policy's namespace. The Policy applies only to an upstream that already speaks TLS, which <code>backend-protocol: "HTTPS"</code> sets up as <code>nginx.org/ssl-services</code> or upstream <code>tls.enable</code>.</div>
-                                <div class="info-box note"><strong>Note:</strong> The VirtualServer approach has been available since before v5.5.0. TLS to upstream is enabled per-upstream via <code>tls.enable: true</code> (replacing the Ingress-level <code>nginx.org/ssl-services</code> annotation).</div>
-                            </div>
-                        </div></td></tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- ModSecurity / WAF -->
-            <h3 id="modsecurity">ModSecurity / WAF</h3>
-            <div class="table-wrapper">
-                <table class="mapping-table" aria-labelledby="modsecurity"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
-                    <tbody>
-                        <tr class="expandable">
-                            <td><code>nginx.ingress.kubernetes.io/enable-modsecurity</code><br><code>nginx.ingress.kubernetes.io/enable-owasp-core-rules</code><br><code>nginx.ingress.kubernetes.io/modsecurity-snippet</code><br><code>nginx.ingress.kubernetes.io/modsecurity-transaction-id</code></td>
-                            <td>No direct replacement on NGINX Open Source — see <a href="#waf">WAF</a> (NGINX Plus)</td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code>apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: my-app
-  annotations:
-    nginx.ingress.kubernetes.io/enable-modsecurity: "true"
-    nginx.ingress.kubernetes.io/enable-owasp-core-rules: "true"
-    nginx.ingress.kubernetes.io/modsecurity-snippet: |
-      SecRuleEngine On
-      SecRule ARGS "@contains &lt;script&gt;" "id:1,deny,status:403"
-    nginx.ingress.kubernetes.io/modsecurity-transaction-id: "$request_id"</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># No direct NGINX Open Source replacement
-# For WAF capabilities, see the Plus WAF section
-# which uses the F5 WAF for NGINX (App Protect)</code></pre></div>
-                            </div>
-                            <div class="info-box warning"><strong>No NGINX Open Source equivalent:</strong> NGINX Ingress Controller does not include ModSecurity or any built-in WAF module. For WAF capabilities, <a href="#waf">F5 WAF for NGINX</a> is available with NGINX Plus — see the <a href="#waf">WAF section</a> in NGINX Plus mappings for migration examples.</div>
-                            <div class="info-box note"><strong>Note:</strong> The community controller's ModSecurity support relies on a third-party module compiled into the controller image — it is not a native Kubernetes-integrated WAF solution. Neither controller provides an open-source WAF alternative.</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -3595,6 +3514,87 @@ spec:
   #         url: ${scheme}://www.example.com${request_uri}
   #         code: 308</code></pre></div>
                             </div>
+                        </div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Request Mirroring -->
+            <h3 id="mirroring">Request mirroring</h3>
+            <div class="table-wrapper">
+                <table class="mapping-table" aria-labelledby="mirroring"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
+                    <tbody>
+                        <tr class="expandable">
+                            <td><code>nginx.ingress.kubernetes.io/mirror-host</code><br><code>nginx.ingress.kubernetes.io/mirror-request-body</code><br><code>nginx.ingress.kubernetes.io/mirror-target</code></td>
+                            <td><span class="badge badge-virtualserver">VirtualServer CRD</span> <code>routes[].location-snippets</code> / <span class="badge badge-virtualserver">VirtualServer CRD</span> <code>spec.server-snippets</code><span class="or-text">— or —</span><code>nginx.org/location-snippets</code><br><code>nginx.org/server-snippets</code></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="approach-tabs">
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">CRD Approach</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">Annotation Approach</button>
+                            </div>
+                            <div class="approach-content" data-approach="annotation">
+                                <div class="comparison">
+                                    <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.ingress.kubernetes.io/mirror-host: "mirror.example.com"
+    nginx.ingress.kubernetes.io/mirror-request-body: "on"
+    nginx.ingress.kubernetes.io/mirror-target: "https://mirror.example.com$request_uri"</code></pre></div>
+                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.org/location-snippets: |  # mirror-target + mirror-request-body
+      mirror /_mirror-my-app;
+      mirror_request_body on;
+    nginx.org/server-snippets: |  # mirror-target + mirror-host
+      location = /_mirror-my-app {
+          internal;
+          proxy_set_header Host mirror.example.com;
+          proxy_pass https://mirror.example.com$request_uri;
+      }</code></pre></div>
+                                </div>
+                            </div>
+                            <div class="approach-content active" data-approach="crd">
+                                <div class="comparison">
+                                    <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+  annotations:
+    nginx.ingress.kubernetes.io/mirror-host: "mirror.example.com"
+    nginx.ingress.kubernetes.io/mirror-request-body: "on"
+    nginx.ingress.kubernetes.io/mirror-target: "https://mirror.example.com$request_uri"</code></pre></div>
+                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code>apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: my-app
+spec:
+  host: app.example.com
+  server-snippets: |  # mirror-target + mirror-host
+    location = /_mirror-my-app {
+        internal;
+        proxy_set_header Host mirror.example.com;
+        proxy_pass https://mirror.example.com$request_uri;
+    }
+  upstreams:
+    - name: backend
+      service: backend-svc
+      port: 80
+  routes:
+    - path: /
+      location-snippets: |  # mirror-target + mirror-request-body
+        mirror /_mirror-my-app;
+        mirror_request_body on;
+      action:
+        pass: backend</code></pre></div>
+                                </div>
+                            </div>
+                            <div class="info-box note"><strong>Note:</strong> This is the internal location the community controller generated for <code>mirror-target</code>. Without <code>mirror-host</code>, set <code>Host</code> to the target's hostname, as the community controller did; <code>mirror_request_body</code> is <code>on</code> unless <code>mirror-request-body</code> is <code>off</code>. A target with NGINX variables, such as <code>$request_uri</code>, makes NGINX resolve its hostname per request, and that needs a <code>resolver</code>. The community controller always configured one; NGINX Ingress Controller does not, so add a <code>resolver</code> line to the server snippet (on NGINX Plus, the <code>resolver-addresses</code> ConfigMap key also works), or the mirror requests fail. Snippets need the controller's <code>-enable-snippets</code> flag.</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -5057,6 +5057,163 @@ spec:
                 <button class="btn btn-secondary" data-action="collapseAllExamples">Collapse All</button>
             </div>
 
+            <!-- ACME challenges -->
+            <h3 id="configmap-acme">ACME challenges</h3>
+            <div class="table-wrapper">
+                <table class="mapping-table" aria-labelledby="configmap-acme"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
+                    <tbody>
+                        <tr class="expandable">
+                            <td><code>no-auth-locations</code></td>
+                            <td>Automatic for cert-manager <span class="badge badge-new">New v5.7.0</span></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="comparison">
+                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
+  no-auth-locations: "/.well-known/acme-challenge"  # the community default</code></pre></div>
+                                <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># No ConfigMap key. cert-manager creates this
+# solver Ingress itself, and NGINX Ingress Controller
+# v5.7.0 and later exempts it from authentication.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cm-acme-http-solver-x7k2p
+  labels:
+    acme.cert-manager.io/http01-solver: "true"
+spec:
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /.well-known/acme-challenge/TOKEN
+            pathType: Exact
+            backend:
+              service:
+                name: cm-acme-http-solver-x7k2p
+                port:
+                  number: 8089</code></pre></div>
+                            </div>
+                            <div class="info-box note"><strong>New in v5.7.0:</strong> The community default let ACME challenges under <code>/.well-known/acme-challenge</code> past authentication. NGINX Ingress Controller exempts a challenge location only when it serves a cert-manager solver: a path under <code>/.well-known/acme-challenge/</code> whose backend Service name starts with <code>cm-acme-http-solver-</code>, so other ACME clients and other paths listed in this key have no equivalent and need a route without the auth Policy. On a VirtualServer this needs <code>-enable-cert-manager</code> and the solver's Ingress in the VirtualServer's namespace; on an Ingress, cert-manager adds the path with <code>acme.cert-manager.io/http01-edit-in-place: "true"</code>. Access control and rate limiting still apply to the challenge.</div>
+                        </div></td></tr>
+                        <tr class="expandable">
+                            <td><code>no-tls-redirect-locations</code></td>
+                            <td>Automatic for cert-manager <span class="badge badge-new">New v5.7.0</span></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="comparison">
+                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
+  no-tls-redirect-locations: "/.well-known/acme-challenge"  # the community default</code></pre></div>
+                                <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># No ConfigMap key. cert-manager creates this
+# solver Ingress itself, and NGINX Ingress Controller
+# v5.7.0 and later exempts it from the HTTPS redirect.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cm-acme-http-solver-x7k2p
+  labels:
+    acme.cert-manager.io/http01-solver: "true"
+spec:
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /.well-known/acme-challenge/TOKEN
+            pathType: Exact
+            backend:
+              service:
+                name: cm-acme-http-solver-x7k2p
+                port:
+                  number: 8089</code></pre></div>
+                            </div>
+                            <div class="info-box note"><strong>New in v5.7.0:</strong> The community default kept HTTP-01 challenges on plain HTTP even with <code>ssl-redirect</code> or <code>force-ssl-redirect</code>. NGINX Ingress Controller 5.7.0 does the same for an active cert-manager challenge: while one is active, every path under <code>/.well-known/acme-challenge/</code> on that host skips <code>tls.redirect</code>, <code>nginx.org/ssl-redirect</code> and <code>nginx.org/redirect-to-https</code>. Earlier versions redirected the challenge and the certificate could not renew. Other paths listed in this key have no equivalent.</div>
+                        </div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Headers -->
+            <h3 id="configmap-headers">Headers</h3>
+            <div class="table-wrapper">
+                <table class="mapping-table" aria-labelledby="configmap-headers"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
+                    <tbody>
+                        <tr class="expandable">
+                            <td><code>add-headers</code></td>
+                            <td><code>add-header</code> <span class="badge badge-new">New v5.5.0</span></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="comparison">
+                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
+  add-headers: "default/custom-headers"  # references another ConfigMap
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: custom-headers
+  namespace: default
+data:
+  X-Frame-Options: "SAMEORIGIN"
+  Strict-Transport-Security: "max-age=31536000"</code></pre></div>
+                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  add-header: "X-Frame-Options: SAMEORIGIN, Strict-Transport-Security: max-age=31536000"  # add-headers</code></pre></div>
+                            </div>
+                            <div class="info-box note"><strong>New in v5.5.0:</strong> The <code>add-header</code> ConfigMap key adds globally-applied response headers using a comma-separated <code>Name: Value</code> list. Unlike the community <code>add-headers</code> key (which references a separate ConfigMap of headers), values are specified inline.</div>
+                        </div></td></tr>
+                        <tr class="expandable">
+                            <td><code>hide-headers</code></td>
+                            <td><code>proxy-hide-headers</code></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="comparison">
+                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
+  hide-headers: "X-Powered-By,Server"</code></pre></div>
+                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  proxy-hide-headers: "X-Powered-By,Server"  # hide-headers</code></pre></div>
+                            </div>
+                        </div></td></tr>
+                        <tr class="expandable">
+                            <td>No direct equivalent</td>
+                            <td><code>add-header-inherit</code> <span class="badge badge-new">New v5.5.0</span></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="comparison">
+                                <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code># No equivalent ConfigMap key &mdash; the community
+# controller does not expose add_header_inherit.</code></pre></div>
+                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  add-header-inherit: "merge"  # on | off | merge</code></pre></div>
+                            </div>
+                            <div class="info-box note"><strong>New in v5.5.0:</strong> The <code>add-header-inherit</code> ConfigMap key sets the global default for <code>add_header_inherit</code>: <code>on</code> (inherit headers from outer contexts &mdash; the NGINX default), <code>off</code> (do not inherit), or <code>merge</code> (combine inner and outer headers). Per-Ingress override is available via the <code>nginx.org/add-header-inherit</code> annotation.</div>
+                        </div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
             <!-- Identical Keys -->
             <h3 id="configmap-identical">Identical keys</h3>
             <p>These keys have the same name and semantics in both controllers. No changes are needed when migrating.</p>
@@ -5507,14 +5664,14 @@ data:
                 </table>
             </div>
 
-            <!-- Proxy & Buffering -->
-            <h3 id="configmap-proxy-buffering">Proxy &amp; buffering</h3>
+            <!-- Keepalive & Timeouts -->
+            <h3 id="configmap-keepalive">Keepalive &amp; timeouts</h3>
             <div class="table-wrapper">
-                <table class="mapping-table" aria-labelledby="configmap-proxy-buffering"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="configmap-keepalive"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
-                            <td><code>proxy-body-size</code></td>
-                            <td><code>client-max-body-size</code></td>
+                            <td><code>keep-alive</code></td>
+                            <td><code>keepalive-timeout</code></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="comparison">
@@ -5523,19 +5680,19 @@ kind: ConfigMap
 metadata:
   name: ingress-nginx-controller
 data:
-  proxy-body-size: "8m"</code></pre></div>
+  keep-alive: "75"</code></pre></div>
                                 <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
 kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  client-max-body-size: "8m"  # proxy-body-size</code></pre></div>
+  keepalive-timeout: "75s"  # keep-alive</code></pre></div>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> Both keys map to the NGINX <code>client_max_body_size</code> directive. NGINX Ingress Controller uses the NGINX-native naming convention.</div>
+                            <div class="info-box note"><strong>Note:</strong> Both map to the NGINX <code>keepalive_timeout</code> directive. The NGINX Ingress Controller key uses the NGINX-native name and expects a time unit suffix (e.g., <code>"75s"</code>).</div>
                         </div></td></tr>
                         <tr class="expandable">
-                            <td><code>proxy-buffers-number</code></td>
-                            <td><code>proxy-buffers</code></td>
+                            <td><code>keep-alive-requests</code></td>
+                            <td><code>keepalive-requests</code></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="comparison">
@@ -5544,106 +5701,14 @@ kind: ConfigMap
 metadata:
   name: ingress-nginx-controller
 data:
-  proxy-buffers-number: "4"</code></pre></div>
+  keep-alive-requests: "1000"</code></pre></div>
                                 <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
 kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  proxy-buffers: "4 8k"  # proxy-buffers-number</code></pre></div>
+  keepalive-requests: "1000"  # keep-alive-requests</code></pre></div>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> The community key takes just a number (buffer count). The NGINX Ingress Controller key takes the full NGINX <code>proxy_buffers</code> format: <code>"number size"</code> (e.g., <code>"4 8k"</code>).</div>
-                        </div></td></tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- SSL/TLS -->
-            <h3 id="configmap-ssl-tls">SSL/TLS</h3>
-            <div class="table-wrapper">
-                <table class="mapping-table" aria-labelledby="configmap-ssl-tls"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
-                    <tbody>
-                        <tr class="expandable">
-                            <td><code>force-ssl-redirect</code></td>
-                            <td><code>redirect-to-https</code></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ingress-nginx-controller
-data:
-  force-ssl-redirect: "true"</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-data:
-  redirect-to-https: "true"  # force-ssl-redirect</code></pre></div>
-                            </div>
-                            <div class="info-box note"><strong>Note:</strong> The community controller uses an <code>X-Forwarded-Proto</code> header check to determine whether to redirect. NGINX Ingress Controller performs a direct HTTP-to-HTTPS redirect.</div>
-                        </div></td></tr>
-                        <tr class="expandable">
-                            <td><code>hsts-preload</code></td>
-                            <td>(included automatically)</td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ingress-nginx-controller
-data:
-  hsts: "true"
-  hsts-preload: "true"</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-data:
-  hsts: "true"</code></pre></div>
-                            </div>
-                            <div class="info-box note"><strong>Note:</strong> The NGINX Ingress Controller's <code>hsts: "true"</code> includes the <code>preload</code> directive by default. There is no separate <code>hsts-preload</code> key — just enable <code>hsts</code>. For HSTS without <code>preload</code>, use the <code>hsts</code> Policy CRD (v5.6.0+) on a VirtualServer — see <a href="#hsts">HSTS</a>.</div>
-                        </div></td></tr>
-                        <tr class="expandable">
-                            <td><code>ssl-dh-param</code></td>
-                            <td><code>ssl-dhparam-file</code></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ingress-nginx-controller
-data:
-  ssl-dh-param: "default/dh-param"</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-data:
-  ssl-dhparam-file: "/etc/nginx/secrets/dhparam.pem"  # ssl-dh-param</code></pre></div>
-                            </div>
-                            <div class="info-box note"><strong>Note:</strong> The community key references a Kubernetes secret name, while the NGINX Ingress Controller key expects a file path to the DH parameters file mounted into the pod.</div>
-                        </div></td></tr>
-                        <tr class="expandable">
-                            <td>No direct equivalent</td>
-                            <td><code>http-redirect-code</code> <span class="badge badge-new">New v5.4.0</span></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code># No equivalent ConfigMap key
-# Redirect code is not globally configurable</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-data:
-  redirect-to-https: "true"
-  http-redirect-code: "308"</code></pre></div>
-                            </div>
-                            <div class="info-box note"><strong>New in v5.4.0:</strong> The <code>http-redirect-code</code> ConfigMap key sets the global HTTP redirect status code used when redirecting to HTTPS (default: 301). Can also be set per-Ingress via the <code>nginx.org/http-redirect-code</code> annotation. Common values: 301 (permanent), 302 (temporary), 307 (temporary, preserves method), 308 (permanent, preserves method).</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -5819,14 +5884,14 @@ data:
                 </table>
             </div>
 
-            <!-- ACME challenges -->
-            <h3 id="configmap-acme">ACME challenges</h3>
+            <!-- OpenTelemetry -->
+            <h3 id="configmap-otel">OpenTelemetry</h3>
             <div class="table-wrapper">
-                <table class="mapping-table" aria-labelledby="configmap-acme"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="configmap-otel"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
-                            <td><code>no-auth-locations</code></td>
-                            <td>Automatic for cert-manager <span class="badge badge-new">New v5.7.0</span></td>
+                            <td><code>enable-opentelemetry</code></td>
+                            <td><code>otel-trace-in-http</code></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="comparison">
@@ -5835,34 +5900,20 @@ kind: ConfigMap
 metadata:
   name: ingress-nginx-controller
 data:
-  no-auth-locations: "/.well-known/acme-challenge"  # the community default</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># No ConfigMap key. cert-manager creates this
-# solver Ingress itself, and NGINX Ingress Controller
-# v5.7.0 and later exempts it from authentication.
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+  enable-opentelemetry: "true"</code></pre></div>
+                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: cm-acme-http-solver-x7k2p
-  labels:
-    acme.cert-manager.io/http01-solver: "true"
-spec:
-  rules:
-    - host: app.example.com
-      http:
-        paths:
-          - path: /.well-known/acme-challenge/TOKEN
-            pathType: Exact
-            backend:
-              service:
-                name: cm-acme-http-solver-x7k2p
-                port:
-                  number: 8089</code></pre></div>
+  name: nginx-config
+data:
+  otel-trace-in-http: "true"  # enable-opentelemetry
+  otel-exporter-endpoint: "otel-collector:4317"  # required: your collector (the community controller read otlp-collector-host, port 4317)</code></pre></div>
                             </div>
-                            <div class="info-box note"><strong>New in v5.7.0:</strong> The community default let ACME challenges under <code>/.well-known/acme-challenge</code> past authentication. NGINX Ingress Controller exempts a challenge location only when it serves a cert-manager solver: a path under <code>/.well-known/acme-challenge/</code> whose backend Service name starts with <code>cm-acme-http-solver-</code>, so other ACME clients and other paths listed in this key have no equivalent and need a route without the auth Policy. On a VirtualServer this needs <code>-enable-cert-manager</code> and the solver's Ingress in the VirtualServer's namespace; on an Ingress, cert-manager adds the path with <code>acme.cert-manager.io/http01-edit-in-place: "true"</code>. Access control and rate limiting still apply to the challenge.</div>
+                            <div class="info-box note"><strong>Note:</strong> <code>otel-trace-in-http</code> needs <code>otel-exporter-endpoint</code>: without it, NGINX Ingress Controller reports the ConfigMap invalid and leaves tracing off.</div>
                         </div></td></tr>
                         <tr class="expandable">
-                            <td><code>no-tls-redirect-locations</code></td>
-                            <td>Automatic for cert-manager <span class="badge badge-new">New v5.7.0</span></td>
+                            <td><code>otlp-collector-host</code><br><code>otlp-collector-port</code></td>
+                            <td><code>otel-exporter-endpoint</code></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="comparison">
@@ -5871,43 +5922,29 @@ kind: ConfigMap
 metadata:
   name: ingress-nginx-controller
 data:
-  no-tls-redirect-locations: "/.well-known/acme-challenge"  # the community default</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># No ConfigMap key. cert-manager creates this
-# solver Ingress itself, and NGINX Ingress Controller
-# v5.7.0 and later exempts it from the HTTPS redirect.
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+  otlp-collector-host: "otel-collector.observability"
+  otlp-collector-port: "4317"</code></pre></div>
+                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: cm-acme-http-solver-x7k2p
-  labels:
-    acme.cert-manager.io/http01-solver: "true"
-spec:
-  rules:
-    - host: app.example.com
-      http:
-        paths:
-          - path: /.well-known/acme-challenge/TOKEN
-            pathType: Exact
-            backend:
-              service:
-                name: cm-acme-http-solver-x7k2p
-                port:
-                  number: 8089</code></pre></div>
+  name: nginx-config
+data:
+  otel-exporter-endpoint: "otel-collector.observability:4317"  # otlp-collector-host + otlp-collector-port</code></pre></div>
                             </div>
-                            <div class="info-box note"><strong>New in v5.7.0:</strong> The community default kept HTTP-01 challenges on plain HTTP even with <code>ssl-redirect</code> or <code>force-ssl-redirect</code>. NGINX Ingress Controller 5.7.0 does the same for an active cert-manager challenge: while one is active, every path under <code>/.well-known/acme-challenge/</code> on that host skips <code>tls.redirect</code>, <code>nginx.org/ssl-redirect</code> and <code>nginx.org/redirect-to-https</code>. Earlier versions redirected the challenge and the certificate could not renew. Other paths listed in this key have no equivalent.</div>
+                            <div class="info-box note"><strong>Note:</strong> The community controller uses separate keys for host and port. NGINX Ingress Controller combines them into a single endpoint URL.</div>
                         </div></td></tr>
                     </tbody>
                 </table>
             </div>
 
-            <!-- Worker & Performance -->
-            <h3 id="configmap-worker">Worker &amp; performance</h3>
+            <!-- Protocol -->
+            <h3 id="configmap-protocol">Protocol</h3>
             <div class="table-wrapper">
-                <table class="mapping-table" aria-labelledby="configmap-worker"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="configmap-protocol"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
-                            <td><code>max-worker-connections</code></td>
-                            <td><code>worker-connections</code></td>
+                            <td><code>use-http2</code></td>
+                            <td><code>http2</code></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="comparison">
@@ -5916,47 +5953,27 @@ kind: ConfigMap
 metadata:
   name: ingress-nginx-controller
 data:
-  max-worker-connections: "16384"</code></pre></div>
+  use-http2: "true"</code></pre></div>
                                 <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
 kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  worker-connections: "16384"  # max-worker-connections</code></pre></div>
-                            </div>
-                        </div></td></tr>
-                        <tr class="expandable">
-                            <td><code>max-worker-open-files</code></td>
-                            <td><code>worker-rlimit-nofile</code></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ingress-nginx-controller
-data:
-  max-worker-open-files: "65536"</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-data:
-  worker-rlimit-nofile: "65536"  # max-worker-open-files</code></pre></div>
+  http2: "true"  # use-http2</code></pre></div>
                             </div>
                         </div></td></tr>
                     </tbody>
                 </table>
             </div>
 
-            <!-- Upstream & Load Balancing -->
-            <h3 id="configmap-upstream">Upstream &amp; load balancing</h3>
+            <!-- Proxy & Buffering -->
+            <h3 id="configmap-proxy-buffering">Proxy &amp; buffering</h3>
             <div class="table-wrapper">
-                <table class="mapping-table" aria-labelledby="configmap-upstream"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
+                <table class="mapping-table" aria-labelledby="configmap-proxy-buffering"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
                     <tbody>
                         <tr class="expandable">
-                            <td><code>load-balance</code></td>
-                            <td><code>lb-method</code></td>
+                            <td><code>proxy-body-size</code></td>
+                            <td><code>client-max-body-size</code></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="comparison">
@@ -5965,19 +5982,19 @@ kind: ConfigMap
 metadata:
   name: ingress-nginx-controller
 data:
-  load-balance: "ewma"</code></pre></div>
+  proxy-body-size: "8m"</code></pre></div>
                                 <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
 kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  lb-method: "least_time last_byte"  # load-balance (ewma: the closest latency-based method)</code></pre></div>
+  client-max-body-size: "8m"  # proxy-body-size</code></pre></div>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> The community controller defaults to <code>round_robin</code> and supports methods like <code>ewma</code> and <code>least_conn</code>. NGINX Ingress Controller defaults to <code>random two least_conn</code> and uses standard NGINX load balancing method names. For <code>ewma</code>, use <code>least_time last_byte</code>, on NGINX Open Source since v5.7.0: both pick the backend with the lowest average response time.</div>
+                            <div class="info-box note"><strong>Note:</strong> Both keys map to the NGINX <code>client_max_body_size</code> directive. NGINX Ingress Controller uses the NGINX-native naming convention.</div>
                         </div></td></tr>
                         <tr class="expandable">
-                            <td><code>upstream-keepalive-connections</code></td>
-                            <td><code>keepalive</code></td>
+                            <td><code>proxy-buffers-number</code></td>
+                            <td><code>proxy-buffers</code></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="comparison">
@@ -5986,64 +6003,15 @@ kind: ConfigMap
 metadata:
   name: ingress-nginx-controller
 data:
-  upstream-keepalive-connections: "320"</code></pre></div>
+  proxy-buffers-number: "4"</code></pre></div>
                                 <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
 kind: ConfigMap
 metadata:
   name: nginx-config
 data:
-  keepalive: "320"  # upstream-keepalive-connections</code></pre></div>
+  proxy-buffers: "4 8k"  # proxy-buffers-number</code></pre></div>
                             </div>
-                        </div></td></tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Keepalive & Timeouts -->
-            <h3 id="configmap-keepalive">Keepalive &amp; timeouts</h3>
-            <div class="table-wrapper">
-                <table class="mapping-table" aria-labelledby="configmap-keepalive"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
-                    <tbody>
-                        <tr class="expandable">
-                            <td><code>keep-alive</code></td>
-                            <td><code>keepalive-timeout</code></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ingress-nginx-controller
-data:
-  keep-alive: "75"</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-data:
-  keepalive-timeout: "75s"  # keep-alive</code></pre></div>
-                            </div>
-                            <div class="info-box note"><strong>Note:</strong> Both map to the NGINX <code>keepalive_timeout</code> directive. The NGINX Ingress Controller key uses the NGINX-native name and expects a time unit suffix (e.g., <code>"75s"</code>).</div>
-                        </div></td></tr>
-                        <tr class="expandable">
-                            <td><code>keep-alive-requests</code></td>
-                            <td><code>keepalive-requests</code></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ingress-nginx-controller
-data:
-  keep-alive-requests: "1000"</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-data:
-  keepalive-requests: "1000"  # keep-alive-requests</code></pre></div>
-                            </div>
+                            <div class="info-box note"><strong>Note:</strong> The community key takes just a number (buffer count). The NGINX Ingress Controller key takes the full NGINX <code>proxy_buffers</code> format: <code>"number size"</code> (e.g., <code>"4 8k"</code>).</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -6094,218 +6062,6 @@ data:
   server-names-hash-max-size: "1024"  # server-name-hash-max-size</code></pre></div>
                             </div>
                             <div class="info-box note"><strong>Note:</strong> Subtle difference: the community uses <code>server-name-hash-max-size</code> and <code>server-name-hash-bucket-size</code> (singular "name"), while NGINX Ingress Controller uses <code>server-names-hash-max-size</code> and <code>server-names-hash-bucket-size</code> (plural "names") matching the NGINX directives.</div>
-                        </div></td></tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Headers -->
-            <h3 id="configmap-headers">Headers</h3>
-            <div class="table-wrapper">
-                <table class="mapping-table" aria-labelledby="configmap-headers"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
-                    <tbody>
-                        <tr class="expandable">
-                            <td><code>add-headers</code></td>
-                            <td><code>add-header</code> <span class="badge badge-new">New v5.5.0</span></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ingress-nginx-controller
-data:
-  add-headers: "default/custom-headers"  # references another ConfigMap
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: custom-headers
-  namespace: default
-data:
-  X-Frame-Options: "SAMEORIGIN"
-  Strict-Transport-Security: "max-age=31536000"</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-data:
-  add-header: "X-Frame-Options: SAMEORIGIN, Strict-Transport-Security: max-age=31536000"  # add-headers</code></pre></div>
-                            </div>
-                            <div class="info-box note"><strong>New in v5.5.0:</strong> The <code>add-header</code> ConfigMap key adds globally-applied response headers using a comma-separated <code>Name: Value</code> list. Unlike the community <code>add-headers</code> key (which references a separate ConfigMap of headers), values are specified inline.</div>
-                        </div></td></tr>
-                        <tr class="expandable">
-                            <td><code>hide-headers</code></td>
-                            <td><code>proxy-hide-headers</code></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ingress-nginx-controller
-data:
-  hide-headers: "X-Powered-By,Server"</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-data:
-  proxy-hide-headers: "X-Powered-By,Server"  # hide-headers</code></pre></div>
-                            </div>
-                        </div></td></tr>
-                        <tr class="expandable">
-                            <td>No direct equivalent</td>
-                            <td><code>add-header-inherit</code> <span class="badge badge-new">New v5.5.0</span></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code># No equivalent ConfigMap key &mdash; the community
-# controller does not expose add_header_inherit.</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-data:
-  add-header-inherit: "merge"  # on | off | merge</code></pre></div>
-                            </div>
-                            <div class="info-box note"><strong>New in v5.5.0:</strong> The <code>add-header-inherit</code> ConfigMap key sets the global default for <code>add_header_inherit</code>: <code>on</code> (inherit headers from outer contexts &mdash; the NGINX default), <code>off</code> (do not inherit), or <code>merge</code> (combine inner and outer headers). Per-Ingress override is available via the <code>nginx.org/add-header-inherit</code> annotation.</div>
-                        </div></td></tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Protocol -->
-            <h3 id="configmap-protocol">Protocol</h3>
-            <div class="table-wrapper">
-                <table class="mapping-table" aria-labelledby="configmap-protocol"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
-                    <tbody>
-                        <tr class="expandable">
-                            <td><code>use-http2</code></td>
-                            <td><code>http2</code></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ingress-nginx-controller
-data:
-  use-http2: "true"</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-data:
-  http2: "true"  # use-http2</code></pre></div>
-                            </div>
-                        </div></td></tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Snippets -->
-            <h3 id="configmap-snippets">Snippets</h3>
-            <div class="table-wrapper">
-                <table class="mapping-table" aria-labelledby="configmap-snippets"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
-                    <tbody>
-                        <tr class="expandable">
-                            <td><code>http-snippet</code><br><code>location-snippet</code><br><code>main-snippet</code><br><code>server-snippet</code><br><code>stream-snippet</code></td>
-                            <td><code>http-snippets</code><br><code>location-snippets</code><br><code>main-snippets</code><br><code>server-snippets</code><br><code>stream-snippets</code></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ingress-nginx-controller
-data:
-  http-snippet: |
-    map $http_upgrade $connection_upgrade {
-      default upgrade;
-      '' close;
-    }
-  location-snippet: |
-    proxy_cache_valid 200 10m;
-  main-snippet: |
-    worker_rlimit_nofile 65535;
-  server-snippet: |
-    add_header X-Custom "value";
-  stream-snippet: |
-    log_format stream '$remote_addr [$time_local]';</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-data:
-  http-snippets: |  # http-snippet
-    map $http_upgrade $connection_upgrade {
-      default upgrade;
-      '' close;
-    }
-  location-snippets: |  # location-snippet
-    proxy_cache_valid 200 10m;
-  main-snippets: |  # main-snippet
-    worker_rlimit_nofile 65535;
-  server-snippets: |  # server-snippet
-    add_header X-Custom "value";
-  stream-snippets: |  # stream-snippet
-    log_format stream '$remote_addr [$time_local]';</code></pre></div>
-                            </div>
-                            <div class="info-box note"><strong>Note:</strong> All snippet keys change from singular to plural: <code>http-snippet</code> → <code>http-snippets</code>, <code>location-snippet</code> → <code>location-snippets</code>, <code>main-snippet</code> → <code>main-snippets</code>, <code>server-snippet</code> → <code>server-snippets</code>, <code>stream-snippet</code> → <code>stream-snippets</code>.</div>
-                        </div></td></tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- OpenTelemetry -->
-            <h3 id="configmap-otel">OpenTelemetry</h3>
-            <div class="table-wrapper">
-                <table class="mapping-table" aria-labelledby="configmap-otel"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
-                    <tbody>
-                        <tr class="expandable">
-                            <td><code>enable-opentelemetry</code></td>
-                            <td><code>otel-trace-in-http</code></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ingress-nginx-controller
-data:
-  enable-opentelemetry: "true"</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-data:
-  otel-trace-in-http: "true"  # enable-opentelemetry
-  otel-exporter-endpoint: "otel-collector:4317"  # required: your collector (the community controller read otlp-collector-host, port 4317)</code></pre></div>
-                            </div>
-                            <div class="info-box note"><strong>Note:</strong> <code>otel-trace-in-http</code> needs <code>otel-exporter-endpoint</code>: without it, NGINX Ingress Controller reports the ConfigMap invalid and leaves tracing off.</div>
-                        </div></td></tr>
-                        <tr class="expandable">
-                            <td><code>otlp-collector-host</code><br><code>otlp-collector-port</code></td>
-                            <td><code>otel-exporter-endpoint</code></td>
-                        </tr>
-                        <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: ingress-nginx-controller
-data:
-  otlp-collector-host: "otel-collector.observability"
-  otlp-collector-port: "4317"</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-data:
-  otel-exporter-endpoint: "otel-collector.observability:4317"  # otlp-collector-host + otlp-collector-port</code></pre></div>
-                            </div>
-                            <div class="info-box note"><strong>Note:</strong> The community controller uses separate keys for host and port. NGINX Ingress Controller combines them into a single endpoint URL.</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -6451,6 +6207,250 @@ metadata:
 data:
   main-snippets: |  # error-log-path
     error_log /var/log/nginx/error.log warn;</code></pre></div>
+                            </div>
+                        </div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Snippets -->
+            <h3 id="configmap-snippets">Snippets</h3>
+            <div class="table-wrapper">
+                <table class="mapping-table" aria-labelledby="configmap-snippets"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
+                    <tbody>
+                        <tr class="expandable">
+                            <td><code>http-snippet</code><br><code>location-snippet</code><br><code>main-snippet</code><br><code>server-snippet</code><br><code>stream-snippet</code></td>
+                            <td><code>http-snippets</code><br><code>location-snippets</code><br><code>main-snippets</code><br><code>server-snippets</code><br><code>stream-snippets</code></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="comparison">
+                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
+  http-snippet: |
+    map $http_upgrade $connection_upgrade {
+      default upgrade;
+      '' close;
+    }
+  location-snippet: |
+    proxy_cache_valid 200 10m;
+  main-snippet: |
+    worker_rlimit_nofile 65535;
+  server-snippet: |
+    add_header X-Custom "value";
+  stream-snippet: |
+    log_format stream '$remote_addr [$time_local]';</code></pre></div>
+                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  http-snippets: |  # http-snippet
+    map $http_upgrade $connection_upgrade {
+      default upgrade;
+      '' close;
+    }
+  location-snippets: |  # location-snippet
+    proxy_cache_valid 200 10m;
+  main-snippets: |  # main-snippet
+    worker_rlimit_nofile 65535;
+  server-snippets: |  # server-snippet
+    add_header X-Custom "value";
+  stream-snippets: |  # stream-snippet
+    log_format stream '$remote_addr [$time_local]';</code></pre></div>
+                            </div>
+                            <div class="info-box note"><strong>Note:</strong> All snippet keys change from singular to plural: <code>http-snippet</code> → <code>http-snippets</code>, <code>location-snippet</code> → <code>location-snippets</code>, <code>main-snippet</code> → <code>main-snippets</code>, <code>server-snippet</code> → <code>server-snippets</code>, <code>stream-snippet</code> → <code>stream-snippets</code>.</div>
+                        </div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- SSL/TLS -->
+            <h3 id="configmap-ssl-tls">SSL/TLS</h3>
+            <div class="table-wrapper">
+                <table class="mapping-table" aria-labelledby="configmap-ssl-tls"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
+                    <tbody>
+                        <tr class="expandable">
+                            <td><code>force-ssl-redirect</code></td>
+                            <td><code>redirect-to-https</code></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="comparison">
+                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
+  force-ssl-redirect: "true"</code></pre></div>
+                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  redirect-to-https: "true"  # force-ssl-redirect</code></pre></div>
+                            </div>
+                            <div class="info-box note"><strong>Note:</strong> The community controller uses an <code>X-Forwarded-Proto</code> header check to determine whether to redirect. NGINX Ingress Controller performs a direct HTTP-to-HTTPS redirect.</div>
+                        </div></td></tr>
+                        <tr class="expandable">
+                            <td><code>hsts-preload</code></td>
+                            <td>(included automatically)</td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="comparison">
+                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
+  hsts: "true"
+  hsts-preload: "true"</code></pre></div>
+                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  hsts: "true"</code></pre></div>
+                            </div>
+                            <div class="info-box note"><strong>Note:</strong> The NGINX Ingress Controller's <code>hsts: "true"</code> includes the <code>preload</code> directive by default. There is no separate <code>hsts-preload</code> key — just enable <code>hsts</code>. For HSTS without <code>preload</code>, use the <code>hsts</code> Policy CRD (v5.6.0+) on a VirtualServer — see <a href="#hsts">HSTS</a>.</div>
+                        </div></td></tr>
+                        <tr class="expandable">
+                            <td><code>ssl-dh-param</code></td>
+                            <td><code>ssl-dhparam-file</code></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="comparison">
+                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
+  ssl-dh-param: "default/dh-param"</code></pre></div>
+                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  ssl-dhparam-file: "/etc/nginx/secrets/dhparam.pem"  # ssl-dh-param</code></pre></div>
+                            </div>
+                            <div class="info-box note"><strong>Note:</strong> The community key references a Kubernetes secret name, while the NGINX Ingress Controller key expects a file path to the DH parameters file mounted into the pod.</div>
+                        </div></td></tr>
+                        <tr class="expandable">
+                            <td>No direct equivalent</td>
+                            <td><code>http-redirect-code</code> <span class="badge badge-new">New v5.4.0</span></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="comparison">
+                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code># No equivalent ConfigMap key
+# Redirect code is not globally configurable</code></pre></div>
+                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  redirect-to-https: "true"
+  http-redirect-code: "308"</code></pre></div>
+                            </div>
+                            <div class="info-box note"><strong>New in v5.4.0:</strong> The <code>http-redirect-code</code> ConfigMap key sets the global HTTP redirect status code used when redirecting to HTTPS (default: 301). Can also be set per-Ingress via the <code>nginx.org/http-redirect-code</code> annotation. Common values: 301 (permanent), 302 (temporary), 307 (temporary, preserves method), 308 (permanent, preserves method).</div>
+                        </div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Upstream & Load Balancing -->
+            <h3 id="configmap-upstream">Upstream &amp; load balancing</h3>
+            <div class="table-wrapper">
+                <table class="mapping-table" aria-labelledby="configmap-upstream"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
+                    <tbody>
+                        <tr class="expandable">
+                            <td><code>load-balance</code></td>
+                            <td><code>lb-method</code></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="comparison">
+                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
+  load-balance: "ewma"</code></pre></div>
+                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  lb-method: "least_time last_byte"  # load-balance (ewma: the closest latency-based method)</code></pre></div>
+                            </div>
+                            <div class="info-box note"><strong>Note:</strong> The community controller defaults to <code>round_robin</code> and supports methods like <code>ewma</code> and <code>least_conn</code>. NGINX Ingress Controller defaults to <code>random two least_conn</code> and uses standard NGINX load balancing method names. For <code>ewma</code>, use <code>least_time last_byte</code>, on NGINX Open Source since v5.7.0: both pick the backend with the lowest average response time.</div>
+                        </div></td></tr>
+                        <tr class="expandable">
+                            <td><code>upstream-keepalive-connections</code></td>
+                            <td><code>keepalive</code></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="comparison">
+                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
+  upstream-keepalive-connections: "320"</code></pre></div>
+                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  keepalive: "320"  # upstream-keepalive-connections</code></pre></div>
+                            </div>
+                        </div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Worker & Performance -->
+            <h3 id="configmap-worker">Worker &amp; performance</h3>
+            <div class="table-wrapper">
+                <table class="mapping-table" aria-labelledby="configmap-worker"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
+                    <tbody>
+                        <tr class="expandable">
+                            <td><code>max-worker-connections</code></td>
+                            <td><code>worker-connections</code></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="comparison">
+                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
+  max-worker-connections: "16384"</code></pre></div>
+                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  worker-connections: "16384"  # max-worker-connections</code></pre></div>
+                            </div>
+                        </div></td></tr>
+                        <tr class="expandable">
+                            <td><code>max-worker-open-files</code></td>
+                            <td><code>worker-rlimit-nofile</code></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="comparison">
+                                <div class="comparison-block old"><h4>Ingress-NGINX ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingress-nginx-controller
+data:
+  max-worker-open-files: "65536"</code></pre></div>
+                                <div class="comparison-block new"><h4>NGINX Ingress Controller ConfigMap</h4><pre><code>apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+data:
+  worker-rlimit-nofile: "65536"  # max-worker-open-files</code></pre></div>
                             </div>
                         </div></td></tr>
                     </tbody>

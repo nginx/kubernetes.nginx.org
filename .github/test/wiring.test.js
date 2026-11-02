@@ -126,6 +126,26 @@ for (const p of PAGES) {
         assert.deepEqual(unbacked, [], 'cells offering an alternative with no tabbed example');
     });
 
+    // Categories are alphabetical within their section, so the order a reader
+    // scrolls past matches the order the category filter offers. Appending a new
+    // category to the end is the easy mistake and is invisible on a long page.
+    test(`${p.name}: category headings are alphabetical within each section`, () => {
+        const sections = [...page.matchAll(/<section id="([\w-]+)"([\s\S]*?)(?=<section id="|$)/g)];
+        let checked = 0;
+        for (const [, id, body] of sections) {
+            // Only a reference section has a category filter to match; prose
+            // subsections (Install, then Defaults) keep their reading order.
+            if (!/class="mapping-table"/.test(body)) continue;
+            const headings = [...body.matchAll(/<h3 id="[\w-]+">([\s\S]*?)<\/h3>/g)]
+                .map((m) => m[1].replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').trim());
+            if (headings.length < 2) continue;
+            checked++;
+            const sorted = [...headings].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+            assert.deepEqual(headings, sorted, `#${id} categories out of order`);
+        }
+        assert.ok(checked >= 3, `expected several multi-category sections, checked ${checked}`);
+    });
+
     test(`${p.name}: version-binding attributes are present with static fallbacks`, () => {
         const attrs = [...mod.matchAll(/attr: '([\w-]+)'/g)].map((m) => m[1]);
         assert.ok(attrs.length >= 1);

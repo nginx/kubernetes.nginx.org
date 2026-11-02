@@ -195,6 +195,7 @@ The wiring suite asserts placement from the rendered rows (`every mapping row si
 
 ## Ordering and structure rules
 
+- **Category `<h3>` headings** within a mapping `<section>` are in case-insensitive alphabetical order by heading text, so scrolling and filtering land a reader in the same place. A new category is inserted at its letter, never appended. The wiring suite asserts it per page.
 - **Annotation mapping rows** within each category table are sorted alphabetically by the community annotation name (left column).
 - **Within a single row**, when multiple annotations are listed on either side, they are in alphabetical order.
 - **"No direct equivalent" rows** (NIC-only annotations) go at the end of their category table, after all community-to-NIC mappings.
