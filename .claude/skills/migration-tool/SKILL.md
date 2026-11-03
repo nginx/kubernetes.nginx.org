@@ -175,6 +175,7 @@ Two techniques worth knowing beyond running them:
 
 Also sanity-check generated `k8s.nginx.org/v1` field names against the `json:` tags in `nginx/kubernetes-ingress/pkg/apis/configuration/v1/types.go` to catch invalid CRD fields.
 
+**Name a test by the side it is about.** Both controllers have an Ingress, so a bare "Ingress" or "host" in a test name, a note or a commit is ambiguous, and it has misled the maintainer and the agent alike ("Ingresses that share a host" read as an NGINX Ingress Controller output, which never shares one). Say **community Ingress** for the input and name the output kind — **VirtualServer**, **NGINX Ingress Controller Ingress** (or "migrated Ingress"), **TransportServer** — rather than "resource". Where a test covers both strategies, name both ("one VirtualServer or Ingress per host"). Say what the tool did to get from one to the other: split, merged, folded. A name already clear from context ("a canary pasted with its stable Ingress", "the ingress target keeps the Ingress") needs nothing more.
 
 ## Which section a row goes in
 
