@@ -624,9 +624,35 @@
         // Emit `value` at `indent`. `comments` maps a dotted path ('spec.host',
         // 'spec.routes.0.path') to a trailing comment, which is how each
         // generated line names the community annotation it came from.
+        // A comment holding "TODO: …" is split: the instruction goes on a
+        // comment line of its own above the key, where it is read without
+        // scrolling a narrow pane sideways, and the line keeps its source
+        // with a short "# … — TODO" marker.
         function yamlEmitNode(value, indent, lines, path, comments, opts) {
             let pad = ' '.repeat(indent);
-            let note = function(p) { return comments && comments[p] ? '  # ' + comments[p] : ''; };
+            let todoOf = function(p) { return comments && /(^|— )TODO: /.test(comments[p] || '') ? comments[p].replace(/^(.*? — )?TODO: /, '') : null; };
+            let note = function(p) {
+                if (!comments || !comments[p]) return '';
+                let todo = todoOf(p);
+                if (todo === null) return '  # ' + comments[p];
+                let src = /^(.*?) — TODO: /.exec(comments[p]);
+                return '  # ' + (src ? src[1] + ' — ' : '') + 'TODO';
+            };
+            // Wrapped to 48 columns, indent included: an analyzer pane is
+            // ~50 monospace columns wide at a 1400px window (measured), and a
+            // sentence that runs past it is one nobody scrolls to read. A deep
+            // field keeps at least 30 columns of text per line.
+            let above = function(p, at) {
+                let todo = todoOf(p);
+                if (todo === null) return;
+                let width = Math.max(30, 46 - at.length);
+                let words = ('TODO: ' + todo).split(' '), line = '';
+                words.forEach(function(w) {
+                    if (line && (line + ' ' + w).length > width) { lines.push(at + '# ' + line); line = '      ' + w; }
+                    else line = line ? line + ' ' + w : w;
+                });
+                lines.push(at + '# ' + line);
+            };
             if (Array.isArray(value)) {
                 value.forEach(function(item, i) {
                     let p = path + '.' + i;
@@ -656,6 +682,7 @@
                     let v = value[key];
                     let p = path ? path + '.' + key : key;
                     let k = yamlNeedsQuotes(key) ? yamlQuote(key) : key;
+                    above(p, pad);
                     if (yamlIsMap(v) || Array.isArray(v)) {
                         let empty = Array.isArray(v) ? v.length === 0 : Object.keys(v).length === 0;
                         if (empty) { lines.push(pad + k + ': ' + (Array.isArray(v) ? '[]' : '{}') + note(p)); return; }
@@ -1253,9 +1280,8 @@
         });
 
         // Respect the user's reduced-motion preference for programmatic scrolling.
-        function scrollBehavior() {
-            return (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ? 'auto' : 'smooth';
-        }
+        function reducedMotion() { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+        function scrollBehavior() { return reducedMotion() ? 'auto' : 'smooth'; }
 
         // Current fixed header height (banner + top bar) read from the rendered layout,
         // so scroll math shares a single source of truth with the CSS --fixed-top-h var.
@@ -1436,9 +1462,17 @@
             if (liveStatus) liveStatus.textContent = title + ' ' + message;
         }
 
+        // A comment holding a placeholder ("# TODO: …", "# source — TODO: …")
+        // reads as one: weight and an upright face mark it, never a status
+        // hue (which is never text here). Width is unchanged, so the input
+        // editor's overlay stays aligned with the textarea under it.
+        // A marker ("# TODO", "# source — TODO") or an instruction line and its
+        // wrapped continuation ("#       …" right after a "# TODO: …").
+        function commentClass(text, continues) { return /^#(\s*|.* — )TODO(:|$)/.test(text) || (continues && /^# {7}\S/.test(text)) ? 'yaml-comment yaml-todo' : 'yaml-comment'; }
         function highlightYaml(text) {
             let frag = document.createDocumentFragment();
             let lines = text.split('\n');
+            let inTodo = false;
             lines.forEach(function(line, i) {
                 if (i > 0) frag.appendChild(document.createTextNode('\n'));
                 // Comment lines
@@ -1447,11 +1481,13 @@
                     let indent = document.createTextNode(line.substring(0, line.length - trimmed.length));
                     frag.appendChild(indent);
                     let commentSpan = document.createElement('span');
-                    commentSpan.className = 'yaml-comment';
+                    commentSpan.className = commentClass(trimmed, inTodo);
+                    inTodo = /yaml-todo/.test(commentSpan.className);
                     commentSpan.textContent = trimmed;
                     frag.appendChild(commentSpan);
                     return;
                 }
+                inTodo = false;
                 // Document separator
                 if (trimmed === '---') {
                     let sepSpan = document.createElement('span');
@@ -1490,7 +1526,7 @@
                         } else if (/^["']?\d+(\.\d+)?[smhkMG]?["']?$/.test(valTrimmed)) {
                             valSpan.className = 'yaml-number';
                         } else if (valTrimmed.startsWith('#')) {
-                            valSpan.className = 'yaml-comment';
+                            valSpan.className = commentClass(valTrimmed);
                         } else {
                             valSpan.className = 'yaml-value';
                         }
@@ -1498,7 +1534,7 @@
                         frag.appendChild(valSpan);
                         if (inlineComment) {
                             let cmSpan = document.createElement('span');
-                            cmSpan.className = 'yaml-comment';
+                            cmSpan.className = commentClass(inlineComment.trim());
                             cmSpan.textContent = inlineComment;
                             frag.appendChild(cmSpan);
                         }
@@ -1524,7 +1560,7 @@
                 if (fbComment >= 0) {
                     frag.appendChild(document.createTextNode(line.substring(0, fbComment)));
                     let fbCmSpan = document.createElement('span');
-                    fbCmSpan.className = 'yaml-comment';
+                    fbCmSpan.className = commentClass(line.substring(fbComment).trim());
                     fbCmSpan.textContent = line.substring(fbComment);
                     frag.appendChild(fbCmSpan);
                 } else {
@@ -1569,7 +1605,7 @@
             pre.appendChild(highlightYaml(text));
             pre.setAttribute('data-raw', text);
             let lineCount = text.split('\n').length;
-            if (collapsible && lineCount > 12) {
+            if (collapsible && lineCount > 12 && !/#[^\n]*TODO:/.test(text)) {
                 pre.classList.add('collapsed');
                 let wrapper = document.createDocumentFragment();
                 wrapper.appendChild(pre);
@@ -1768,7 +1804,13 @@
             if (liveStatus) liveStatus.textContent = plan.liveText;
 
             let animDelay = 0;
+            // Under reduced motion there is no fade, so there is no stagger
+            // either: shared.css shortens the animation to 0.01ms, but an
+            // inline delay still held each step at opacity 0 for up to a
+            // second, with the results announced and nothing on screen.
+            let still = reducedMotion();
             function applyFadeIn(el) {
+                if (still) return;
                 el.classList.add('analyzer-fade-in');
                 el.style.animationDelay = animDelay + 'ms';
                 animDelay += 100;
@@ -1813,6 +1855,49 @@
             applyFadeIn(banner);
             container.appendChild(banner);
 
+            // Step 0: install the controller with the flags this output needs,
+            // and anything that must change before the YAML below will apply.
+            // It used to be two informational notes after the YAML.
+            if (plan.prerequisites) {
+                let pre = plan.prerequisites;
+                let step0 = buildStep({
+                    id: 'analyzer-before',
+                    marker: '0',
+                    markerCls: pre.items.some(function(n) { return n.severity === 'warning'; }) ? 'warning' : '',
+                    title: pre.title,
+                    countText: pre.flags.length + ' install flag' + (pre.flags.length !== 1 ? 's' : '') + (pre.items.length ? ', ' + pre.items.length + ' change' + (pre.items.length !== 1 ? 's' : '') : ''),
+                    desc: pre.desc
+                });
+                pre.items.forEach(function(n) {
+                    step0.appendChild(buildNoteCard(n.severity === 'warning' ? 'warning' : 'note', { code: n.code, text: n.message }));
+                });
+                step0.appendChild(buildYamlBlock(pre.command, false, 'Helm install command'));
+                let why = document.createElement('ul');
+                why.className = 'analyzer-flag-list';
+                pre.flags.forEach(function(x) {
+                    let li = document.createElement('li');
+                    let code = document.createElement('code');
+                    code.textContent = x.flag;
+                    li.appendChild(code);
+                    li.appendChild(document.createTextNode(' — ' + x.why));
+                    why.appendChild(li);
+                });
+                step0.appendChild(why);
+                if (pre.anchor) {
+                    let link = document.createElement('a');
+                    link.href = '#' + pre.anchor;
+                    link.className = 'analyzer-note-link';
+                    link.textContent = 'Running both controllers side by side →';
+                    link.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        goToAnchor(pre.anchor);
+                    });
+                    step0.appendChild(link);
+                }
+                applyFadeIn(step0);
+                container.appendChild(step0);
+            }
+
             // Numbered steps — the id is fixed per step type (pills scroll to it),
             // the displayed number is sequential in render order.
             let stepNum = 0;
@@ -1848,16 +1933,19 @@
                 container.appendChild(step);
             });
 
-            // Informational notes (recognized values that don't need a swap or have no equivalent)
+            // What changes in behaviour, and what has no equivalent. A warning
+            // renders as one: these all used to wear the note style.
             if (plan.infoNotes && plan.infoNotes.length > 0) {
+                let warned = plan.infoNotes.filter(function(n) { return n.severity === 'warning'; }).length;
                 let stepInfo = buildStep({
                     id: 'analyzer-info-notes',
                     marker: 'i',
-                    title: 'Informational notes',
-                    countText: plan.infoNotes.length + ' note' + (plan.infoNotes.length !== 1 ? 's' : '')
+                    markerCls: warned ? 'warning' : '',
+                    title: 'Behavior differences',
+                    countText: plan.infoNotes.length + ' note' + (plan.infoNotes.length !== 1 ? 's' : '') + (warned ? ', ' + warned + ' to review' : '')
                 });
                 plan.infoNotes.forEach(function(note) {
-                    stepInfo.appendChild(buildNoteCard('note', { code: note.code, text: note.message }));
+                    stepInfo.appendChild(buildNoteCard(note.severity === 'warning' ? 'warning' : 'note', { code: note.code, text: note.message }));
                 });
                 applyFadeIn(stepInfo);
                 container.appendChild(stepInfo);

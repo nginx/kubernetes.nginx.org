@@ -96,12 +96,15 @@ function detect(desc, result) {
 
     /* 7. Placeholders and warnings the engine raised. */
     const plan = result.plan || {};
-    const todos = (plan.infoNotes || []).filter((n) => /TODO/.test(n.code)).length + countMatches(yaml, /#\s*TODO:/g);
+    // Each placeholder has a "# TODO: <what to fill in>" line above it.
+    const todos = countMatches(yaml, /#\s*TODO:/g);
     if (todos > 0) {
         add('todo-placeholders', 'review', todos + ' placeholder' + (todos !== 1 ? 's' : '') + ' to fill in — the analyzer could not infer these values.');
     }
-    for (const n of plan.infoNotes || []) {
-        if (n.severity === 'warning' && !/TODO|^snippets$/.test(n.code)) add('needs-attention', 'review', n.code + ' — ' + n.message);
+    // Step 0's changes (a directive to rewrite, a flag to set) and the
+    // notes' warnings. The snippet flag has a gap of its own (9).
+    for (const n of ((plan.prerequisites || {}).items || []).concat(plan.infoNotes || [])) {
+        if (n.severity === 'warning') add('needs-attention', 'review', n.code + ' — ' + n.message);
     }
 
     /* 8. Recognised with no migration path, and never-seen annotations. */

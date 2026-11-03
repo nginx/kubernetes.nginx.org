@@ -37,6 +37,8 @@ const run = (doc, strategy) => {
 };
 const kinds = (r, kind) => r.docs.filter((d) => d.kind === kind);
 const notes = (r) => r.plan.infoNotes.map((n) => n.code + ' — ' + n.message).join('\n');
+// Step 0: the install command, each flag's reason, and what to change first.
+const before = (r) => { const p = r.plan.prerequisites; return [p.command].concat(p.flags.map((x) => x.flag + ' — ' + x.why), p.items.map((n) => n.code + ' — ' + n.message)).join('\n'); };
 
 /* ---------------------------------------------------------------- parsing */
 
@@ -310,8 +312,8 @@ test('B7: externalAuth names the Service, keeps the port and drops community-onl
 
 test('B8: snippets carry the enable-snippets warning, and headers-more is called out', () => {
     const r = run(ingress({ 'configuration-snippet': 'more_set_headers "X: 1";' }));
-    assert.match(notes(r), /-enable-snippets/);
-    assert.match(notes(r), /more_set_headers[^\n]*unknown directive/);
+    assert.match(before(r), /-enable-snippets/);
+    assert.match(before(r), /more_set_headers[^\n]*unknown directive/);
 });
 
 test('B9: what NIC reads from each community Secret is stated', () => {
@@ -355,7 +357,7 @@ test('B11: TLS passthrough is a TransportServer under both strategies, with the 
     for (const s of ['crd', 'annotation']) {
         const r = run(ingress({ 'ssl-passthrough': 'true' }), s);
         assert.equal(kinds(r, 'TransportServer')[0].spec.listener.protocol, 'TLS_PASSTHROUGH');
-        assert.match(notes(r), /enableTLSPassthrough/);
+        assert.match(before(r), /enableTLSPassthrough/);
     }
 });
 
@@ -391,8 +393,10 @@ test('CRD-first does not call a setting the VirtualServer carries "no VirtualSer
         { 'proxy-next-upstream': 'error' }, { 'upstream-vhost': 'u.example.com' }, { 'x-forwarded-prefix': '/p' }, { 'custom-headers': 'ns/cm' }]) {
         assert.doesNotMatch(notes(run(ingress(ann))), /has no VirtualServer form/, JSON.stringify(ann));
     }
-    // ...and still reports one that has none.
-    assert.match(notes(run(ingress({ 'proxy-max-temp-file-size': '1m' }))), /snippets/);
+    // ...and carries one that has none as a snippet, which step 0 turns on.
+    const r = run(ingress({ 'proxy-max-temp-file-size': '1m' }));
+    assert.match(r.text, /location-snippets: \|  # proxy-max-temp-file-size\n\s+proxy_max_temp_file_size 1m;/);
+    assert.match(before(r), /enableSnippets/);
 });
 
 test('mirroring keeps the mirror, its Host and its request body', () => {
@@ -452,8 +456,26 @@ test('B14: force-ssl-redirect follows the request scheme, as the community contr
     assert.match(notes(run(noTls)), /use-forwarded-headers/);
 });
 
-test('C7: every migration names the ingressClassName change', () => {
-    assert.match(notes(run(ingress({ 'proxy-body-size': '1m' }))), /ingressClassName/);
+test('C7: every migration names the ingressClassName change, before anything is applied', () => {
+    const pre = run(ingress({ 'proxy-body-size': '1m' })).plan.prerequisites;
+    assert.match(pre.command, /--set controller\.ingressClass\.name=nginx-nic/);
+    assert.match(pre.flags[0].why, /ingressClassName/);
+});
+
+test('the install command carries only the flags the output needs, each with its reason', () => {
+    /* Snippets, TLS passthrough and the ConfigMap were notes among the rest,
+       read after the YAML they break. They are the install command in step 0
+       now, and a flag nothing needs is not on it. */
+    const flags = (doc, strategy) => [...run(doc, strategy).plan.prerequisites.flags.map((x) => x.flag.split('=')[0])];
+    assert.deepEqual(flags(ingress({ 'proxy-body-size': '1m' })), ['controller.ingressClass.name']);
+    assert.deepEqual(flags(ingress({ 'limit-connections': '5' })), ['controller.ingressClass.name', 'controller.config.name', 'controller.enableSnippets']);
+    assert.deepEqual(flags(ingress({ 'ssl-passthrough': 'true' })), ['controller.ingressClass.name', 'controller.enableTLSPassthrough']);
+    // A directive NGINX Ingress Controller does not build in fails the reload for
+    // every resource: a step-0 warning, not a note.
+    const r = run(ingress({ 'configuration-snippet': 'more_set_headers "X-A: b";' }));
+    assert.match(r.plan.prerequisites.items.map((n) => n.message).join('\n'), /more_set_headers[^\n]*unknown directive/);
+    assert.equal(r.plan.prerequisites.items[0].severity, 'warning');
+    assert.doesNotMatch(notes(r), /unknown directive|enableSnippets/);
 });
 
 test('C8: the simple sample is not labelled advanced under CRD-first', () => {
@@ -532,7 +554,9 @@ test('custom-headers marks its placeholder and keeps more_set_headers\' every-st
 test('advice that needs NGINX Plus says so', () => {
     /* ExternalName backends and resolver-addresses are Plus-only in v5.6.3 and
        v5.7.0 (controller.go getEndpointsForIngressBackend, configmaps.go). */
-    assert.match(notes(run(ingress({ 'auth-url': 'https://auth.example.com/verify' }))), /ExternalName Service in front of auth\.example\.com works only on NGINX Plus/);
+    // On the placeholder's own line, where the Service is named.
+    const text = run(ingress({ 'auth-url': 'https://auth.example.com/verify' })).text.replace(/\n\s*# {7}/g, ' ');
+    assert.match(text, /# TODO: .*ExternalName Service in front of auth\.example\.com works only on NGINX Plus\)\n\s+authServiceName: auth-svc  # auth-url \(service\) — TODO/);
     assert.match(notes(run(ingress({ 'mirror-target': 'http://mirror.example.com$request_uri' }))), /add a resolver line .*On NGINX Plus, the resolver-addresses/);
 });
 
@@ -719,7 +743,7 @@ test('an invalid limit-rps, limit-rpm or limit-connections says the community co
         for (const strategy of ['annotation', 'crd']) {
             const r = run(ingress({ [ann]: 'x' }), strategy);
             assert.match(notes(r), new RegExp(ann + ' "x" is not a whole number, so the community controller rejected this Ingress'), ann + ' under ' + strategy);
-            assert.doesNotMatch(notes(r), /Also applied/, ann + ' under ' + strategy);
+            assert.doesNotMatch(notes(r), /no comment there names/, ann + ' under ' + strategy);
         }
     }
     const burst = kinds(run(ingress({ 'limit-rps': '10', 'limit-burst-multiplier': '10m' })), 'Policy')[0].spec.rateLimit.burst;
@@ -734,7 +758,7 @@ test('only a mapping that wrote something is reported as folded in', () => {
        migrated. */
     const cors = notes(run(ingress({ 'cors-allow-origin': 'https://a.example.com' })));
     assert.match(cors, /enable-cors is not "true".*nothing is migrated/);
-    assert.doesNotMatch(cors, /Also applied|did not say why/, 'the enable-cors note covers the cors-* beside it');
+    assert.doesNotMatch(cors, /no comment there names|did not say why/, 'the enable-cors note covers the cors-* beside it');
     // Wrote nothing, said nothing: the safety net. Every mapped annotation,
     // alone, under values the community controller ignored, defaulted or
     // rejected, has its own reason; one that falls through to the generic
@@ -749,8 +773,62 @@ test('only a mapping that wrote something is reported as folded in', () => {
         }
     }
     assert.deepEqual(lost, []);
-    // Wrote something no comment names: still listed as folded in.
-    assert.match(notes(run(ingress({ affinity: 'cookie' }))), /Also applied, folded into the fields above: affinity\./);
+});
+
+test('every annotation that wrote something is named on a line it wrote', () => {
+    /* "Also applied, folded into the fields above" was the readers' only clue
+       for 15 annotations (affinity, ssl-redirect, enable-cors, canary-*, …),
+       one card away from the line each one set. Under annotation-first it also
+       claimed canary-* were applied beside the note saying they cannot be. The
+       catch-all stays as a safety net; no mapped annotation may reach it. */
+    const folded = [];
+    for (const name of MAPPED) {
+        for (const strategy of ['crd', 'annotation']) {
+            if (/no comment there names/.test(notes(run(ingress(sweepInput(name)), strategy)))) folded.push(strategy + ' ' + name);
+        }
+    }
+    for (const preset of Object.keys(source.analyzer.samplePresets)) {
+        for (const strategy of ['crd', 'annotation']) {
+            if (/no comment there names/.test(notes(run(source.analyzer.samplePresets[preset], strategy)))) folded.push(strategy + ' preset ' + preset);
+        }
+    }
+    assert.deepEqual(folded, []);
+});
+
+test('a placeholder is marked on its own line, not in a note', () => {
+    /* Every TODO was a card under the results, away from the value it
+       replaces, and two (CORS allowOrigin, the canary's stable Service) had no
+       mark on the line at all. Each line now ends "# TODO" (after its source,
+       if it has one) under a "# TODO: <what to fill in>" line of its own, and
+       no note repeats it. The instruction is on its own line because a
+       trailing one ran ~1,100px past a 466px pane. */
+    const cases = [
+        [ingress({ 'enable-cors': 'true' }), 'crd', /allowOrigin: +# .*TODO/],
+        [ingress({ 'enable-cors': 'true' }), 'annotation', /allowOrigin: +# .*TODO/],
+        [ingress({ canary: 'true', 'canary-weight': '10' }), 'crd', /service: stable-service +# TODO/],
+        [ingress({ 'auth-url': 'https://auth.example.com/check' }), 'crd', /authServiceName: auth-svc +# .*TODO/],
+        [ingress({ 'enable-opentelemetry': 'true' }), 'crd', /otel-exporter-endpoint: .*# TODO/],
+        [ingress({ 'custom-http-errors': '404', 'default-backend': 'errors' }), 'annotation', /number: 80 +# TODO/]
+    ];
+    for (const [doc, strategy, line] of cases) {
+        const r = run(doc, strategy);
+        assert.match(r.text, line, strategy);
+        // Every marker sits under the instruction it stands for, wrapped to
+        // the width of an analyzer pane.
+        const lines = r.text.split('\n');
+        lines.forEach((l, i) => {
+            if (!/# (.* — )?TODO$/.test(l)) return;
+            let j = i - 1;
+            while (/^\s*# {7}\S/.test(lines[j])) j--;
+            assert.match(lines[j], /^\s*# TODO: \S/, strategy + ': ' + l);
+            for (let k = j; k < i; k++) assert.ok(lines[k].length <= 48 || lines[k].trimStart().length <= 32, strategy + ': too wide for a pane: ' + lines[k]);
+        });
+        assert.doesNotMatch(notes(r), /TODO|Fill in/, strategy + ': a placeholder repeated as a note');
+    }
+    // A named Service port is kept as written and marked where it stands.
+    const named = ingress({});
+    named.spec.rules[0].http.paths[0].backend.service.port = { name: 'http' };
+    assert.match(run(named).text, /port: http +# TODO/);
 });
 
 test('a boolean annotation is read as the community controller read it: strconv.ParseBool', () => {

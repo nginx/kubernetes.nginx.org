@@ -2179,7 +2179,10 @@ spec:
       action:
         proxy:
           upstream: backend
-          responseHeaders:  # custom-headers — TODO: replace the placeholder with each header in ConfigMap default/custom-headers-configmap
+          # TODO: replace the placeholder with
+          #       each header in ConfigMap
+          #       default/custom-headers-configmap
+          responseHeaders:  # custom-headers — TODO
             add:
               - name: X-Example-Header
                 value: "value"
@@ -3043,7 +3046,11 @@ metadata:
   name: nginx-config
 data:
   otel-trace-in-http: "true"  # enable-opentelemetry
-  otel-exporter-endpoint: "otel-collector:4317"  # TODO: your collector — NGINX Ingress Controller keeps tracing off without it (the community controller read otlp-collector-host, port 4317)
+  # TODO: your collector — NGINX Ingress
+  #       Controller keeps tracing off without
+  #       it (the community controller read
+  #       otlp-collector-host, port 4317)
+  otel-exporter-endpoint: "otel-collector:4317"  # TODO
   otel-service-name: "nginx"  # the community default service name
   otel-trace-context: "propagate"  # the community controller propagated trace context (NGINX Ingress Controller defaults to ignore)</code></pre></div>
                             </div>
@@ -3069,7 +3076,11 @@ metadata:
   name: nginx-config
 data:
   otel-trace-in-http: "true"  # enable-opentelemetry
-  otel-exporter-endpoint: "otel-collector:4317"  # TODO: your collector — NGINX Ingress Controller keeps tracing off without it (the community controller read otlp-collector-host, port 4317)
+  # TODO: your collector — NGINX Ingress
+  #       Controller keeps tracing off without
+  #       it (the community controller read
+  #       otlp-collector-host, port 4317)
+  otel-exporter-endpoint: "otel-collector:4317"  # TODO
   otel-service-name: "nginx"  # the community default service name
   otel-trace-context: "inject"  # opentelemetry-trust-incoming-span: false — a new trace, passed on</code></pre></div>
                             </div>

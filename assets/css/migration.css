@@ -785,6 +785,11 @@ pre code { background: none; border: 0; padding: 0; color: inherit; }
 .yaml-key       { color: var(--code-key); }
 .yaml-value     { color: var(--code-string); }
 .yaml-comment   { color: var(--code-comment); font-style: italic; }
+/* A placeholder to replace, on the line it belongs to. Brighter, upright and
+   on a wash, with no padding, weight or size change: monospace advances stay
+   the same, so the editor overlay keeps lining up with the textarea. The
+   word TODO is the signal that survives forced colours and print. */
+.yaml-todo      { color: var(--code-fg); font-style: normal; background: var(--on-code-strong); border-radius: var(--radius-small); }
 .yaml-keyword   { color: var(--code-keyword); }
 .yaml-bool      { color: var(--code-keyword); }
 .yaml-number    { color: var(--code-number); }
@@ -1183,6 +1188,9 @@ button.analyzer-pill { font-family: var(--font); }
     line-height: var(--lh-caption);
 }
 .analyzer-install-note { margin: 0 0 var(--space-2x); }
+/* Step 0: each install flag beside the reason this output needs it. */
+.analyzer-flag-list { margin: var(--space-base) 0 0; padding-left: var(--space-2hx); font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text); }
+.analyzer-flag-list li + li { margin-top: var(--space-small); }
 .analyzer-crd-kind-badge { margin-right: var(--space-base); }
 .analyzer-crd-category {
     display: flex;
@@ -1556,6 +1564,7 @@ button.analyzer-pill { font-family: var(--font); }
     .yaml-value  { color: var(--java-text) !important; }
     .yaml-number { color: var(--pomegranate-text) !important; }
     .yaml-comment, .yaml-separator { color: var(--n550) !important; }
+    .yaml-todo { color: var(--n700) !important; background: var(--n300) !important; }
 
     .analyzer-success-banner { border: 1px solid var(--n300); }
     body { background: var(--n0); }

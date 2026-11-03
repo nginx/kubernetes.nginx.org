@@ -770,3 +770,38 @@ test('the e2e runner passes its own self-test, which needs no cluster', () => {
     assert.equal(r.status, 0, (r.stdout + r.stderr).split('\n').filter((l) => /FAIL|got/.test(l)).join('\n') || r.stdout + r.stderr);
     assert.match(r.stdout, /(\d+) of \1 self-tests passed/);
 });
+
+test('convert writes files that parse, whatever a note quotes', () => {
+    /* A note quoting a multi-line annotation value (configuration-snippet)
+       was written as one "# NOTE:" line with the value's newlines in it, so
+       every line after the first was YAML: `more_set_headers ...` became a
+       scalar, the file did not parse, and kubectl apply -f rejected it. Every
+       line of a header is a comment now, the files and stdout alike. */
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const { spawnSync } = require('node:child_process');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nic-migrate-'));
+    const src = path.join(dir, 'in.yaml');
+    const doc = JSON.parse(JSON.stringify(INGRESS));
+    doc.metadata.annotations = {
+        'nginx.ingress.kubernetes.io/configuration-snippet': 'more_set_headers "X-A: b";\nadd_header X-B c;\n',
+        'nginx.ingress.kubernetes.io/limit-connections': '5'
+    };
+    fs.writeFileSync(src, Y.stringify(doc));
+    const cli = path.join(TOOL, 'nic-migrate.js');
+    for (const args of [['convert', '-f', src], ['convert', '-f', src, '--out', path.join(dir, 'out')]]) {
+        const r = spawnSync(process.execPath, [cli, ...args], { encoding: 'utf8' });
+        assert.equal(r.status, 0, r.stderr);
+        const texts = args.includes('--out')
+            ? fs.readdirSync(path.join(dir, 'out')).map((f) => fs.readFileSync(path.join(dir, 'out', f), 'utf8'))
+            : [r.stdout];
+        for (const text of texts) {
+            for (const part of text.split(/^---$/m)) {
+                const head = part.split('\n').filter((l) => l.trim() && !/^\s*#/.test(l))[0] || '';
+                assert.match(head, /^(apiVersion|kind):/, 'a header line escaped its comment:\n' + part.slice(0, 400));
+            }
+            assert.ok(Y.parseAll(text).every((d) => d && d.kind), 'every document parses to a resource');
+        }
+    }
+    fs.rmSync(dir, { recursive: true, force: true });
+});
