@@ -202,7 +202,7 @@ test('the gap detectors still catch a broken result', () => {
     }
 });
 
-test('every host, path and backend of the Ingress is in the output', () => {
+test('every host, path and backend of the community Ingress is in the output', () => {
     const a = analyze(ing(['rewrite-target: /$1'], [
         '  rules:',
         '  - host: a.example.com',
@@ -693,51 +693,50 @@ const fs = require('node:fs');
 const E2E = path.join(ROOT, 'tools', 'nic-migrate', 'e2e', 'manifests');
 const readE2E = (f) => fs.readFileSync(path.join(E2E, f), 'utf8');
 
-test('every backend the e2e Ingress routes to exists in the e2e workload', () => {
+test('every backend the e2e community Ingresses route to exists in the e2e workload', () => {
     const workload = Y.parseAll(readE2E('workload.yaml'));
-    const ingress = Y.parse(readE2E('source-ingress.yaml'));
-
     const services = new Map(workload.filter((d) => d.kind === 'Service')
         .map((s) => [s.metadata.name, s.spec.ports.map((p) => p.port)]));
     const namespaces = new Set(workload.filter((d) => d.metadata && d.metadata.namespace)
         .map((d) => d.metadata.namespace));
-
-    assert.ok(namespaces.has(ingress.metadata.namespace),
-        'the Ingress namespace must be one the workload creates');
-
-    for (const rule of ingress.spec.rules) {
-        for (const p of rule.http.paths) {
-            const svc = p.backend.service;
-            assert.ok(services.has(svc.name), 'no Service named ' + svc.name + ' in workload.yaml');
-            assert.ok(services.get(svc.name).includes(svc.port.number),
-                svc.name + ' does not listen on port ' + svc.port.number);
+    for (const ingress of Y.parseAll(readE2E('source-ingress.yaml'))) {
+        assert.ok(namespaces.has(ingress.metadata.namespace), ingress.metadata.name + ': the Ingress namespace must be one the workload creates');
+        for (const rule of ingress.spec.rules) {
+            for (const p of rule.http.paths) {
+                const svc = p.backend.service;
+                assert.ok(services.has(svc.name), 'no Service named ' + svc.name + ' in workload.yaml');
+                assert.ok(services.get(svc.name).includes(svc.port.number), svc.name + ' does not listen on port ' + svc.port.number);
+            }
         }
     }
 });
 
-test('the e2e Ingress converts cleanly and covers every host and path', () => {
-    const ingress = Y.parse(readE2E('source-ingress.yaml'));
-    const model = toModel(ingress);
-    const result = engine.analyze(Y.stringify(ingress), 'crd');
-    assert.deepEqual(result.warnings, [], 'a generator failed on the e2e fixture');
-
-    const out = convert(model, engine, { target: 'virtualserver', ingressClass: 'nginx-nic' });
-    const vs = out.docs.filter((d) => d.kind === 'VirtualServer');
-    assert.equal(vs.length, ingress.spec.rules.length, 'one VirtualServer per host');
-
-    const names = vs.map((v) => v.metadata.name);
-    assert.equal(new Set(names).size, names.length, 'VirtualServer names must be unique: ' + names.join(', '));
-
-    const totalPaths = ingress.spec.rules.reduce((n, r) => n + r.http.paths.length, 0);
-    const totalRoutes = vs.reduce((n, v) => n + v.spec.routes.length, 0);
-    assert.equal(totalRoutes, totalPaths, 'every path must become a route');
-
-    // The TLS secret the pipeline creates must be the one the output references.
-    const withTls = vs.find((v) => v.spec.tls);
-    assert.equal(withTls.spec.tls.secret, ingress.spec.tls[0].secretName);
-    // ssl-redirect is "false" in the fixture, so the converter must NOT add one:
-    // the pipeline asserts plain HTTP is served, and a redirect would break it.
-    assert.equal(withTls.spec.tls.redirect, undefined);
+test('the e2e community Ingresses convert to one VirtualServer or Ingress per host with every path routed', () => {
+    /* The fixture holds shop (two hosts, so it is split) and admin (/admin on
+       shop's host, so the host is merged). convert runs them together, as
+       the runner does. */
+    const { convertAll } = require(path.join(TOOL, 'lib', 'convert.js'));
+    const ingresses = Y.parseAll(readE2E('source-ingress.yaml'));
+    assert.deepEqual(ingresses.map((i) => i.metadata.name), ['shop', 'admin']);
+    for (const target of ['virtualserver', 'ingress']) {
+        const out = convertAll(ingresses.map(toModel), engine, { target, ingressClass: 'nginx-nic' });
+        assert.deepEqual(out.flatMap((o) => o.warnings), [], target + ': a generator failed on the e2e fixture');
+        const docs = out.flatMap((o) => o.docs);
+        const routing = docs.filter((d) => d.kind === (target === 'virtualserver' ? 'VirtualServer' : 'Ingress'));
+        const hosts = routing.map((d) => (d.spec.host ? [d.spec.host] : d.spec.rules.map((r) => r.host)));
+        assert.ok(hosts.every((h) => h.length === 1), target + ': one host per resource');
+        assert.deepEqual(hosts.map((h) => h[0]).sort(), ['b.example.com', 'shop.example.com'], target + ': one resource per host');
+        const sourcePaths = ingresses.reduce((n, i) => n + i.spec.rules.reduce((m, r) => m + r.http.paths.length, 0), 0);
+        const routed = routing.reduce((n, d) => n + (d.spec.routes ? d.spec.routes.length : d.spec.rules[0].http.paths.length), 0);
+        assert.equal(routed, sourcePaths, target + ': every path is routed');
+        // The TLS secret the pipeline creates is the one referenced, and with
+        // ssl-redirect "false" on both, no redirect: the runner asserts plain HTTP.
+        const shop = routing.find((d) => (d.spec.host || d.spec.rules[0].host) === 'shop.example.com');
+        if (target === 'virtualserver') {
+            assert.equal(shop.spec.tls.secret, 'shop-tls');
+            assert.equal(shop.spec.tls.redirect, undefined);
+        } else assert.equal(shop.spec.tls[0].secretName, 'shop-tls');
+    }
 });
 
 test('the e2e workload and runner agree on names', () => {
@@ -804,4 +803,39 @@ test('convert writes files that parse, whatever a note quotes', () => {
         }
     }
     fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('convert: community Ingresses on one host or with several hosts give one VirtualServer or Ingress per host, and one result per input file', () => {
+    /* convert runs every Ingress of a run together (migrateMany). A shared
+       host's VirtualServer is written with the first Ingress listed; a
+       multi-host Ingress is split and comes back as one result. */
+    const { convertAll } = require(path.join(TOOL, 'lib', 'convert.js'));
+    const two = (name, host, p, svc) => ({ apiVersion: 'networking.k8s.io/v1', kind: 'Ingress', metadata: { name, namespace: 'prod' },
+        spec: { rules: [{ host, http: { paths: [{ path: p, pathType: 'Prefix', backend: { service: { name: svc, port: { number: 80 } } } }] } }] } });
+    const multi = two('multi', 'b.example.com', '/', 'b');
+    multi.spec.rules.push({ host: 'c.example.com', http: { paths: [{ path: '/', pathType: 'Prefix', backend: { service: { name: 'c', port: { number: 80 } } } }] } });
+    const docs = [two('shop', 'a.example.com', '/', 'web'), two('api', 'a.example.com', '/api', 'api'), multi];
+    const out = convertAll(docs.map(toModel), engine, { target: 'virtualserver' });
+    assert.equal(out.length, 3, 'one result per input Ingress');
+    const all = out.flatMap((o) => o.docs);
+    const owner = {};
+    for (const d of all.filter((x) => x.kind === 'VirtualServer')) (owner[d.spec.host] = owner[d.spec.host] || []).push(d.metadata.name);
+    assert.deepEqual(owner, { 'a.example.com': ['a-example-com'], 'b.example.com': ['multi-b'], 'c.example.com': ['multi-c'] });
+    assert.deepEqual(out[0].docs.map((d) => d.kind), ['VirtualServer'], 'the merged VirtualServer goes with the first Ingress listed');
+    assert.deepEqual(out[1].docs.map((d) => d.kind), [], 'api is in it');
+    assert.deepEqual(all.filter((d) => d.kind === 'VirtualServerRoute'), [], 'no VirtualServerRoute');
+    assert.equal(out[2].notes.filter((n) => /was split into one per host/.test(n)).length, 1);
+});
+
+test('report flags a host that several community Ingresses route, but not a canary pair', () => {
+    /* report analyzes each Ingress on its own, so two Ingresses on one host
+       each looked complete: 0 blocking, 0 review. */
+    const { sharedHosts } = require(path.join(TOOL, 'lib', 'gaps.js'));
+    const item = (name, h, canary) => ({ desc: describeIngress(Y.stringify({ apiVersion: 'networking.k8s.io/v1', kind: 'Ingress',
+        metadata: { name, namespace: 'prod', annotations: canary ? { 'nginx.ingress.kubernetes.io/canary': 'true' } : {} },
+        spec: { rules: [{ host: h, http: { paths: [{ path: '/', pathType: 'Prefix', backend: { service: { name: name, port: { number: 80 } } } }] } }] } })), gaps: [] });
+    const items = [item('shop', 'a.example.com'), item('api', 'a.example.com'), item('shop-canary', 'a.example.com', true), item('solo', 'b.example.com')];
+    sharedHosts(items);
+    assert.deepEqual(items.map((i) => i.gaps.map((g) => g.id)), [['shared-host'], ['shared-host'], [], []]);
+    assert.match(items[0].gaps[0].message, /routed by shop, api\. .*merges them into one VirtualServer/);
 });

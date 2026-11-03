@@ -4,6 +4,8 @@
    The assembly lives in the site's source module (migration-ingress-nginx.js):
    one VirtualServer per host under CRD-first, one migrated Ingress under
    annotation-first, every route, backend, TLS secret and Policy carried over.
+   A multi-host Ingress is split per host; a host several Ingresses share gets
+   one owner (VirtualServer + VirtualServerRoutes, or one merged Ingress).
    The page and this CLI call the same function, so they cannot disagree. This
    file used to rebuild resources from the page's single-feature illustrations;
    the page now emits complete resources, so the grafting is gone.

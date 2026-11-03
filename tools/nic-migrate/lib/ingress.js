@@ -66,7 +66,9 @@ function describe(doc) {
         services,
         hasTls: tls.length > 0,
         tlsSecrets: tls.map((t) => t && t.secretName).filter(Boolean).map(String),
-        annotations: Object.keys(ann).filter((k) => k.startsWith(COMMUNITY_PREFIX)).map((k) => k.slice(COMMUNITY_PREFIX.length))
+        annotations: Object.keys(ann).filter((k) => k.startsWith(COMMUNITY_PREFIX)).map((k) => k.slice(COMMUNITY_PREFIX.length)),
+        // A canary Ingress shares its stable one's host by design.
+        canary: /^true$/i.test(String(ann[COMMUNITY_PREFIX + 'canary'] || '').trim())
     };
 }
 

@@ -228,6 +228,15 @@ def self_test():
     check('case names unique', len(set(names)), len(names))
     check('every case has a host', all(c.get('host') for c in CASES), True)
     check('every case has a path', all(c.get('path') for c in CASES), True)
+    # A known difference must name a target the runner can run.
+    check('known differences name a target', all(set(c.get('known_difference') or {}) <= {'virtualserver', 'ingress'} for c in CASES), True)
+    check('converted Ingresses listed one per line', converted_ingress_names('shop-example-com\nshop-b-nic\n\n'), ['shop-example-com', 'shop-b-nic'])
+    # header_absent: a header that must not be there.
+    with_cors = dict(status=200, headers={'access-control-allow-origin': '*'}, app='web2', uri='/admin')
+    without = dict(status=200, headers={}, app='web2', uri='/admin')
+    absent = dict(header_absent='access-control-allow-origin')
+    check('header_absent flags a present header', absolute_problems(absent, with_cors), ['access-control-allow-origin header present'])
+    check('header_absent passes an absent one', absolute_problems(absent, without), [])
 
     cmd = curl_argv('svc.ns.svc', dict(host='h', path='/x', scheme='https', headers={'Origin': 'o'}))
     check('https adds -k', '-k' in cmd, True)
@@ -469,15 +478,26 @@ def clear_previous():
     """Remove anything a previous run converted. Matters when reusing a cluster
     (--skip-cluster, or --keep then re-run): a VirtualServer left over from a
     --target virtualserver run would still be serving during a --target ingress
-    run, and the comparison would silently be against the wrong resource."""
+    run, and the comparison would silently be against the wrong resource.
+
+    Every Ingress of NIC_CLASS goes, not one by name: a multi-host Ingress is
+    split per host and Ingresses sharing a host are merged, so one run converts
+    to several Ingresses, and a leftover one keeps its host from the next
+    run's VirtualServer, which then never turns Valid. The source Ingresses
+    are COMMUNITY_CLASS and stay."""
     kubectl('delete', 'virtualserver,policy,transportserver', '--all', '-n', NS,
             '--ignore-not-found', check=False, quiet=True)
-    kubectl('delete', 'ingress', model_ingress_name(), '-n', NS,
-            '--ignore-not-found', check=False, quiet=True)
+    names = kubectl('get', 'ingress', '-n', NS, '-o',
+                    'jsonpath={range .items[?(@.spec.ingressClassName=="%s")]}{.metadata.name}{"\\n"}{end}' % NIC_CLASS,
+                    check=False, quiet=True)
+    for name in converted_ingress_names(getattr(names, 'stdout', '') or ''):
+        kubectl('delete', 'ingress', name, '-n', NS, '--ignore-not-found', check=False, quiet=True)
 
 
-def model_ingress_name():
-    return 'shop' + NAME_SUFFIX
+def converted_ingress_names(listing):
+    """The Ingress names `kubectl get ... -o jsonpath` printed, one per line.
+    Pure, so --self-test can cover it."""
+    return [line.strip() for line in listing.splitlines() if line.strip()]
 
 
 def apply_converted(args, path):
@@ -545,6 +565,20 @@ CASES = [
          expect_status=200, expect_app='web'),
     dict(name='plain-http-not-redirected', host='shop.example.com', path='/',
          compare=('status',), expect_status=200),
+    # admin shares shop.example.com. shop's rewrite-target made the community
+    # controller match every path of the host as a regex, longest first, so
+    # /admin reached admin's backend (web2) ahead of shop's catch-all "/".
+    dict(name='shared-host-path-routes-to-its-ingress', host='shop.example.com', path='/admin/users',
+         compare=('status', 'app'), expect_status=200, expect_app='web2'),
+    # Each Ingress's settings stay its own: shop's CORS Policy and rewrite are
+    # not admin's. One merged Ingress (--target ingress) cannot keep that.
+    dict(name='shared-host-keeps-other-ingress-cors-off', host='shop.example.com', path='/admin',
+         headers={'Origin': 'https://shop.example.com'},
+         compare=('status',), expect_status=200, header_absent='access-control-allow-origin',
+         known_difference={'ingress': 'one Ingress per host: shop\'s CORS Policy covers every path of the merged Ingress, /admin included'}),
+    dict(name='shared-host-keeps-other-ingress-uri', host='shop.example.com', path='/admin/users',
+         compare=('status', 'app', 'uri'), expect_status=200, expect_app='web2', expect_uri='/admin/users',
+         known_difference={'ingress': 'one Ingress per host: shop\'s rewrite-target /$2 applies to /admin too'}),
 ]
 
 
@@ -647,6 +681,9 @@ def absolute_problems(case, r):
     needed = case.get('header_present')
     if needed and needed not in r['headers']:
         problems.append('no %s header' % needed)
+    unwanted = case.get('header_absent')
+    if unwanted and unwanted in r['headers']:
+        problems.append('%s header present' % unwanted)
     return problems
 
 
@@ -701,16 +738,17 @@ def probe_against(args, target, baseline, label):
         fields = case.get('compare', ('status', 'app', 'uri'))
         problems = ['%s: %r -> %r' % (f, before.get(f), after.get(f))
                     for f in fields if before.get(f) != after.get(f)]
-        needed = case.get('header_present')
-        if needed and (needed in before['headers']) != (needed in after['headers']):
-            problems.append('%s header %s' % (needed, 'lost' if needed in before['headers'] else 'appeared'))
+        for needed in (case.get('header_present'), case.get('header_absent')):
+            if needed and (needed in before['headers']) != (needed in after['headers']):
+                problems.append('%s header %s' % (needed, 'lost' if needed in before['headers'] else 'appeared'))
 
         # A difference already investigated and written down is not a failure —
         # but a documented difference that has QUIETLY GONE AWAY is, because the
         # note explaining it is now wrong and someone will read it. Both
         # directions have to be checked or the declaration rots.
         #
-        # Currently unused — no case declares one. Kept as the mechanism for
+        # Used by the shared-host cases on --target ingress: one merged Ingress
+        # cannot keep each source Ingress's settings to its own paths. Kept for
         # divergences that are real and understood, as opposed to cases that
         # simply do not apply to a target (skip_targets, above).
         known = (case.get('known_difference') or {}).get(args.target)

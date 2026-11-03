@@ -2426,29 +2426,160 @@ metadata:
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="ingress-configuration"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
                     <tbody>
-                        <tr class="expandable"><td>No direct equivalent</td><td><code>nginx.org/mergeable-ingress-type</code></td></tr>
+                        <tr class="expandable"><td>Several Ingresses on one host</td><td><span class="badge badge-virtualserver">VirtualServer CRD</span> One VirtualServer with every path<span class="or-text">— or —</span>One Ingress with every path</td></tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code># No direct equivalent
-# Canary/traffic-splitting uses separate
-# canary annotations</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># Master Ingress (server-level config)
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: my-app-master
-  annotations:
-    nginx.org/mergeable-ingress-type: "master"
----
-# Minion Ingress (route-level config)
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: my-app-minion
-  annotations:
-    nginx.org/mergeable-ingress-type: "minion"</code></pre></div>
+                            <div class="info-box note"><strong>One host, one resource:</strong> The community controller served every Ingress that names a host from one server block. NGINX Ingress Controller gives a host to one resource and rejects a second that claims it, so the analyzer merges the Ingresses of a host into one resource. What applies to the whole host (TLS, HTTP/2, server snippets, an <code>ingressMTLS</code> Policy) comes from one Ingress: where two set it differently, the community controller kept the oldest Ingress's, and so does the analyzer. An Ingress that routes several hosts is split into one per host first.</div>
+                            <div class="approach-tabs">
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="crd">One VirtualServer</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="annotation">One Ingress</button>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> Mergeable Ingress types allow splitting configuration across multiple Ingress resources for the same host. The <code>master</code> handles server-level settings while <code>minion</code> resources define individual routes.</div>
+                            <div class="approach-content active" data-approach="crd">
+                                <div class="comparison">
+                                    <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web
+spec:
+  tls:
+    - hosts:
+        - app.example.com
+      secretName: app-tls
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+spec:
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 8080</code></pre></div>
+                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># One VirtualServer for the host, with every path
+apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: app-example-com
+spec:
+  host: app.example.com  # served by web, api, merged
+  tls:  # spec.tls
+    secret: app-tls
+    redirect:  # ssl-redirect (community default true with TLS)
+      enable: true
+      code: 308  # the community redirect code
+  upstreams:
+    - name: web
+      service: web
+      port: 80
+    - name: api
+      service: api
+      port: 8080
+      read-timeout: "120s"  # proxy-read-timeout
+  routes:
+    - path: /
+      action:
+        pass: web
+    - path: /api
+      action:
+        pass: api</code></pre></div>
+                                </div>
+                                <div class="info-box note"><strong>Note:</strong> Each Ingress keeps its own upstreams, so a setting such as the <code>proxy-read-timeout</code> above stays with <code>api</code>, and its Policies go on its own routes. When one Ingress on the host sets <code>rewrite-target</code> or <code>use-regex</code>, the community controller matched every path of the host as a regular expression, longest first, and the VirtualServer lists its routes in that order.</div>
+                            </div>
+                            <div class="approach-content" data-approach="annotation">
+                                <div class="comparison">
+                                    <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web
+spec:
+  tls:
+    - hosts:
+        - app.example.com
+      secretName: app-tls
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+spec:
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 8080</code></pre></div>
+                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># One Ingress for the host, with every path
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-example-com
+  annotations:
+    nginx.org/http-redirect-code: "308"  # the community redirect code (308 keeps the method and body; NGINX Ingress Controller defaults to 301)
+    nginx.org/proxy-read-timeout: "120s"  # proxy-read-timeout
+spec:
+  tls:
+    - hosts:
+        - app.example.com
+      secretName: app-tls
+  rules:
+    - host: app.example.com  # served by web, api, merged
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 8080</code></pre></div>
+                                </div>
+                                <div class="info-box warning"><strong>Settings become host-wide:</strong> In one Ingress, only the per-Service annotations (<code>nginx.org/ssl-services</code>, <code>nginx.org/grpc-services</code>, <code>nginx.org/websocket-services</code>, <code>nginx.org/rewrites</code>, <code>nginx.org/sticky-cookie-services</code>) stay with the Service they name. Every other setting covers every path, so the <code>proxy-read-timeout</code> above, set only on <code>api</code>, applies to <code>web</code> too; the community controller scoped it to <code>api</code>'s paths. A <code>rewrite-target</code> or <code>use-regex</code> on one Ingress rewrites or matches the other's paths as well. The analyzer names each setting that changes scope. To keep them per Ingress, use the VirtualServer approach, where each Ingress keeps its own upstreams.</div>
+                            </div>
+                            <div class="info-box tip"><strong>A resource per team:</strong> NGINX Ingress Controller can also delegate a host's paths to VirtualServerRoutes, or to mergeable minion Ingresses under a master, and NGINX Gateway Fabric attaches several HTTPRoutes to one Gateway listener. Each gives a team a resource of its own, and each needs setting up with the result in mind: regex paths in different VirtualServerRoutes, for one, are not tried longest first. The analyzer does not emit them.</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -3902,11 +4033,11 @@ spec:
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="info-box tip"><strong>Tip:</strong> This feature requires CRDs. See <a href="#installation">Installing CRDs</a> for Helm and manifest installation instructions.</div>
-                            <div class="info-box note"><strong>Note:</strong> The community controller has no equivalent for cross-namespace route delegation. VirtualServerRoute allows different teams to manage their own routing rules while a central VirtualServer controls the domain. Since v5.7.0, a VirtualServerRoute may omit <code>spec.host</code> and be referenced by any number of VirtualServers, so paths that several hosts share, migrated from Ingresses that repeated them per host, can be defined once.</div>
+                            <div class="info-box note"><strong>Note:</strong> The community controller has no equivalent for cross-namespace route delegation. VirtualServerRoute allows different teams to manage their own routing rules while a central VirtualServer controls the domain. The analyzer migrates several Ingresses on one host into one VirtualServer instead, which keeps the community routing order; see <a href="#ingress-configuration">Ingress configuration</a>. Since v5.7.0, a VirtualServerRoute may omit <code>spec.host</code> and be referenced by any number of VirtualServers, so paths that several hosts share, migrated from Ingresses that repeated them per host, can be defined once.</div>
                             <div class="comparison">
-                                <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code># No equivalent — each team must have
-# their own Ingress resource per host,
-# or share a single Ingress manifest</code></pre></div>
+                                <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code># No equivalent across namespaces: several
+# Ingresses can share a host, but the
+# controller merges them into one server</code></pre></div>
                                 <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># VirtualServer (platform team)
 apiVersion: k8s.nginx.org/v1
 kind: VirtualServer

@@ -86,6 +86,21 @@ Every path becomes a route, every distinct backend an upstream, Policies are
 referenced from `spec.policies`, and TLS, namespace, and `ingressClassName` are
 carried over.
 
+NGINX Ingress Controller gives a host to one resource, so every host in the
+output has exactly one. An Ingress that routes several hosts is split into one
+per host, with a note. A host that several Ingresses of a run share becomes one
+VirtualServer with every Ingress's routes: each keeps its own upstreams, and
+its Policies go on its own routes (with `--target ingress`: one Ingress with
+every path, which makes each Ingress's settings apply to the whole host, and
+the notes name each one). Routes are ordered as the community controller tried
+them, which matters once an Ingress on the host uses `rewrite-target` or
+`use-regex`. The merged resource is written into the file of the Ingress listed
+first. The tool never emits VirtualServerRoutes or mergeable minion Ingresses:
+they give each team its own resource, but need setting up by hand. Where the Ingresses set a
+host-wide value differently, the oldest Ingress's is kept, as the community
+controller kept it, and a note says so. `report` analyzes each Ingress alone
+and flags the shared host as a `shared-host` gap.
+
 `--target ingress` keeps the Ingress resource and rewrites its annotations to
 `nginx.org/*`, adding `nginx.org/policies` for anything that needs a Policy.
 It is lower risk and enough for many real workloads, because NGINX Ingress

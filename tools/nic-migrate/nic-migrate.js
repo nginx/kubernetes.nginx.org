@@ -21,7 +21,7 @@ const { execFileSync } = require('node:child_process');
 
 const { createEngine, ROOT, SOURCE_MODULE } = require('./lib/engine');
 const { readIngresses, describe } = require('./lib/ingress');
-const { detect, sortGaps } = require('./lib/gaps');
+const { detect, sortGaps, sharedHosts } = require('./lib/gaps');
 const { renderReport, toJson, fileHeader, makeStyle } = require('./lib/render');
 const yaml = require('./lib/yaml');
 const { toModel, convertAll, configMapDoc } = require('./lib/convert');
@@ -439,8 +439,10 @@ function main() {
         // The engine analyzes the parsed object, re-emitted: what it reads is
         // exactly what was parsed, whatever the input's form.
         const result = engine.analyze(yaml.stringify(doc), strategy);
-        return { desc, result, sourceFile, gaps: sortGaps(detect(desc, result)) };
+        return { desc, result, sourceFile, gaps: detect(desc, result) };
     });
+    sharedHosts(items);
+    for (const item of items) item.gaps = sortGaps(item.gaps);
 
     if (!items.length) {
         process.stderr.write('error: no Ingress documents found' + skippedText(skipped) + '\n');

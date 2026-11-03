@@ -13,6 +13,13 @@
 #   ssl-redirect false  keeps plain HTTP assertable; the converter must then NOT
 #                       set tls.redirect, which is its own assertion
 #
+# shop routes two hosts, so the converter splits it into one resource per host.
+# A second Ingress, admin, routes /admin on shop's host: NGINX Ingress
+# Controller gives a host to one resource, so the converter gives the host one
+# VirtualServer with a VirtualServerRoute per Ingress (virtualserver target) or
+# merges them into one Ingress (ingress target). admin sets no CORS, and the
+# community controller scoped shop's CORS to shop's own paths.
+#
 # Two hosts and three backends across two paths, because the single-context
 # model in the page's analyzer collapses exactly that shape — this fixture fails
 # loudly against a converter that kept it.
@@ -59,6 +66,27 @@ spec:
       http:
         paths:
           - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web2-svc
+                port:
+                  number: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: admin
+  namespace: e2e-shop
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: shop.example.com
+      http:
+        paths:
+          - path: /admin
             pathType: Prefix
             backend:
               service:

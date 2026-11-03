@@ -126,7 +126,7 @@ test('B1/A4: one VirtualServer per host, carrying TLS — never two on one host'
     assert.ok(!/^annotations:/m.test(r.text), 'no bare annotations: block in the export');
 });
 
-test('B1: every host, path and backend of a multi-host Ingress is carried over', () => {
+test('B1: every host, path and backend of a multi-host community Ingress is carried over', () => {
     const doc = ingress({ 'proxy-body-size': '1m' });
     doc.spec.rules.push({ host: 'b.example.com', http: { paths: [{ path: '/x', pathType: 'Prefix', backend: { service: { name: 'other', port: { number: 8080 } } } }] } });
     const vs = kinds(run(doc), 'VirtualServer');
@@ -934,4 +934,307 @@ test('session-cookie annotations without affinity say so, rather than quoting "u
     const n = notes(run(ingress({ 'session-cookie-name': 'x', 'affinity-mode': 'persistent' })));
     assert.doesNotMatch(n, /undefined/);
     assert.match(n, /session-cookie-name, affinity-mode without affinity: "cookie" set nothing in the community controller/);
+});
+
+/* ------------------------------------------- one host, one owning resource
+
+   NGINX Ingress Controller gives a host to one resource. main used to emit a
+   VirtualServer (or an Ingress) per source Ingress, so two Ingresses on one
+   host became two owners and NGINX Ingress Controller rejected the second,
+   while the tool reported nothing. Now an Ingress with several hosts is split
+   into one per host, and a host several Ingresses share becomes one resource:
+   a VirtualServer (CRD-first) or an Ingress (annotation-first) holding every
+   Ingress's paths. Never VirtualServerRoutes or mergeable minions. Every rule below was read
+   in the v5.7.0 source: validation/virtualserver.go, configs/policy.go,
+   configs/annotations.go, configs/parsing_helpers.go, k8s/configuration.go. */
+
+const host = (name, h, paths, ann, tls, extra) => Object.assign({
+    apiVersion: 'networking.k8s.io/v1', kind: 'Ingress',
+    metadata: Object.assign({ name, namespace: 'prod', annotations: Object.fromEntries(Object.entries(ann || {}).map(([k, v]) => ['nginx.ingress.kubernetes.io/' + k, v])) }, extra || {}),
+    spec: Object.assign(tls ? { tls: [{ hosts: [h], secretName: tls }] } : {}, {
+        rules: [{ host: h, http: { paths: paths.map(([p, svc, pt]) => ({ path: p, pathType: pt || 'Prefix', backend: { service: { name: svc, port: { number: 80 } } } })) } }]
+    })
+});
+const paste = (...docs) => docs.map((d) => Y.stringify(d)).join('---\n');
+const hostOf = (d) => d.kind === 'Ingress' ? d.spec.rules.map((r) => r.host) : [d.spec.host];
+// Who claims each host: a VirtualServer, an Ingress, or a TransportServer.
+const owners = (r) => {
+    const by = {};
+    for (const d of r.docs) {
+        if (!['VirtualServer', 'TransportServer', 'Ingress'].includes(d.kind)) continue;
+        for (const h of hostOf(d)) (by[h] = by[h] || []).push(d.kind + '/' + d.metadata.name);
+    }
+    return by;
+};
+
+test('a community Ingress with several hosts becomes one VirtualServer or Ingress per host, with one note', () => {
+    const two = ingress({ 'limit-rps': '10', 'limit-connections': '5', 'enable-cors': 'true', 'cors-allow-origin': 'https://a.example.com' });
+    two.metadata.namespace = 'prod';
+    two.spec.tls = [{ hosts: ['a.example.com', 'b.example.com'], secretName: 'ab-tls' }];
+    two.spec.rules.push({ host: 'b.example.com', http: { paths: [{ path: '/', pathType: 'Prefix', backend: { service: { name: 'web2', port: { number: 80 } } } }] } });
+    for (const strategy of ['crd', 'annotation']) {
+        const r = run(two, strategy);
+        const routing = r.docs.filter((d) => d.kind !== 'Policy' && d.kind !== 'ConfigMap');
+        assert.deepEqual(routing.map((d) => hostOf(d).length), [1, 1], strategy + ': one host per resource');
+        assert.deepEqual(routing.map((d) => d.metadata.name), ['app-a', 'app-b'], strategy);
+        assert.equal(r.plan.infoNotes.filter((n) => /was split into one per host/.test(n.message)).length, 1, strategy + ': the split is said once');
+        assert.equal(r.plan.banner.strongText, '4 annotations analyzed', strategy + ': the pieces share one set of annotations');
+        // One Policy for both pieces, as the source had one set of annotations.
+        assert.deepEqual(kinds(r, 'Policy').map((p) => p.metadata.name).sort(), strategy === 'crd' ? ['app-cors', 'app-rate-limit'] : ['app-cors']);
+    }
+    // limit_conn shares the source's zone, as the community controller counted
+    // one limit across the Ingress's hosts (ratelimit/main.go); a rate-limit
+    // Policy cannot, and says so.
+    const crd = run(two, 'crd');
+    assert.equal((crd.text.match(/limit_conn_zone/g) || []).length, 1);
+    assert.match(crd.text, /zone=prod_app_conn:5m/);
+    assert.match(notes(crd), /counted this rate limit once across a\.example\.com, b\.example\.com/);
+});
+
+test('community Ingresses on one host merge into one VirtualServer with every path (CRD-first)', () => {
+    /* One VirtualServer, never VirtualServerRoutes: NGINX Ingress Controller
+       writes each VirtualServerRoute's subroutes together after the
+       VirtualServer's own routes (configs/virtualserver.go), so regex paths
+       from two Ingresses could not keep the community order. Each Ingress keeps
+       its own upstreams and its Policies on its own routes. */
+    const r = run(paste(
+        host('shop', 'a.example.com', [['/', 'web']], { 'proxy-body-size': '8m', 'enable-cors': 'true', 'cors-allow-origin': 'https://a.example.com' }, 'a-tls'),
+        host('api', 'a.example.com', [['/api', 'api']], { 'limit-rps': '10' })
+    ));
+    assert.deepEqual(owners(r), { 'a.example.com': ['VirtualServer/a-example-com'] });
+    assert.equal(kinds(r, 'VirtualServerRoute').length, 0, 'no VirtualServerRoute');
+    const [vs] = kinds(r, 'VirtualServer');
+    assert.equal(vs.spec.tls.secret, 'a-tls');
+    assert.equal(vs.spec.policies, undefined, 'no spec-level Policy: each stays on its own Ingress\'s routes');
+    const up = (n) => vs.spec.upstreams.find((u) => u.service === n);
+    assert.equal(up('web')['client-max-body-size'], '8m');
+    assert.equal(up('api')['client-max-body-size'], undefined, 'shop\'s body size stays on shop\'s upstream');
+    const route = (p) => vs.spec.routes.find((x) => x.path === p);
+    assert.deepEqual(route('/').policies, [{ name: 'shop-cors' }]);
+    assert.deepEqual(route('/api').policies, [{ name: 'api-rate-limit' }]);
+    // Every route passes to an upstream of the VirtualServer.
+    const names = new Set(vs.spec.upstreams.map((u) => u.name));
+    for (const x of vs.spec.routes) assert.ok(names.has(x.action.pass || x.action.proxy.upstream), x.path);
+    assert.match(notes(r), /shop, api share a\.example\.com, so they are merged into one VirtualServer.*VirtualServerRoutes or to mergeable minion Ingresses, and NGINX Gateway Fabric/);
+});
+
+test('community Ingresses on one host with regex paths: the merged VirtualServer lists routes in the community controller\'s order', () => {
+    /* With rewrite-target or use-regex on any Ingress of a host, the community
+       controller made every location of the server a case-insensitive regex
+       (template.go enforceRegexModifier) and tried them longest first across
+       Ingresses (controller.go). Here that sends /admin to admin, not to the
+       catch-all of shop. Each request is resolved as NGINX resolves a regex
+       location list: first match in written order. */
+    const r = run(paste(
+        host('shop', 'a.example.com', [['/api(/|$)(.*)', 'api', 'ImplementationSpecific'], ['/', 'web']], { 'rewrite-target': '/$2' }, 'a-tls'),
+        host('admin', 'a.example.com', [['/admin', 'admin']])
+    ));
+    const [vs] = kinds(r, 'VirtualServer');
+    assert.ok(vs.spec.routes.every((x) => /^~/.test(x.path)), 'every path is a regex on this host');
+    const pick = (uri) => {
+        const x = vs.spec.routes.find((rt) => new RegExp(rt.path.replace(/^~\s*\(\?i\)/, ''), 'i').test(uri));
+        const name = x.action.pass || x.action.proxy.upstream;
+        return vs.spec.upstreams.find((u) => u.name === name).service;
+    };
+    assert.equal(pick('/admin/users'), 'admin');
+    assert.equal(pick('/api/things/42'), 'api');
+    assert.equal(pick('/anything'), 'web');
+});
+
+test('community Ingresses on one host merge into one NGINX Ingress Controller Ingress with every path (annotation-first)', () => {
+    /* One Ingress per host. Only the per-Service lists (parsing_helpers.go)
+       stay scoped to their Service; every other setting covers every path, so
+       a setting only one Ingress had now applies to the others, and says so. */
+    const r = run(paste(
+        host('shop', 'a.example.com', [['/', 'web']], { 'proxy-body-size': '8m', 'backend-protocol': 'HTTPS' }, 'a-tls'),
+        host('api', 'a.example.com', [['/api', 'api']], { 'backend-protocol': 'GRPC', 'proxy-read-timeout': '120' })
+    ), 'annotation');
+    assert.deepEqual(owners(r), { 'a.example.com': ['Ingress/a-example-com'] });
+    const [ing] = kinds(r, 'Ingress');
+    assert.equal(ing.spec.rules.length, 1);
+    assert.deepEqual(ing.spec.rules[0].http.paths.map((p) => [p.path, p.backend.service.name]), [['/', 'web'], ['/api', 'api']], 'every path, in paste order');
+    assert.equal(ing.spec.tls[0].secretName, 'a-tls');
+    assert.equal(ing.metadata.annotations['nginx.org/mergeable-ingress-type'], undefined, 'no master or minion');
+    // Per-Service lists keep each Service's own value.
+    assert.equal(ing.metadata.annotations['nginx.org/ssl-services'], 'web');
+    assert.equal(ing.metadata.annotations['nginx.org/grpc-services'], 'api');
+    // Two Ingresses naming different Services in one list: both are kept.
+    const both = run(paste(host('one', 'a.example.com', [['/', 'web']], { 'backend-protocol': 'HTTPS' }), host('two', 'a.example.com', [['/b', 'b']], { 'backend-protocol': 'HTTPS' })), 'annotation');
+    assert.deepEqual(kinds(both, 'Ingress')[0].metadata.annotations['nginx.org/ssl-services'].split(',').sort(), ['b', 'web']);
+    assert.doesNotMatch(notes(both), /ssl-services differently/);
+    // A location setting one Ingress had covers the host now, and says where it
+    // stays scoped.
+    assert.equal(ing.metadata.annotations['nginx.org/client-max-body-size'], '8m');
+    assert.match(notes(r), /Only shop sets nginx\.org\/client-max-body-size; .* applies to the paths of api too.*CRD-first keeps it scoped/);
+    // A routing setting cannot be shared without changing the other's paths.
+    const rw = run(paste(host('shop', 'a.example.com', [['/', 'web']]), host('api', 'a.example.com', [['/api(/|$)(.*)', 'api', 'ImplementationSpecific']], { 'rewrite-target': '/$2', 'use-regex': 'true' })), 'annotation');
+    assert.equal(kinds(rw, 'Ingress').length, 1);
+    assert.match(notes(rw), /Only api sets nginx\.org\/rewrite-target and nginx\.org\/path-regex.*shop's paths .* matched and rewritten with it too\. To keep them as they were, use CRD-first/);
+    assert.equal(rw.plan.infoNotes.find((n) => /rewrite-target and nginx\.org\/path-regex/.test(n.message)).severity, 'warning');
+});
+
+test('merging community Ingresses on one host keeps one TLS, CA and path owner, chosen as the community controller chose', () => {
+    // Client certificates are per server in both controllers: the community
+    // controller took the first Ingress's CA (controller.go getBackendServers);
+    // NGINX Ingress Controller accepts ingressMTLS only at spec level
+    // (configs/policy.go), on the VirtualServer or the Ingress.
+    const mtls = paste(host('shop', 'a.example.com', [['/', 'web']], {}, 'a-tls'), host('admin', 'a.example.com', [['/admin', 'admin']], { 'auth-tls-secret': 'prod/ca' }, 'a-tls'));
+    const crd = run(mtls);
+    assert.deepEqual(kinds(crd, 'VirtualServer')[0].spec.policies, [{ name: 'admin-ingress-mtls' }]);
+    assert.ok(kinds(crd, 'VirtualServerRoute').every((v) => v.spec.subroutes.every((s) => !(s.policies || []).some((p) => /mtls/.test(p.name)))));
+    assert.match(notes(crd), /Client-certificate verification applies to the whole of a\.example\.com, shop included/);
+    const ann = run(mtls, 'annotation');
+    assert.equal(kinds(ann, 'Ingress').length, 1);
+    assert.equal(kinds(ann, 'Ingress')[0].metadata.annotations['nginx.org/policies'], 'admin-ingress-mtls');
+    assert.match(notes(ann), /Client-certificate verification applies to the whole of a\.example\.com, shop included/);
+    // Two Ingresses claim a path: NGINX Ingress Controller keeps one, and says so.
+    for (const strategy of ['crd', 'annotation']) {
+        assert.match(notes(run(paste(host('one', 'a.example.com', [['/', 'web']]), host('two', 'a.example.com', [['/', 'web2']])), strategy)), /Path \/ on a\.example\.com is routed by/);
+    }
+    // One Ingress cannot route a path twice: the oldest keeps it.
+    assert.deepEqual(kinds(run(paste(host('one', 'a.example.com', [['/', 'web']]), host('two', 'a.example.com', [['/', 'web2']])), 'annotation'), 'Ingress')[0].spec.rules[0].http.paths.map((p) => p.backend.service.name), ['web2']);
+    // Different TLS: the oldest Ingress wins (store.go sortIngressSlice), and on
+    // equal or missing timestamps the last by namespace/name.
+    const tls = (a, b) => paste(host('one', 'a.example.com', [['/', 'web']], {}, 'one-tls', a), host('two', 'a.example.com', [['/b', 'b']], {}, 'two-tls', b));
+    assert.equal(kinds(run(tls()), 'VirtualServer')[0].spec.tls.secret, 'two-tls');
+    assert.equal(kinds(run(tls({ creationTimestamp: '2025-01-01T00:00:00Z' }, { creationTimestamp: '2025-06-01T00:00:00Z' })), 'VirtualServer')[0].spec.tls.secret, 'one-tls');
+    assert.match(notes(run(tls())), /set TLS differently/);
+});
+
+test('a mixed paste of community Ingresses: every output host has exactly one VirtualServer or Ingress', () => {
+    /* The invariant itself, over a paste that mixes every case: a split, a
+       shared host, a canary pair beside a third Ingress, and a host of its own. */
+    const multi = host('multi', 'b.example.com', [['/', 'web']]);
+    multi.spec.rules.push({ host: 'a.example.com', http: { paths: [{ path: '/m', pathType: 'Prefix', backend: { service: { name: 'm', port: { number: 80 } } } }] } });
+    const input = paste(
+        host('shop', 'a.example.com', [['/', 'web']], {}, 'a-tls'),
+        host('shop-canary', 'a.example.com', [['/', 'web-v2']], { canary: 'true', 'canary-weight': '20' }),
+        host('api', 'a.example.com', [['/api', 'api']]),
+        multi,
+        host('solo', 'c.example.com', [['/', 'c']])
+    );
+    for (const strategy of ['crd', 'annotation']) {
+        const r = run(input, strategy);
+        const by = owners(r);
+        assert.deepEqual(Object.keys(by).sort(), ['a.example.com', 'b.example.com', 'c.example.com'], strategy);
+        // Annotation-first cannot split traffic, so the canary stays an Ingress
+        // of its own beside the main one, and says so; nothing else may.
+        const extra = strategy === 'annotation' ? ['Ingress/shop-canary'] : [];
+        for (const [h, list] of Object.entries(by)) assert.deepEqual(list.filter((x) => !extra.includes(x)).length, 1, strategy + ' ' + h + ': ' + list.join(', '));
+        if (extra.length) assert.match(notes(r), /A canary Ingress shares its host .* left out of the host's Ingress/);
+    }
+});
+
+test('the reference row for community Ingresses on one host matches what the analyzer emits', () => {
+    /* A "Several Ingresses on one host" row has no community annotation, so
+       where.py --diff cannot reach it. Its source block is run through the
+       analyzer under each tab's strategy and compared, comments included. */
+    const page = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'ingress-nginx-migration.html'), 'utf8');
+    const row = page.slice(page.indexOf('<td>Several Ingresses on one host</td>'), page.indexOf('</div></td></tr>', page.indexOf('<td>Several Ingresses on one host</td>')));
+    assert.ok(row.length > 100, 'the row is on the page');
+    const unescape = (t) => t.replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+    for (const strategy of ['crd', 'annotation']) {
+        const tab = row.slice(row.indexOf('class="approach-content' + (strategy === 'crd' ? ' active' : '') + '" data-approach="' + strategy + '">'));
+        const [, src] = /comparison-block old"><h4>[^<]*<\/h4><pre><code>([\s\S]*?)<\/code>/.exec(tab);
+        const [, want] = /comparison-block new"><h4>[^<]*<\/h4><pre><code>([\s\S]*?)<\/code>/.exec(tab);
+        // The example's own lead comment is the page's, not the analyzer's.
+        const shown = unescape(want).split('\n---\n').map((d) => d.replace(/^# .*\n/, ''));
+        const got = run(unescape(src), strategy).text.split('\n---\n').map((d) => d.replace(/^# .*\n/, ''));
+        assert.deepEqual(shown, got, strategy);
+    }
+});
+
+test('regex paths in a migrated Ingress are listed in the order the community controller tried them', () => {
+    /* NGINX tries regex locations in the order written, and NGINX Ingress
+       Controller writes an Ingress's paths as listed (configs/ingress.go has no
+       sort). With nginx.org/path-regex every path is a regex, so a "/" listed
+       first answered everything. The e2e caught it on a merged host: /admin
+       went to web instead of admin. Requests are resolved as NGINX does. */
+    const pick = (ing, uri) => {
+        const p = ing.spec.rules[0].http.paths.find((x) => new RegExp('^' + x.path, 'i').test(uri));
+        return p.backend.service.name;
+    };
+    // One Ingress, catch-all listed first.
+    const single = host('shop', 'a.example.com', [['/', 'web'], ['/api(/|$)(.*)', 'api', 'ImplementationSpecific']], { 'rewrite-target': '/$2' });
+    const one = kinds(run(Y.stringify(single), 'annotation'), 'Ingress')[0];
+    assert.equal(one.metadata.annotations['nginx.org/path-regex'], 'case_insensitive');
+    assert.equal(pick(one, '/api/things'), 'api');
+    assert.equal(pick(one, '/x'), 'web');
+    // A merged host.
+    const merged = kinds(run(paste(
+        host('shop', 'a.example.com', [['/api(/|$)(.*)', 'api', 'ImplementationSpecific'], ['/', 'web']], { 'rewrite-target': '/$2' }),
+        host('admin', 'a.example.com', [['/admin', 'admin']])
+    ), 'annotation'), 'Ingress')[0];
+    assert.equal(pick(merged, '/admin/users'), 'admin');
+    assert.equal(pick(merged, '/api/things'), 'api');
+    assert.equal(pick(merged, '/anything'), 'web');
+});
+
+test('for any community input, no VirtualServer, Ingress or TransportServer has two hosts, and no host has two of them', () => {
+    /* The rule NGINX Ingress Controller enforces, held over every input the
+       suites generate rather than a few hand-picked ones: each preset, and each
+       mapped annotation alone, on an Ingress that routes a second host, and
+       beside a second Ingress on its host. Both strategies. main once emitted a
+       second owner for a shared host with no warning; the controller rejects it.
+       Two cases cannot be merged, and pass only if they warn: a canary under
+       annotation-first (one Ingress cannot split traffic), and TLS passthrough
+       beside HTTP routing on one host (the community controller passed the
+       host's TLS through; NGINX Ingress Controller gives the host to one). */
+    const bad = [];
+    const check = (label, text, strategy) => {
+        const r = run(text, strategy);
+        for (const d of r.docs) {
+            if (!['VirtualServer', 'TransportServer', 'Ingress'].includes(d.kind)) continue;
+            if (hostOf(d).length > 1) bad.push(label + ' ' + strategy + ': ' + d.kind + '/' + d.metadata.name + ' has hosts ' + hostOf(d).join(', '));
+        }
+        const warned = r.plan.infoNotes.filter((n) => n.severity === 'warning').map((n) => n.message).join('\n');
+        for (const [h, list] of Object.entries(owners(r))) {
+            if (list.length < 2) continue;
+            const canary = strategy === 'annotation' && /A canary Ingress shares its host/.test(warned);
+            const passthrough = list.some((x) => /^TransportServer\//.test(x)) && /passes .* through as TLS/.test(warned);
+            if (!canary && !passthrough) bad.push(label + ' ' + strategy + ': ' + h + ' is claimed by ' + list.join(', '));
+        }
+    };
+    for (const strategy of ['crd', 'annotation']) {
+        for (const p of Object.keys(source.analyzer.samplePresets)) check('preset ' + p, source.analyzer.samplePresets[p], strategy);
+        for (const name of MAPPED) {
+            const ann = sweepInput(name);
+            check(name, Y.stringify(ingress(ann)), strategy);
+            const two = ingress(ann);
+            two.spec.rules.push({ host: 'b.example.com', http: { paths: [{ path: '/b', pathType: 'Prefix', backend: { service: { name: 'b', port: { number: 80 } } } }] } });
+            check(name + ' (two hosts)', Y.stringify(two), strategy);
+            const other = ingress({});
+            other.metadata.name = 'other';
+            other.spec.rules[0].http.paths = [{ path: '/other', pathType: 'Prefix', backend: { service: { name: 'other', port: { number: 80 } } } }];
+            check(name + ' (shared host)', Y.stringify(ingress(ann)) + '---\n' + Y.stringify(other), strategy);
+        }
+    }
+    assert.deepEqual(bad, []);
+});
+
+test('community Ingresses on one host with regex paths: each request reaches the same backend after merging', () => {
+    /* NGINX tries regex locations in the order written; the community
+       controller wrote one server's locations longest first, across Ingresses.
+       Every order of listing, both strategies, catch-all first or last. */
+    const shop = (order) => host('shop', 'a.example.com', order, { 'rewrite-target': '/$2' });
+    const api = ['/api(/|$)(.*)', 'api', 'ImplementationSpecific'], web = ['/', 'web'];
+    const admin = host('admin', 'a.example.com', [['/admin', 'admin']]);
+    const want = { '/admin/users': 'admin', '/api/things': 'api', '/anything': 'web' };
+    const wrong = [];
+    for (const strategy of ['crd', 'annotation']) {
+        for (const [label, docs] of [['catch-all last', [shop([api, web]), admin]], ['catch-all first', [shop([web, api]), admin]], ['admin listed first', [admin, shop([web, api])]]]) {
+            const r = run(paste(...docs), strategy);
+            const resolve = (uri) => {
+                if (strategy === 'crd') {
+                    const [vs] = kinds(r, 'VirtualServer');
+                    const x = vs.spec.routes.find((rt) => new RegExp(rt.path.replace(/^~\s*\(\?i\)/, ''), 'i').test(uri));
+                    return vs.spec.upstreams.find((u) => u.name === (x.action.pass || x.action.proxy.upstream)).service;
+                }
+                const [ing] = kinds(r, 'Ingress');
+                return ing.spec.rules[0].http.paths.find((p) => new RegExp('^' + p.path, 'i').test(uri)).backend.service.name;
+            };
+            for (const [uri, svc] of Object.entries(want)) if (resolve(uri) !== svc) wrong.push(strategy + ', ' + label + ': ' + uri + ' reached ' + resolve(uri) + ', not ' + svc);
+        }
+    }
+    assert.deepEqual(wrong, []);
 });
