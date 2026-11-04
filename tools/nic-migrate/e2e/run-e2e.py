@@ -231,6 +231,15 @@ def self_test():
     # A known difference must name a target the runner can run.
     check('known differences name a target', all(set(c.get('known_difference') or {}) <= {'virtualserver', 'ingress'} for c in CASES), True)
     check('converted Ingresses listed one per line', converted_ingress_names('shop-example-com\nshop-b-nic\n\n'), ['shop-example-com', 'shop-b-nic'])
+    check('VirtualServer states keep the reason',
+          virtualserver_states('shop\tValid\tok\nshop-b\tWarning\thost taken\n\t\t\n'),
+          {'shop': ('Valid', 'ok'), 'shop-b': ('Warning', 'host taken')})
+    check('a VirtualServer NIC has not processed has no state',
+          virtualserver_states('shop\t\t\n'), {'shop': ('', '')})
+    check('leftover NIC config is the namespace\'s own',
+          leftover_configs('_default-server.conf\nvs_e2e-shop_shop-b.conf\ne2e-shop-shop-nic.conf\n'
+                           'ts_e2e-shop_db.conf\nvs_other_x.conf\n', 'e2e-shop'),
+          ['vs_e2e-shop_shop-b.conf', 'e2e-shop-shop-nic.conf', 'ts_e2e-shop_db.conf'])
     # header_absent: a header that must not be there.
     with_cors = dict(status=200, headers={'access-control-allow-origin': '*'}, app='web2', uri='/admin')
     without = dict(status=200, headers={}, app='web2', uri='/admin')
@@ -493,11 +502,45 @@ def clear_previous():
     for name in converted_ingress_names(getattr(names, 'stdout', '') or ''):
         kubectl('delete', 'ingress', name, '-n', NS, '--ignore-not-found', check=False, quiet=True)
 
+    # The delete must be processed before the apply. NIC queues a resource's
+    # delete and re-add as one task (keyed by kind and name, handlers.go), and
+    # by the time it runs the lister holds the new object; IsEqual compares
+    # only namespace, name and generation (configuration.go), and a re-created
+    # resource is generation 1 again. So a VirtualServer re-applied too soon
+    # is "unchanged": no reload, no status, and NGINX keeps serving the old
+    # object's config. Found when a reused cluster's shop-b never got a state.
+    def cleared():
+        out = kubectl('exec', '-n', NIC_NS, 'deploy/nic-nginx-ingress-controller', '--',
+                      'ls', '/etc/nginx/conf.d', check=False, quiet=True)
+        if out.returncode != 0:
+            raise Fail('cannot list conf.d: %s' % out.stderr.strip())
+        left = leftover_configs(out.stdout, NS)
+        if left:
+            raise Fail('still configured: ' + ' '.join(left))
+        return 'cleared'
+    wait_for('NGINX Ingress Controller to drop the previous run', cleared, timeout=60, interval=1)
+
+
+def leftover_configs(listing, ns):
+    """The conf.d files NIC wrote for namespace ns: vs_<ns>_<name>.conf,
+    ts_<ns>_<name>.conf, and <ns>-<name>.conf for an Ingress (configurator.go
+    getFileNameFor*, objectMetaToFileName). Pure, so --self-test can cover it."""
+    names = listing.split()
+    return [n for n in names
+            if n.startswith(('vs_%s_' % ns, 'ts_%s_' % ns, '%s-' % ns)) and n.endswith('.conf')]
+
 
 def converted_ingress_names(listing):
     """The Ingress names `kubectl get ... -o jsonpath` printed, one per line.
     Pure, so --self-test can cover it."""
     return [line.strip() for line in listing.splitlines() if line.strip()]
+
+
+def virtualserver_states(listing):
+    """{name: (state, message)} from the tab-separated lines the Valid wait
+    lists; a line with no name is dropped. Pure, so --self-test can cover it."""
+    rows = (line.split('\t') + ['', ''] for line in listing.splitlines())
+    return {r[0]: (r[1], r[2].strip()) for r in rows if r[0]}
 
 
 def apply_converted(args, path):
@@ -513,16 +556,21 @@ def apply_converted(args, path):
             # a trailing bare "=", which parses into an empty-named resource
             # whose state is "" — so `all(state == Valid)` is false forever and
             # the wait times out against two perfectly Valid VirtualServers.
-            # Cost an entire e2e run to find. The empty-key filter below is the
-            # belt to that braces.
+            # Cost an entire e2e run to find. virtualserver_states dropping a
+            # nameless line is the belt to those braces.
             out = kubectl('get', 'virtualserver', '-n', NS,
-                          '-o', 'jsonpath={range .items[*]}{.metadata.name}={.status.state} {end}',
-                          check=False).stdout.strip()
-            states = {k: v for k, v in
-                      (p.split('=', 1) for p in out.split() if '=' in p) if k}
-            if states and all(v == 'Valid' for v in states.values()):
-                return ' '.join('%s=%s' % kv for kv in sorted(states.items()))
-            return None
+                          '-o', 'jsonpath={range .items[*]}{.metadata.name}{"\\t"}{.status.state}'
+                                '{"\\t"}{.status.message}{"\\n"}{end}',
+                          check=False).stdout
+            states = virtualserver_states(out)
+            if states and all(s == 'Valid' for s, _ in states.values()):
+                return ' '.join('%s=Valid' % name for name in sorted(states))
+            # Raised, not returned: wait_for keeps a Fail's text as `last`, so a
+            # timeout names each VirtualServer's state and NIC's reason for it.
+            # Returning None reported "last: None" and threw both away.
+            raise Fail('; '.join('%s=%s %s' % (name, s or '(no state)', m)
+                                 for name, (s, m) in sorted(states.items()))
+                       or 'no VirtualServer listed')
         say('  ' + wait_for('every VirtualServer to reach state Valid', valid, timeout=180))
     else:
         say('  applied the converted Ingress on class %s' % NIC_CLASS)

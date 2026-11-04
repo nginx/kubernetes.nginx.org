@@ -1608,7 +1608,7 @@ spec:
           action:
             pass: canary</code></pre></div>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> A canary Ingress names only the canary Service, so the stable upstream comes from the main Ingress for the same host and path. Paste both into the analyzer and it merges them into one VirtualServer; pasted alone, the stable Service is left for you to fill in. The community controller ignores <code>canary-by-header-pattern</code> when <code>canary-by-header-value</code> is set; on its own, the pattern becomes a regex match value (<code>~^(test|staging)$</code>).</div>
+                            <div class="info-box note"><strong>Note:</strong> A canary Ingress names only the canary Service, so the stable upstream comes from the main Ingress for the same host and path. Paste both into the analyzer and it merges them into one VirtualServer; pasted alone, the stable Service is left for you to fill in. The community controller ignores <code>canary-by-header-pattern</code> when <code>canary-by-header-value</code> is set; on its own, the pattern becomes a regex match value (<code>~^(test|staging)$</code>). <code>canary-weight-total</code> takes effect only above 100: the community controller split a smaller total out of 100, so <code>canary-weight: "10"</code> with a total of 50 sent 10% to the canary, not 20%.</div>
                         </div></td></tr>
                     </tbody>
                 </table>

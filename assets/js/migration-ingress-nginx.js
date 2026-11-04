@@ -229,7 +229,9 @@
                     let v = String(value).trim().toLowerCase();
                     if (v === 'close') return '0';
                     if (v === 'keep-alive') return { value: '320', note: 'the community upstream-keepalive-connections default' };
-                    return { value: null, note: 'The community accepts only close or keep-alive here.' };
+                    // connection/main.go ValidateRegex ^(close|keep-alive)$: a
+                    // validation error, which rejects the Ingress (annotations.go Extract).
+                    return { value: null, note: 'connection-proxy-header "' + value + '" is neither close nor keep-alive, so the community controller rejected this Ingress (annotation validation is on by default); fix the value before migrating. Nothing was migrated for it.' };
                 }
                 case 'onOffBool': {
                     let v = String(value).trim().toLowerCase();
@@ -565,6 +567,9 @@
                 let methods = commaList(a['cors-allow-methods'] || 'GET, PUT, POST, DELETE, PATCH, OPTIONS');
                 let headers = commaList(a['cors-allow-headers'] || 'DNT,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization');
                 let maxAge = parseInt(a['cors-max-age'] || '1728000', 10);
+                // cors/main.go: an invalid cors-max-age falls back to 1728000.
+                let maxAgeBad = a['cors-max-age'] !== undefined && a['cors-max-age'] !== '' && !/^-?\d+$/.test(str(a['cors-max-age']).trim());
+                if (maxAgeBad) maxAge = 1728000;
                 let comments = {};
                 let spec = {};
                 // NIC rejects "*" with allowCredentials: true, and so do browsers:
@@ -588,9 +593,11 @@
                 spec.allowHeaders = headers.filter(function(h) { return !forbidden.test(h); });
                 comments['spec.cors.allowHeaders'] = 'cors-allow-headers' + (a['cors-allow-headers'] ? '' : ' (community default)');
                 if (dropped.length) ctx.note('cors-allow-headers', 'Dropped ' + dropped.join(', ') + ' from allowHeaders — browsers send these themselves and NGINX Ingress Controller rejects them there.');
-                if (creds) { spec.allowCredentials = true; comments['spec.cors.allowCredentials'] = 'cors-allow-credentials' + (a['cors-allow-credentials'] === undefined ? ' (community default true)' : ''); }
+                // Written when true, and when false was asked for (types.go *bool),
+                // so the line names the annotation that set it.
+                if (creds || a['cors-allow-credentials'] !== undefined) { spec.allowCredentials = !!creds; comments['spec.cors.allowCredentials'] = 'cors-allow-credentials' + (a['cors-allow-credentials'] === undefined ? ' (community default true)' : ''); }
                 if (a['cors-expose-headers']) { spec.exposeHeaders = commaList(a['cors-expose-headers']); comments['spec.cors.exposeHeaders'] = 'cors-expose-headers'; }
-                if (!isNaN(maxAge)) { spec.maxAge = maxAge; comments['spec.cors.maxAge'] = 'cors-max-age' + (a['cors-max-age'] ? '' : ' (community default 20 days)'); }
+                if (!isNaN(maxAge)) { spec.maxAge = maxAge; comments['spec.cors.maxAge'] = 'cors-max-age' + (maxAgeBad ? ' "' + a['cors-max-age'] + '" is not a whole number: the community default, 20 days' : a['cors-max-age'] ? '' : ' (community default 20 days)'); }
                 f.policies.push({ name: ctx.name('cors'), spec: { cors: spec }, onIngress: true, comments: comments });
             },
 
@@ -636,7 +643,7 @@
                 // auth-tls-secret is missing: none of them took effect.
                 if (!secret) {
                     let set = ['auth-tls-verify-client', 'auth-tls-verify-depth', 'auth-tls-pass-certificate-to-upstream', 'auth-tls-error-page'].filter(function(k) { return a[k] !== undefined; });
-                    ctx.note('auth-tls-secret', 'No auth-tls-secret, so the community controller ignored ' + set.join(', ') + '; nothing is migrated.');
+                    ctx.note('auth-tls-secret', (a['auth-tls-secret'] !== undefined ? 'auth-tls-secret is empty' : 'No auth-tls-secret') + ', so the community controller turned client-certificate verification off' + (set.length ? ' and ignored ' + set.join(', ') : '') + '; nothing is migrated.');
                     return;
                 }
                 let spec = { clientCertSecret: secret };
@@ -719,6 +726,8 @@
                 let rates = [];
                 if (a['limit-rps']) rates.push({ n: communityInt(a, 'limit-rps', ctx, true), unit: 'r/s', src: 'limit-rps' });
                 if (a['limit-rpm']) rates.push({ n: communityInt(a, 'limit-rpm', ctx, true), unit: 'r/m', src: 'limit-rpm' });
+                // template.go buildRateLimit writes a limit only when it is > 0.
+                rates.filter(function(r) { return r.n !== null && r.n <= 0; }).forEach(function(r) { ctx.note(r.src, r.src + ' ' + r.n + ' is not above 0, so the community controller set no limit; nothing is migrated.'); });
                 rates = rates.filter(function(r) { return r.n !== null && r.n > 0; });
                 let rateSet = rates.length > 0;
                 // The community template wrote burst=<rate × multiplier> as given:
@@ -756,6 +765,7 @@
                 // the ConfigMap can add; without it NGINX refuses the config.
                 if (a['limit-connections']) {
                     let conn = communityInt(a, 'limit-connections', ctx, true);
+                    if (conn !== null && conn <= 0) ctx.note('limit-connections', 'limit-connections ' + conn + ' is not above 0, so the community controller set no limit; nothing is migrated.');
                     if (conn !== null && conn > 0) {
                         f.http.push('limit_conn_zone $binary_remote_addr zone=' + ctx.zone('conn') + ':5m;');
                         f.location.push('limit_conn ' + ctx.zone('conn') + ' ' + conn + ';');
@@ -779,13 +789,27 @@
                 ctx.use('canary', 'canary-weight', 'canary-weight-total', 'canary-by-header', 'canary-by-header-value', 'canary-by-header-pattern', 'canary-by-cookie');
                 if (!(a.canary !== undefined && communityBool(a, 'canary', ctx, 'false'))) {
                     let names = Object.keys(a).filter(function(k) { return /^canary-/.test(k); });
-                    ctx.note(names[0] || 'canary', names.join(', ') + ' without canary: "true" ' + (names.length === 1 ? 'is' : 'are') + ' ignored by the community controller; nothing is migrated.');
+                    if (names.length) ctx.note(names[0], names.join(', ') + ' without canary: "true" ' + (names.length === 1 ? 'is' : 'are') + ' ignored by the community controller; nothing is migrated.');
+                    else if (a.canary !== undefined && GO_FALSE.test(str(a.canary).trim())) ctx.note('canary', 'canary is false, the community default; nothing to migrate.');
                     return;
                 }
+                // canary/main.go: a non-integer weight is a validation error the
+                // parser catches, logging "defaulting to '0'" (total: '100').
+                [['canary-weight', 0], ['canary-weight-total', 100]].forEach(function(p) {
+                    if (a[p[0]] !== undefined && a[p[0]] !== '' && !/^-?\d+$/.test(str(a[p[0]]).trim())) ctx.note(p[0], p[0] + ' "' + a[p[0]] + '" is not a whole number, so the community controller used ' + p[1] + '; it migrates as ' + p[1] + '.', 'warning');
+                });
                 let weight = parseInt(a['canary-weight'] || '0', 10);
                 let total = parseInt(a['canary-weight-total'] || '100', 10);
-                if (isNaN(weight) || weight < 0) weight = 0;
-                if (isNaN(total) || total <= 0) total = 100;
+                if (isNaN(weight)) weight = 0;
+                if (isNaN(total)) total = 100;
+                // balancer.lua: a request goes to the canary when
+                // math.random(weightTotal) <= weight, and weightTotal is the
+                // annotation only when it is above 100. A total of 100 or less
+                // counts as 100, and a weight below 1 sends nothing.
+                if (weight < 0) ctx.note('canary-weight', 'canary-weight ' + weight + ' is below 0, so the community controller sent no traffic to the canary by weight; it migrates as 0.');
+                if (a['canary-weight-total'] !== undefined && total <= 100 && total !== 100 && weight > 0) ctx.note('canary-weight-total', 'canary-weight-total ' + total + ' is not above 100, so the community controller split traffic out of 100 instead: canary-weight ' + weight + ' sent ' + Math.min(weight, 100) + '% to the canary, and so does the split.');
+                if (weight < 0) weight = 0;
+                if (total <= 100) total = 100;
                 let pct = Math.min(100, Math.max(0, Math.round(weight / total * 100)));
                 let matches = [];
                 if (a['canary-by-header']) {
@@ -872,6 +896,11 @@
                 let cookie = { enable: true, name: a['session-cookie-name'] || 'INGRESSCOOKIE' };
                 let comments = { 'sessionCookie.name': a['session-cookie-name'] ? 'session-cookie-name' : 'session-cookie-name (community default INGRESSCOOKIE)' };
                 // max-age wins over expires in browsers; NGINX sticky sets Expires.
+                // cookieAffinityParse sets an expiry that is not a whole number to "".
+                ['session-cookie-max-age', 'session-cookie-expires'].forEach(function(k) {
+                    if (a[k] !== undefined && a[k] !== '' && !/^(0|-?[1-9]\d*)$/.test(str(a[k]).trim())) ctx.note(k, k + ' "' + a[k] + '" is not a whole number, so the community controller set no expiry from it; nothing is migrated for it.');
+                    else if (a[k] !== undefined && parseInt(a[k], 10) <= 0) ctx.note(k, k + ' ' + a[k] + ' is not above 0, so the cookie is a session cookie, with no expiry; nothing is migrated for it.');
+                });
                 let secs = parseInt(a['session-cookie-max-age'] || a['session-cookie-expires'] || '', 10);
                 if (!isNaN(secs) && secs > 0) { cookie.expires = secondsToNginx(secs); comments['sessionCookie.expires'] = ['session-cookie-max-age', 'session-cookie-expires'].filter(function(k) { return a[k]; }).join(' / '); }
                 if (a['session-cookie-path']) { cookie.path = a['session-cookie-path']; comments['sessionCookie.path'] = 'session-cookie-path'; }
@@ -884,6 +913,7 @@
                 // else is dropped and the community default, balanced, applies.
                 if (a['affinity-mode'] !== undefined && a['affinity-mode'] !== 'persistent') ctx.note('affinity-mode', 'The community controller ' + (a['affinity-mode'] === 'balanced' ? '' : 'read "' + a['affinity-mode'] + '" as balanced (the default) and ') + 'moved some sessions to new Pods when the Service scaled. NGINX sticky cookies never move a session, as with persistent; balanced has no NGINX Ingress Controller equivalent.');
                 if (a['affinity-mode'] === 'persistent') ctx.note('affinity-mode', 'NGINX sticky cookies never rebalance existing sessions, which matches persistent; balanced (the community default) also shifted sessions when Pods scaled, and has no NGINX Ingress Controller equivalent.');
+                ['session-cookie-change-on-failure', 'session-cookie-conditional-samesite-none'].forEach(function(k) { if (a[k] !== undefined && GO_FALSE.test(str(a[k]).trim())) ctx.note(k, k + ' is false, the community default; nothing to migrate.'); });
                 if (a['session-cookie-change-on-failure'] !== undefined && communityBool(a, 'session-cookie-change-on-failure', ctx, 'false')) ctx.note('session-cookie-change-on-failure', 'NGINX re-picks a server when the bound one fails without rewriting the cookie until the next response — close to, not the same as, what the community controller did.');
                 if (a['session-cookie-conditional-samesite-none'] !== undefined && communityBool(a, 'session-cookie-conditional-samesite-none', ctx, 'false')) ctx.note('session-cookie-conditional-samesite-none', 'NGINX cannot drop SameSite=None for incompatible browsers; samesite is applied to every client.');
                 if (a['session-cookie-max-age'] && a['session-cookie-expires'] && a['session-cookie-max-age'] !== a['session-cookie-expires']) ctx.note('session-cookie-expires', 'NGINX sets one expiry; session-cookie-max-age was used.');
@@ -1125,6 +1155,7 @@
                     return;
                 }
                 if (subset) ctx.note('upstream-hash-by-subset', 'NGINX Ingress Controller has no subset hashing; the whole upstream is hashed consistently.');
+                else if (subset === false) ctx.note('upstream-hash-by-subset', 'upstream-hash-by-subset is false, the community default; nothing to migrate.');
                 if (size !== undefined && size !== null) ctx.note('upstream-hash-by-subset-size', 'No NGINX Ingress Controller equivalent: only the community controller has subset hashing.');
                 let method = 'hash ' + braceVariables(by).replace(/^\$\{([^}]+)\}$/, '$$$1') + ' consistent';
                 f.upstream['lb-method'] = method; f.upstreamComments['lb-method'] = 'upstream-hash-by';
@@ -1194,7 +1225,14 @@
                 let aliases = commaList(a['server-alias']).map(function(h) { return h.toLowerCase(); });
                 let bad = aliases.filter(function(h) { return !/^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$/.test(h); });
                 if (bad.length) ctx.note('server-alias', 'Not valid host names, skipped: ' + bad.join(', '), 'warning');
-                f.aliases = aliases.filter(function(h) { return bad.indexOf(h) === -1; });
+                aliases = aliases.filter(function(h) { return bad.indexOf(h) === -1; });
+                // An alias that is a host some Ingress routes, this one's own
+                // included, was dropped by the community controller (controller.go
+                // createServers: an alias with a server of its own is skipped).
+                let real = (ctx.realHosts || []).concat(ctx.model ? ctx.model.hosts.map(function(h) { return h.host; }) : []);
+                let taken = aliases.filter(function(h) { return real.indexOf(h) !== -1; });
+                if (taken.length) ctx.note('server-alias', taken.join(', ') + (taken.length > 1 ? ' are hosts' : ' is a host') + ' an Ingress already routes, so the community controller dropped ' + (taken.length > 1 ? 'them as aliases' : 'it as an alias') + '; nothing is migrated for ' + (taken.length > 1 ? 'them' : 'it') + '.');
+                f.aliases = aliases.filter(function(h) { return taken.indexOf(h) === -1; });
             },
 
             generateSSLPassthroughTransportServer: function(a, f, ctx) {
@@ -1539,6 +1577,9 @@
             let allFound = [].concat.apply([], Array.from(matched.values()).map(function(e) { return e.found; }));
             ctx.allFound = allFound;
             ctx.model = model;
+            // Every host some Ingress of the paste routes (migrateAll), for
+            // what the community controller decided per server.
+            ctx.realHosts = options.realHosts || [];
             entries.forEach(function(entry) {
                 ctx.entry = entry;
                 track(entry, function() {
@@ -1611,8 +1652,11 @@
                 let explained = function(name) { return ctx.notes.some(function(n) { return new RegExp('(^|[^a-z-])' + name + '($|[^a-z-])').test(n.message); }); };
                 entry.found.forEach(function(x) {
                     if (named[x.annotation] || !ctx.consumed[x.annotation] || explained(x.annotation)) return;
-                    if (wrote) unnamed.push(x.annotation);
-                    else if (str(x.value).trim() === '') empty.push(x.annotation);
+                    // Empty first: the community parser read "" as invalid
+                    // content and skipped it (parser/main.go parseString),
+                    // whatever the other annotations of its mapping did.
+                    if (str(x.value).trim() === '') empty.push(x.annotation);
+                    else if (wrote) unnamed.push(x.annotation);
                     else lost.push(x.annotation);
                 });
             });
@@ -1692,7 +1736,10 @@
             }
             if (field === 'buffering' || field === 'use-cluster-ip') {
                 let b = /^(1|t|true)$/i.test(value) ? true : /^(0|f|false)$/i.test(value) ? false : null;
-                if (b === null) { ctx.note(x.annotation, 'Not a boolean, so not migrated.', 'warning'); return undefined; }
+                // proxy/main.go: an invalid proxy-buffering (on|off) falls back to
+                // the ConfigMap's value, off by default; use-cluster-ip comes from
+                // service-upstream, a ParseBool.
+                if (b === null) { ctx.note(x.annotation, x.annotation === 'proxy-buffering' ? 'proxy-buffering "' + x.value + '" is neither on nor off, so the community controller kept its ConfigMap value (off by default); nothing is migrated.' : x.annotation + ' "' + x.value + '" is not a boolean, so the community controller kept its default, false; nothing is migrated.'); return undefined; }
                 return b;
             }
             if (field === 'keepalive') return parseInt(value, 10);
@@ -1809,6 +1856,7 @@
                     // a redirect on the scheme, which is tls.redirect's default.
                     let sslRedirect = model.community['ssl-redirect'];
                     let force = goBool(model.community['force-ssl-redirect'], false);
+                    if (model.community['force-ssl-redirect'] !== undefined && goBool(model.community['force-ssl-redirect'], null) === false) ctx.note('force-ssl-redirect', 'force-ssl-redirect is false, the community default; nothing to migrate.');
                     if (goBool(sslRedirect, true) || force) {
                         spec.tls.redirect = { enable: true, code: 308 };
                         c['spec.tls.redirect'] = sslRedirect === undefined ? (force ? 'force-ssl-redirect' : 'ssl-redirect (community default true with TLS)')
@@ -1847,6 +1895,10 @@
                         upstreams.push(u);
                     }
                     let route = { path: vsRoutePath(p, regex && p.pathType !== 'Exact') };
+                    if (regex && p.pathType !== 'Exact' && !routes.some(function(x) { return /^~/.test(x.path); })) {
+                        let why = model.community['use-regex'] !== undefined && GO_TRUE.test(str(model.community['use-regex']).trim()) ? 'use-regex' : f.rewrite !== null && f.rewrite !== undefined ? 'rewrite-target' : options.regexHost ? 'another Ingress on this host' : null;
+                        if (why) c['spec.routes.' + routes.length + '.path'] = why + ' makes every path a case-insensitive regex';
+                    }
                     let action;
                     if (f.redirect) {
                         action = { redirect: { url: f.redirect.url, code: f.redirect.code } };
@@ -2099,7 +2151,10 @@
                 annComments['nginx.org/http-redirect-code'] = 'the community redirect code (308 keeps the method and body; NGINX Ingress Controller defaults to 301)';
             }
             if (f.redirect) ctx.note(f.redirect.source, 'A redirect action has no Ingress annotation; switch the strategy to CRD-first, which emits a VirtualServer redirect.', 'warning');
-            if (f.canary) ctx.note('canary', 'Traffic splitting has no Ingress annotation, so ' + Object.keys(model.community).filter(function(k) { return /^canary(-|$)/.test(k); }).join(', ') + ' are not migrated; switch the strategy to CRD-first, which emits VirtualServer splits and matches.', 'warning');
+            if (f.canary) {
+                let names = Object.keys(model.community).filter(function(k) { return /^canary(-|$)/.test(k); });
+                ctx.note('canary', 'Traffic splitting has no Ingress annotation, so ' + names.join(', ') + (names.length === 1 ? ' is' : ' are') + ' not migrated; switch the strategy to CRD-first, which emits VirtualServer splits and matches.', 'warning');
+            }
             if (f.wwwRedirect) ctx.note('from-to-www-redirect', 'A host redirect has no Ingress annotation; switch the strategy to CRD-first, which emits a redirecting VirtualServer.', 'warning');
             if (f.aliases && f.aliases.length) ctx.note('server-alias', 'Add ' + f.aliases.join(', ') + ' as further rules on the Ingress (and its TLS hosts), or switch to CRD-first, which emits a VirtualServer per alias.', 'warning');
             if (f.proxy.responseHeaders) { /* custom-headers placeholder already on nginx.org/add-header */ }
@@ -2707,8 +2762,11 @@
                 let on = (a['use-regex'] !== undefined && GO_TRUE.test(str(a['use-regex']).trim())) || (a['rewrite-target'] !== undefined && a['rewrite-target'] !== '');
                 if (on) m.hosts.forEach(function(h) { regexHosts[(m.namespace || '') + '/' + h.host] = true; });
             });
+            let realHosts = [];
+            models.forEach(function(m) { m.hosts.forEach(function(h) { if (realHosts.indexOf(h.host) === -1) realHosts.push(h.host); }); });
             let results = models.map(function(m) {
-                let o = pairs.has(m) ? Object.assign({}, options, { canaryStable: pairs.get(m) }) : options;
+                let o = Object.assign({}, options, { realHosts: realHosts });
+                if (pairs.has(m)) o.canaryStable = pairs.get(m);
                 let hk = m.hosts.length === 1 ? (m.namespace || '') + '/' + m.hosts[0].host : null;
                 if (strategy === 'crd' && hk && regexHosts[hk] && perHost[hk] > 1) o = Object.assign({}, o, { regexHost: true });
                 return { model: m, out: migrateIngress(m, strategy, o) };

@@ -781,10 +781,19 @@ test('every annotation that wrote something is named on a line it wrote', () => 
        one card away from the line each one set. Under annotation-first it also
        claimed canary-* were applied beside the note saying they cannot be. The
        catch-all stays as a safety net; no mapped annotation may reach it. */
+    /* The values a reader can paste, not only each annotation's sample: an
+       empty, false, negative or malformed value reached the catch-all 41 times
+       (canary-weight "-1", cors-max-age "x", limit-rps "-1", use-regex "true",
+       an empty canary-by-cookie…), each one saying nothing about what the
+       community controller did with it. */
     const folded = [];
     for (const name of MAPPED) {
-        for (const strategy of ['crd', 'annotation']) {
-            if (/no comment there names/.test(notes(run(ingress(sweepInput(name)), strategy)))) folded.push(strategy + ' ' + name);
+        for (const value of [undefined, 'true', 'false', 'on', '10', '10m', 'x', '', '-1', 'https://a.example.com/x', 'ns/secret']) {
+            const ann = sweepInput(name);
+            if (value !== undefined) ann[name] = value;
+            for (const strategy of ['crd', 'annotation']) {
+                if (/no comment there names|did not say why|no resource was produced/.test(notes(run(ingress(ann), strategy)))) folded.push(strategy + ' ' + name + '=' + JSON.stringify(value === undefined ? ann[name] : value));
+            }
         }
     }
     for (const preset of Object.keys(source.analyzer.samplePresets)) {
@@ -1237,4 +1246,43 @@ test('community Ingresses on one host with regex paths: each request reaches the
         }
     }
     assert.deepEqual(wrong, []);
+});
+
+test('canary-weight-total takes effect only above 100, as the community balancer split traffic', () => {
+    /* balancer.lua (controller-v1.15.1): a request goes to the canary when
+       math.random(weightTotal) <= weight, and weightTotal is the annotation
+       only when it is above 100. canary-weight 10 of 50 sent 10%, not 20%; a
+       negative weight sends nothing, as 0 does. */
+    const split = (w, t) => {
+        const ann = { canary: 'true', 'canary-weight': w };
+        if (t !== undefined) ann['canary-weight-total'] = t;
+        const r = run(ingress(ann));
+        const route = kinds(r, 'VirtualServer')[0].spec.routes[0];
+        return route.splits ? route.splits.map((s) => s.weight) : 'no split';
+    };
+    assert.deepEqual(split('10', '50'), [90, 10]);
+    assert.deepEqual(split('10', '1000'), [99, 1]);
+    assert.deepEqual(split('30'), [70, 30]);
+    assert.equal(split('-1'), 'no split');
+    assert.match(notes(run(ingress({ canary: 'true', 'canary-weight': '10', 'canary-weight-total': '50' }))), /canary-weight-total 50 is not above 100.*sent 10% to the canary/);
+});
+
+test('a community server-alias naming a host an Ingress routes is dropped, as the community controller dropped it', () => {
+    /* controller.go createServers skips an alias that has a server of its
+       own. After the split, the alias's VirtualServer swallowed that host's
+       real paths. */
+    const doc = ingress({ 'server-alias': 'b.example.com, c.example.com' });
+    doc.spec.rules.push({ host: 'b.example.com', http: { paths: [{ path: '/b', pathType: 'Prefix', backend: { service: { name: 'b', port: { number: 80 } } } }] } });
+    for (const strategy of ['crd', 'annotation']) {
+        const r = run(doc, strategy);
+        const routing = r.docs.filter((d) => d.kind === 'VirtualServer' || d.kind === 'Ingress');
+        const byHost = (h) => routing.filter((d) => (d.spec.host ? [d.spec.host] : d.spec.rules.map((x) => x.host)).includes(h));
+        assert.equal(byHost('b.example.com').length, 1, strategy + ': one resource for b.example.com');
+        const b = byHost('b.example.com')[0];
+        const paths = b.spec.routes ? b.spec.routes.map((x) => x.path) : b.spec.rules[0].http.paths.map((x) => x.path);
+        assert.deepEqual(paths, ['/b'], strategy + ': b.example.com keeps its own paths');
+        assert.match(notes(r), /b\.example\.com is a host an Ingress already routes, so the community controller dropped it as an alias/);
+    }
+    // The alias that is not a host still gets its VirtualServer under CRD-first.
+    assert.ok(kinds(run(doc), 'VirtualServer').some((v) => v.spec.host === 'c.example.com'));
 });
