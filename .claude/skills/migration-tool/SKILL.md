@@ -164,6 +164,16 @@ const { parsed, plan, text } = analyze(source, ingressYaml, 'crd');   // or 'ann
 
 **Many inputs: the CLI.** `node tools/nic-migrate/nic-migrate.js report --json -f <file-or-dir>` runs the same engine over real manifests in well under a second each, with per-Ingress findings, generated resources and gaps as JSON. Use it for a before/after comparison across a directory of manifests rather than one paste at a time.
 
+**On a real cluster: the e2e.** `tools/nic-migrate/e2e/run-e2e.py` serves a fixture with the source controller on a kind cluster, converts it with `nic-migrate`, applies the output to NGINX Ingress Controller beside it, and probes both until the source controller is removed; any request NGINX Ingress Controller answers differently fails the run, unless the case declares that difference. It is the only test that sees what NGINX Ingress Controller does with the output: it found `/admin` reaching the wrong backend under `--target ingress`, and the delete/re-add race that left a re-applied VirtualServer with no state. **Run it at the end of every substantial piece of work** — a feature, a port, a set of fixes about to be reported — for every source the branch carries, under both targets, in the background:
+
+```bash
+python3 tools/nic-migrate/e2e/run-e2e.py --keep                                 # fresh cluster, --target virtualserver
+python3 tools/nic-migrate/e2e/run-e2e.py --skip-cluster --target ingress        # same cluster
+kind delete cluster --name nic-migrate-e2e
+```
+
+A branch with more than one source adds `--source <name>` to both runs and repeats them per source. About eight minutes per source. Report each source × target result, not "the e2e was not needed": a change confined to comments and notes is the one case it cannot see, and saying so once is enough. `--self-test` (seconds, no cluster) covers the runner's own logic after a runner edit.
+
 Two techniques worth knowing beyond running them:
 
 - **Golden diff.** For a refactor that should change nothing, dump the full plan JSON for every preset (or the CLI's `--json` for a directory) before and after and compare. Byte-identical output is a far stronger claim than "the counts still match"; `1ab8df9` was verified that way.
@@ -229,6 +239,8 @@ That rule catches **fabrication**. It does not catch **staleness** — a constru
 2. **Semantics match** — behaviour, status codes, defaults and value formats match the pinned source. *Example:* the community `auth-signin` accepts a full URL, but NIC's externalAuth `authSigninURI` is a **relative** URI (CRD pattern `^/.*$`), so the tool must strip the scheme and host rather than pass the URL through.
 3. **Complete** — no omitted fields or sub-options that exist in the pinned version and that a migrator would hit, and no combination NIC quietly reduces. *Example:* NIC's `accessControl` Policy is allow **xor** deny, and a resource that references an allow Policy and a deny Policy gets **only the allow list** (policy reference: "uses only the allow list policies"). Two Policies looked complete and let denied addresses inside the allowed range through. The first fix, one allow Policy plus a location-snippet `deny`, was then verified only inside the range (denied address 403, the rest of the range 200) and was a bypass: that Policy renders at server level, a location with access rules of its own inherits none from its server, and every address *outside* the allow list got 200 (nginx 1.31.7). The analyzer now puts the denies first in the same location — a route's own `routes[].policies` on a VirtualServer, the whole ordered list as `nginx.org/location-snippets` on an Ingress — and the test evaluates each client against the rendered rules. Verify a security control with the addresses it must refuse, not only the ones it must allow.
 4. **NIC side checked both ways** — NIC-side claims are neither overstated (e.g. "no HTTP fallback-service field" when VirtualServer/VirtualServerRoute upstreams have `backup`/`backupPort`) nor understated, and any Plus-only NIC capability (e.g. `least_time`, ExternalName upstream services) is labelled as such.
+
+The other side of point 4: **never write that a feature also works on NGINX Open Source**, in a note, a row or a comment. Parity is the default, and the disclaimer reads as doubt. Say which target carries a feature (CRD-first, annotation-first, the ConfigMap) and mention NGINX Plus only where it is the real difference.
 
 ### Settling what a controller does
 

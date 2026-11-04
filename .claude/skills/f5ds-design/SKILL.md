@@ -9,6 +9,8 @@ The hard constraints are in `AGENTS.md` and apply whether or not this skill is l
 
 `assets/css/tokens.css` is the authoritative reference. Every token there carries its rationale and its measured contrast ratio in a comment. When this file and `tokens.css` disagree, `tokens.css` is right.
 
+For F5DS facts this repo does not record, use the F5 skill packs in `~/.claude/skills/` rather than memory or general design judgement: `f5-product-ui-core` / `-check` / `-fix` for design, `f5-terminology-*` and `f5-tone-*` for naming and voice. Never the marketing design packs (`f5-design-*`, `f5-web-*`), nor `f5-brand-*` for anything visual. Where a pack and this file or `tokens.css` disagree, this repo wins: its deviations are deliberate.
+
 ## What the site follows
 
 The **F5 Design System (F5DS)** — the design system behind the F5 Distributed Cloud console. All of it: colour, spacing, radius, elevation, motion and type. Check values against F5's own design-system documentation; this file and `tokens.css` record what was taken from it and why.

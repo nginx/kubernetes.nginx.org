@@ -78,14 +78,18 @@ The site follows the **F5 Design System (F5DS)**. Never blend it with the F5 **m
 - **Never chain the checks on one shell line.** A mistyped construct reports "clean" for a check that never ran (the incident list is in `repo-checks`); `$?` after a pipe is the last command's status (zsh: `${pipestatus[1]}`).
 - **None of them can see the rendered page.** A clean run means nothing is structurally broken, not that it looks right — render it (`verify-visually`).
 - **A new assertion is not finished until you have watched it fail.** Plant the defect, see it reported, restore, and name it in the commit body.
+- **The e2e is not one of the nine, and has its own rule: run it at the end of every substantial piece of work**, every source on the branch, both targets (`tools/nic-migrate/e2e/run-e2e.py`; how in `migration-tool`). It is the only test that applies the output to NGINX Ingress Controller.
 
 ## Branches, deploying, and undoing
 
 **Pushing to `main` is deploying** — live in about a minute, and CI finishes at about the same time, so a red run does not stop a bad commit reaching production. Verify before you push.
 
-- Commit on the branch you are on; do not create one unless asked.
+- Commit on the branch you are on; do not create one unless asked. **Stage by path, never `git add -A` or `commit -a`**, and run `git status --short` just before: another session may have work in the same tree, and a sweep once committed it. Files you did not touch are not yours; leave them unstaged, and do not stash them.
+- No `Co-Authored-By` trailer.
+- **Push only when asked**, and to `main` only on an explicit go each time.
+- **Stay on the tool you were asked about.** Work on one preview branch does not touch another, or `main`, unless asked by name — except a fix to what `main` owns (below), which goes on `main` and says so. A finding about another tool is reported, not committed. A bare "continue" after a finished task means ask which flagged item, if any, comes next.
 - `preview/**` branches carry further migration tools on the same engine. **`main` owns the shared engine and the checks** (`shared.js`, `migration-core.js`, `.github/scripts/`, `.github/test/`, this file): merge `main` into a branch rather than porting fixes across.
-- Undo on `main` with `git revert <sha>`. **Never** `push --force`, `reset --hard` or `clean` a pushed branch.
+- Undo on `main` with `git revert <sha>`. **Never** `push --force`, `reset --hard` or `clean` a pushed branch without the maintainer's go, asked each time: say what the remote tip loses, and keep anything only it has under an `archive/*` tag first.
 
 ## Migration tool: the one rule that cannot wait
 
@@ -93,8 +97,10 @@ The site follows the **F5 Design System (F5DS)**. Never blend it with the F5 **m
 
 ## Reasoning, spelling and naming
 
-Commit bodies are the record of what was tried and rejected: run `git log --grep='Considered and rejected'` or `git log -S'<name>'` before re-proposing or deleting anything. Write yours the same way (`CONTRIBUTING.md`), and keep commits and reports proportionate.
+Commit bodies are the record of what was tried and rejected: run `git log --grep='Considered and rejected'` or `git log -S'<name>'` before re-proposing or deleting anything. Write yours the same way (`CONTRIBUTING.md`), and keep commits and reports proportionate: a body of ~15 lines, a report of a few, no tables or headings for a small result.
 
+- **A finding is verified only as far as you checked it.** A quote can be right and its premise wrong: read the section it is about and who it addresses before calling it confirmed, say which part you checked, and keep "re-verified" apart from "as reported".
+- **During a mockup review, a stated preference changes the mockups, not the repo**, until the maintainer says to implement it.
 - **British** in agent-facing prose and comments (`colour`), including `tokens.css` comments; **American** in page copy; `color` in CSS regardless. Normalising this is out of scope.
 - Prefixes: community `nginx.ingress.kubernetes.io/`; NIC `nginx.org/` (OSS) or `nginx.com/` (Plus). NIC CRDs: VirtualServer, VirtualServerRoute, Policy, TransportServer, GlobalConfiguration. Only NIC has NGINX Plus features (JWT, OIDC, WAF).
 - **"NGINX Ingress Controller"** — never "F5 NGINX Ingress Controller" (an open source project takes no F5 prefix), "Official NGINX Ingress Controller" or "NGINX Inc.". The other one is "Ingress-NGINX" in titles and headers, "the community controller" or `kubernetes/ingress-nginx` in prose; the tool is the "NGINX Ingress Migration Tool". NGINX Gateway Fabric is the NGINX implementation of the Gateway API. Page copy and analyzer output never shorten these to NIC or NGF (a test checks), and a sentence about what a controller does names it: not "it reads", "the default is" or "the community", since both controllers are always in play. The same goes for resources, in test names and commits too: "a community Ingress" for the input, the output by its kind (VirtualServer, migrated Ingress), never a bare "Ingress" or "resource" — details in `migration-tool`.
@@ -102,3 +108,5 @@ Commit bodies are the record of what was tried and rejected: run `git log --grep
 ## Deeper references
 
 `.claude/skills/*/SKILL.md`, plain markdown that any agent can read: **f5ds-design** (design values and every deviation), **migration-tool** (mappings, generators, the test harness, the accuracy check, research sources), **repo-checks** (what each check asserts, when to run them, how to add one), **release-update** (version bumps, patch and minor), **verify-visually** (rendering, measuring, the CDP helper). Two commands in `.claude/commands/` run only when the maintainer types them: `/checks` and `/site-audit` (the multi-perspective audit).
+
+**A rule the maintainer gives you goes here or in a skill, committed** — never only in an agent's private memory, which other agents and sessions do not see and which is lost with it. A rule that must apply before anything is read goes in this file; the how goes in the skill it belongs to.
