@@ -10,7 +10,7 @@ Run the checks:
 
 Report the result honestly:
 
-- If every check passed, say so — and say plainly that the checks are static
+- If every check passed, say so, and say plainly that the checks are static
   readers and cannot see the rendered page. If this turn changed anything a
   reader sees, render it (`verify-visually` skill) before calling it verified.
 - If anything failed, fix it. Do not report a turn as done on a failing suite.
@@ -19,5 +19,5 @@ Report the result honestly:
   edit code to make it pass.
 - If the summary line says fewer checks ran than were declared and none is
   listed as "could not run", treat that as a failure of the runner itself and
-  investigate — a check that silently does not run is the failure mode this
+  investigate: a check that silently does not run is the failure mode this
   repository has recorded seven times (the repo-checks skill lists them).

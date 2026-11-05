@@ -13,7 +13,7 @@ The following is a set of guidelines for contributing to this project. We really
 
 This is a documentation-only project with no build step. Clone the repo and open `index.html` directly in a browser to preview your changes; paths are relative, so this works from the filesystem, and `python3 -m http.server` gets you closer to production.
 
-The two pages (`index.html` and `ingress-nginx-migration.html`) hold markup only — their styles and behaviour live in `assets/css/` and `assets/js/`, shared between both pages, so a change there affects more than the file you are editing. Run the checks listed in the [README](/README.md#checks) before opening a pull request; CI runs the same ones.
+The two pages (`index.html` and `ingress-nginx-migration.html`) hold markup only. Their styles and behaviour live in `assets/css/` and `assets/js/`, shared between both pages, so a change there affects more than the file you are editing. Run the checks listed in the [README](/README.md#checks) before opening a pull request; CI runs the same ones.
 
 <!-- ### Project Overview & Structure (OPTIONAL) -->
 
@@ -49,14 +49,15 @@ If you have not yet agreed to the F5 CLA terms and submit a PR to this repositor
 
 - Keep a clean, concise and meaningful git commit history on your branch (within reason), rebasing locally and squashing before submitting a PR.
 - Use the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) prefix in the subject line (`feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `ci:`, `chore:`), in the imperative mood: "Add feature", not "Added feature".
-- **Write a body, and make it a record of the reasoning.** The commit bodies in this repository are its largest body of decision-making — what was tried, what was rejected, and how it was verified. That is knowledge which exists in no other file, and it is why `git log --grep='Considered and rejected'` and `git log -S<name>` are the first things to run before re-proposing an idea or deleting something that looks dead.
+- **Write a body, and make it a record of the reasoning.** The commit bodies in this repository are its largest body of decision-making: what was tried, what was rejected, and how it was verified. That is knowledge which exists in no other file, and it is why `git log --grep='Considered and rejected'` and `git log -S<name>` are the first things to run before re-proposing an idea or deleting something that looks dead.
 
   A good body here answers four things:
 
   - **What changed**, in enough detail that a reader need not open the diff to follow the argument.
-  - **Why** — the failure it fixes, ideally with the numbers or the file and line.
+  - **Why**: the failure it fixes, ideally with the numbers or the file and line.
   - **What was considered and rejected**, so the next person does not spend an afternoon rediscovering it.
   - **How it was verified.** For a check, that means the fault you planted and what it reported. "Fixed the check" is worth much less later than "planted a misspelled transform; the run reported it and exited 1".
 
 - **Keep it proportionate.** A body over ~15 lines is almost always padding. Record the fault you planted and the decision you rejected, not a narrative of the work.
+- **Write it plainly.** No dash joining two clauses, no "not X but Y" where nobody claimed X, no closing line that restates the paragraph. The full list, with examples and the patterns this repo keeps on purpose, is in [`.claude/skills/writing-style/SKILL.md`](.claude/skills/writing-style/SKILL.md); it applies to people and agents alike.
 - Reference issues and pull requests liberally after the subject line.

@@ -1,24 +1,24 @@
 ---
 name: migration-tool
-description: Authoring and verifying the migration tool — the engine split, the mapping schema, row ordering and cell conventions, the Node verification recipe and its silent-failure gotcha, and the four-point accuracy check. Use when editing annotation mappings, CRD generators or the reference tables.
+description: Authoring and verifying the migration tool: the engine split, the mapping schema, row ordering and cell conventions, the Node verification recipe and its silent-failure gotcha, and the four-point accuracy check. Use when editing annotation mappings, CRD generators or the reference tables.
 ---
 
 # The migration tool
 
-`ingress-nginx-migration.html` is live at https://kubernetes.nginx.org/ingress-nginx-migration.html — an interactive YAML analyzer, the annotation mappings it runs on, CRD migration examples and ConfigMap guidance. `python3 .github/scripts/where.py --stats` prints the current counts; this file deliberately quotes none, because every one it used to quote went stale.
+`ingress-nginx-migration.html` is live at https://kubernetes.nginx.org/ingress-nginx-migration.html. It is an interactive YAML analyzer, the annotation mappings it runs on, CRD migration examples and ConfigMap guidance. `python3 .github/scripts/where.py --stats` prints the current counts; this file deliberately quotes none, because every one it used to quote went stale.
 
 ## Engine
 
 The page runs on a source-agnostic engine:
 
-- `assets/js/migration-ingress-nginx.js` — the **source module**. Supplies the source-controller version, `ANNOTATION_MAPPINGS`, the translators, the assembler and sample presets; defines `window.MIGRATION_SOURCE`. Never touches the DOM, and may dereference `MigrationTool.*` only inside function bodies (call time), never at top level.
-- `assets/js/migration-core.js` — the **core**. Owns the YAML parser and emitter (`MigrationTool.yaml`), analysis orchestration and rendering, table filtering, page nav and the checklist; defines `window.MigrationTool`.
+- `assets/js/migration-ingress-nginx.js` is the **source module**. It supplies the source-controller version, `ANNOTATION_MAPPINGS`, the translators, the assembler and sample presets; defines `window.MIGRATION_SOURCE`. Never touches the DOM, and may dereference `MigrationTool.*` only inside function bodies (call time), never at top level.
+- `assets/js/migration-core.js` is the **core**. It owns the YAML parser and emitter (`MigrationTool.yaml`), analysis orchestration and rendering, table filtering, page nav and the checklist; defines `window.MigrationTool`.
 
-How an Ingress becomes resources. `parseInput` parses the paste with `MigrationTool.yaml` (every document on its own; Lists expanded) into Ingress models. For each Ingress, every matched mapping's **translator** (`TRANSLATORS[templateFn]`, or the value-level path for mappings with only `annotations`) writes **fragments** — upstream fields, route fields, snippet lines, Policies, `nginx.org/*` annotations, ConfigMap keys — and marks what it consumed. The **assembler** then builds the resources from the real Ingress: under CRD-first one VirtualServer per host (every route, backend, TLS secret, Policy reference and snippet); under annotation-first the whole migrated Ingress. NIC lets one resource own a host, so `parseInput` (and `migrateMany`) first split an Ingress with several hosts into one model per host (`splitByHost`), and `migrateAll` ends in `shareHosts`: a host several Ingresses share becomes one resource — under CRD-first one VirtualServer in which each Ingress keeps its own upstreams and its Policies sit on its own routes; under annotation-first one Ingress with every path, where only the per-Service annotations stay scoped and a note names each setting that now covers the host. Never VirtualServerRoutes or mergeable minions: they give a team its own resource but need setting up by hand, and on v5.7.0 NGINX Ingress Controller writes each VirtualServerRoute's subroutes together, so regex paths across Ingresses lose the community order (longest first, every path regex once any Ingress on the host sets rewrite-target or use-regex). Routes and host-wide values follow the community controller (longest first; the oldest Ingress first). `analyzer.test.js` holds the invariant over every input it generates (`for any community input, no VirtualServer, Ingress or TransportServer has two hosts, and no host has two of them`) and checks regex routing by resolving requests as NGINX does (`community Ingresses on one host with regex paths: …`); the end-to-end fixture adds a second community Ingress on `shop.example.com`. `nic-migrate` calls the same assembler (`source.analyzer.migrate` / `migrateMany`), so the page and the CLI cannot disagree.
+How an Ingress becomes resources. `parseInput` parses the paste with `MigrationTool.yaml` (every document on its own; Lists expanded) into Ingress models. For each Ingress, every matched mapping's **translator** (`TRANSLATORS[templateFn]`, or the value-level path for mappings with only `annotations`) writes **fragments** (upstream fields, route fields, snippet lines, Policies, `nginx.org/*` annotations, ConfigMap keys) and marks what it consumed. The **assembler** then builds the resources from the real Ingress: under CRD-first one VirtualServer per host (every route, backend, TLS secret, Policy reference and snippet); under annotation-first the whole migrated Ingress. NIC lets one resource own a host, so `parseInput` (and `migrateMany`) first split an Ingress with several hosts into one model per host (`splitByHost`), and `migrateAll` ends in `shareHosts`: a host several Ingresses share becomes one resource: under CRD-first one VirtualServer in which each Ingress keeps its own upstreams and its Policies sit on its own routes; under annotation-first one Ingress with every path, where only the per-Service annotations stay scoped and a note names each setting that now covers the host. Never VirtualServerRoutes or mergeable minions: they give a team its own resource but need setting up by hand, and on v5.7.0 NGINX Ingress Controller writes each VirtualServerRoute's subroutes together, so regex paths across Ingresses lose the community order (longest first, every path regex once any Ingress on the host sets rewrite-target or use-regex). Routes and host-wide values follow the community controller (longest first; the oldest Ingress first). `analyzer.test.js` holds the invariant over every input it generates (`for any community input, no VirtualServer, Ingress or TransportServer has two hosts, and no host has two of them`) and checks regex routing by resolving requests as NGINX does (`community Ingresses on one host with regex paths: …`); the end-to-end fixture adds a second community Ingress on `shop.example.com`. `nic-migrate` calls the same assembler (`source.analyzer.migrate` / `migrateMany`), so the page and the CLI cannot disagree.
 
 Load order is `shared.js` → `migration-<source>.js` → `migration-core.js`, and the source must precede the core because the core reads `window.MIGRATION_SOURCE` at top level.
 
-The page is linked from the landing page with a **relative** path (`href="ingress-nginx-migration.html"`) so it resolves identically from the filesystem, from a local server and in production. Do not change it to an absolute FQDN — that only works in production and breaks local testing. (`check-classes.py` fails on an absolute asset path.)
+The page is linked from the landing page with a **relative** path (`href="ingress-nginx-migration.html"`) so it resolves identically from the filesystem, from a local server and in production. Do not change it to an absolute FQDN, which only works in production and breaks local testing. (`check-classes.py` fails on an absolute asset path.)
 
 ## Navigating the page without reading it
 
@@ -31,25 +31,25 @@ python3 .github/scripts/where.py session-cookie-name   # mapping, generator and 
 python3 .github/scripts/where.py enable-brotli         # any row by a name in either cell: ConfigMap keys, NIC-only constructs
 ```
 
-`.github/data/mapping-index.json` — generated by `test-analyzer.js`, so it cannot
-drift — maps every annotation to its category, anchor, type, CRD kind and
+`.github/data/mapping-index.json`, generated by `test-analyzer.js` so it cannot drift,
+maps every annotation to its category, anchor, type, CRD kind and
 generator. It answers "where is this documented and does it emit a CRD?" in one
 small file.
 
 **Why not grep.** Grouped rows are `<td><code>A</code><br><code>B</code></td>`,
 so the obvious `<td><code>nginx.ingress.kubernetes.io/NAME` finds only rows whose
-*first* annotation it is — `session-cookie-name` and `auth-tls-verify-depth`
+*first* annotation it is: `session-cookie-name` and `auth-tls-verify-depth`
 return nothing that way. The locator matches every `<code>` in either cell.
 
-**Anchors.** `<section id>` is canonical for the top-level sections —
-`migration-core.js` rewrites `h2` permalinks to the section id so they agree with
+**Anchors.** `<section id>` is canonical for the top-level sections: `migration-core.js`
+rewrites `h2` permalinks to the section id so they agree with
 sidebar navigation. Category anchors are the `<h3 id>` values, and
 `check-classes.py` asserts that every analyzer `category:` string equals its
 `<h3>` text.
 
 ## Adding an annotation mapping
 
-The most common edit. A mapping object in `ANNOTATION_MAPPINGS` — read a live
+The most common edit. A mapping object in `ANNOTATION_MAPPINGS` follows; read a live
 one with `where.py proxy-body-size -s` rather than trusting a copy here; the
 shape below is illustrative:
 
@@ -69,10 +69,10 @@ shape below is illustrative:
 |---|---|
 | `community` | source annotation names, alphabetical, without the prefix |
 | `nic` | the display string shown in the right-hand column |
-| `type` | `annotation`, `policy`, `virtualserver`, `transportserver`, `configmap`, `unsupported` — drives which plan step it lands in |
-| `category` | **must equal the `<h3>` text verbatim**, sentence case — asserted by `check-classes.py` (against the heading its `anchor` names) and by the wiring suite (some heading on the page carries it) |
+| `type` | `annotation`, `policy`, `virtualserver`, `transportserver`, `configmap`, `unsupported`; drives which plan step it lands in |
+| `category` | **must equal the `<h3>` text verbatim**, sentence case; asserted by `check-classes.py` (against the heading its `anchor` names) and by the wiring suite (some heading on the page carries it) |
 | `anchor` | the `<h3 id>` this row lives under |
-| `section` | `oss` or `plus` — where the analyzer's "See Reference Guide" link points (`plus-mappings` or `mappings`) |
+| `section` | `oss` or `plus`: where the analyzer's "See Reference Guide" link points (`plus-mappings` or `mappings`) |
 | `dualApproach` | the row offers both an annotation and a CRD; the chosen strategy picks which one the analyzer emits |
 | `verified` | the NIC tag the four-point accuracy check below was last done against |
 | `nicMapping.annotations` | keyed **by community annotation name**, each with a target `key` and a `transform` |
@@ -81,26 +81,25 @@ shape below is illustrative:
 | `vsField` | on an annotation entry, the VirtualServer upstream field it sets under CRD-first (`generateUpstreamSettingsVS`, every upstream), converted with the entry's own `transform`; under annotation-first the entry's `key` is written instead |
 | `preferAnnotation` | on a `dualApproach` mapping, a reason string: the annotation has no CRD form. CRD-first keeps that Ingress an Ingress (`ingressOnly`: also an `nginx.org/*` annotation `buildCrd` has no snippet for, or a rule with no host), as annotation-first builds it, and gives the reason as a warning; the row leads with the annotation. `nic-migrate convert --target virtualserver` passes `keepIngress: false` and gets the CRD form with a note of what it loses (only `custom-http-errors`) |
 
-`transform` is nested inside each annotation entry, not a top-level field — a
-misspelling there falls through `translateValue`'s `default: return value` and
+`transform` is nested inside each annotation entry, not a top-level field. A misspelling
+there falls through `translateValue`'s `default: return value` and
 emits the raw value. That is now asserted; it was not, and every `snippetWrap`
 occurrence could be corrupted with the suite still green.
 
 Edit in this order, because each step's check depends on the last:
 
 1. the mapping in `assets/js/migration-ingress-nginx.js`
-2. its translator, if it declares `templateFn` — mark every annotation it reads with `ctx.use()`, and say with `ctx.note()` what it cannot carry
+2. its translator, if it declares `templateFn`: mark every annotation it reads with `ctx.use()`, and say with `ctx.note()` what it cannot carry
 3. the reference-table row in the HTML
-4. the example YAML in that row's expanded panel — **generated output is the
+4. the example YAML in that row's expanded panel. **Generated output is the
    truth, the example follows it**; `where.py --diff <annotation>` shows where
    they disagree
 5. `python3 .github/scripts/check-all.py`
 
 `test-analyzer.js` asserts steps 1–3 agree mechanically: every `templateFn` has a
 generator and vice versa, every `transform` has a `translateValue` case, and
-every mapped annotation has a documented row and vice versa. Step 4 — a
-hand-written example drifting from a still-correct generator, the recurring bug
-here — is checked by `where.py --self-test` ("reference rows"): every row's
+every mapped annotation has a documented row and vice versa. Step 4, a hand-written
+example drifting from a still-correct generator (the recurring bug here), is checked by `where.py --self-test` ("reference rows"): every row's
 example against the analyzer, and every key a mapping writes against its row's
 NIC cell. It was once rejected as a gate because rows legitimately show more
 than the analyzer emits; `--diff` now reports the Ingress or VirtualServer a
@@ -140,16 +139,16 @@ with the generator.
 
 This is the rule that generates the most bugs.
 
-- Editing a mapping or its generator means updating the matching reference-table row — **including the example YAML in the expanded panel, which must match what the corresponding generator emits.**
+- Editing a mapping or its generator means updating the matching reference-table row, **including the example YAML in the expanded panel, which must match what the corresponding generator emits.**
 - Editing a reference row whose construct the analyzer handles (there is a matching `ANNOTATION_MAPPINGS` entry) means updating the mapping or generator to match.
 
 A recurring failure is a hand-written example drifting from its still-correct generator. **Treat the generator as the source of truth** and fix the example to match it.
 
-**Exception:** reference rows for NIC-only features with no community equivalent — the left cell reads "No direct equivalent" — have no analyzer counterpart, so editing them needs no JS change. The `apiKey` Policy row is one, since the community controller has no API-key annotation for the analyzer to map.
+**Exception:** reference rows for NIC-only features with no community equivalent (the left cell reads "No direct equivalent") have no analyzer counterpart, so editing them needs no JS change. The `apiKey` Policy row is one, since the community controller has no API-key annotation for the analyzer to map.
 
 ## Verifying analyzer changes
 
-There is no build system, but there *is* a test suite: `.github/scripts/test-analyzer.js` runs every sample preset through both strategies and asserts the frozen output shape in its `EXPECTED` table, and `.github/test/` holds the `node:test` suites. Do not hand-build a harness for anything else — two already exist.
+There is no build system, but there *is* a test suite: `.github/scripts/test-analyzer.js` runs every sample preset through both strategies and asserts the frozen output shape in its `EXPECTED` table, and `.github/test/` holds the `node:test` suites. Do not hand-build a harness for anything else; two already exist.
 
 **One input, one row: the loader.** `.github/test/lib/load.js` boots the source module and the core in a `vm` with a DOM stub, exactly as the suites and the CLI do:
 
@@ -164,7 +163,7 @@ const { parsed, plan, text } = analyze(source, ingressYaml, 'crd');   // or 'ann
 
 **Many inputs: the CLI.** `node tools/nic-migrate/nic-migrate.js report --json -f <file-or-dir>` runs the same engine over real manifests in well under a second each, with per-Ingress findings, generated resources and gaps as JSON. Use it for a before/after comparison across a directory of manifests rather than one paste at a time.
 
-**On a real cluster: the e2e.** `tools/nic-migrate/e2e/run-e2e.py` serves a fixture with the source controller on a kind cluster, converts it with `nic-migrate`, applies the output to NGINX Ingress Controller beside it, and probes both until the source controller is removed; any request NGINX Ingress Controller answers differently fails the run, unless the case declares that difference. It is the only test that sees what NGINX Ingress Controller does with the output: it found `/admin` reaching the wrong backend under `--target ingress`, and the delete/re-add race that left a re-applied VirtualServer with no state. **Run it at the end of every substantial piece of work** — a feature, a port, a set of fixes about to be reported — for every source the branch carries, under both targets, in the background:
+**On a real cluster: the e2e.** `tools/nic-migrate/e2e/run-e2e.py` serves a fixture with the source controller on a kind cluster, converts it with `nic-migrate`, applies the output to NGINX Ingress Controller beside it, and probes both until the source controller is removed; any request NGINX Ingress Controller answers differently fails the run, unless the case declares that difference. It is the only test that sees what NGINX Ingress Controller does with the output: it found `/admin` reaching the wrong backend under `--target ingress`, and the delete/re-add race that left a re-applied VirtualServer with no state. **Run it at the end of every substantial piece of work** (a feature, a port, a set of fixes about to be reported) for every source the branch carries, under both targets, in the background:
 
 ```bash
 python3 tools/nic-migrate/e2e/run-e2e.py --keep                                 # fresh cluster, --target virtualserver
@@ -179,31 +178,31 @@ Two techniques worth knowing beyond running them:
 - **Golden diff.** For a refactor that should change nothing, dump the full plan JSON for every preset (or the CLI's `--json` for a directory) before and after and compare. Byte-identical output is a far stronger claim than "the counts still match"; `1ab8df9` was verified that way.
 - **Fault injection.** Before trusting a new assertion, break the thing it claims to catch and confirm it reports it (`repo-checks` skill).
 
-**Load-bearing gotcha:** the assembler runs each translator in a `try/catch` that only `console.warn`s on failure, so a broken translator **silently drops its part of the output** instead of throwing. `warnings.length > 0` — not a thrown exception — is the only way to detect it. `node --check` catches syntax only.
+**Load-bearing gotcha:** the assembler runs each translator in a `try/catch` that only `console.warn`s on failure, so a broken translator **silently drops its part of the output** instead of throwing. `warnings.length > 0`, not a thrown exception, is the only way to detect it. `node --check` catches syntax only.
 
-**Nothing recognised may vanish.** `.github/test/analyzer.test.js` runs every mapped annotation through both strategies and fails unless each one is named in a generated comment, a note or a card — and fails if one is named only as "has no translation", which is how a lost feature hides. It caught request mirroring losing its branch in a refactor. A new mapping needs its translator to `use()` what it reads, or the test says so.
+**Nothing recognised may vanish.** `.github/test/analyzer.test.js` runs every mapped annotation through both strategies and fails unless each one is named in a generated comment, a note or a card, and fails if one is named only as "has no translation", which is how a lost feature hides. It caught request mirroring losing its branch in a refactor. A new mapping needs its translator to `use()` what it reads, or the test says so.
 
 Also sanity-check generated `k8s.nginx.org/v1` field names against the `json:` tags in `nginx/kubernetes-ingress/pkg/apis/configuration/v1/types.go` to catch invalid CRD fields.
 
-**Name a test by the side it is about.** Both controllers have an Ingress, so a bare "Ingress" or "host" in a test name, a note or a commit is ambiguous, and it has misled the maintainer and the agent alike ("Ingresses that share a host" read as an NGINX Ingress Controller output, which never shares one). Say **community Ingress** for the input and name the output kind — **VirtualServer**, **NGINX Ingress Controller Ingress** (or "migrated Ingress"), **TransportServer** — rather than "resource". Where a test covers both strategies, name both ("one VirtualServer or Ingress per host"). Say what the tool did to get from one to the other: split, merged, folded. A name already clear from context ("a canary pasted with its stable Ingress", "the ingress target keeps the Ingress") needs nothing more.
+**Name a test by the side it is about.** Both controllers have an Ingress, so a bare "Ingress" or "host" in a test name, a note or a commit is ambiguous, and it has misled the maintainer and the agent alike ("Ingresses that share a host" read as an NGINX Ingress Controller output, which never shares one). Say **community Ingress** for the input and name the output kind: **VirtualServer**, **NGINX Ingress Controller Ingress** (or "migrated Ingress"), **TransportServer**, rather than "resource". Where a test covers both strategies, name both ("one VirtualServer or Ingress per host"). Say what the tool did to get from one to the other: split, merged, folded. A name already clear from context ("a canary pasted with its stable Ingress", "the ingress target keeps the Ingress") needs nothing more.
 
 ## Which section a row goes in
 
 A source construct is documented **once**, in exactly one reference section, and which one is not a judgement call:
 
-1. **NIC tier first.** If the NIC equivalent requires NGINX Plus, the row goes in `#plus-mappings` — whatever surface it came from. An annotation, a ConfigMap key and a CRD field whose only NIC answer is Plus all land there.
+1. **NIC tier first.** If the NIC equivalent requires NGINX Plus, the row goes in `#plus-mappings`, whatever surface it came from. An annotation, a ConfigMap key and a CRD field whose only NIC answer is Plus all land there.
 2. **Then the source surface.** Annotations → `#mappings`. ConfigMap keys → `#configmap-mappings`. A source with further surfaces (its own CRDs, controller flags) gives each its own section the same way.
 
 Two corollaries, both load-bearing:
 
-- **A row placed outside the section its surface implies must name that surface in its left cell** — a ConfigMap badge before `server-tokens` or `hsts` in the annotation tables. The section heading is otherwise the reader's only clue what a bare key is, and a ConfigMap-only key sitting unlabelled in the annotation tables tells them an annotation exists that does not. This is what makes a deliberate cross-listing legal and an accidental one a defect.
+- **A row placed outside the section its surface implies must name that surface in its left cell**: a ConfigMap badge before `server-tokens` or `hsts` in the annotation tables. The section heading is otherwise the reader's only clue what a bare key is, and a ConfigMap-only key sitting unlabelled in the annotation tables tells them an annotation exists that does not. This is what makes a deliberate cross-listing legal and an accidental one a defect.
 - **The category the row leaves carries an "Elsewhere" note** pointing at the new home, because a reader looks a key up where its siblings are.
 
-Emptying a category by moving its last row out means **deleting the `<h3>`** — an empty table renders as a heading with nothing under it, and the category filter offers a value that matches nothing. Update the mapping's `category`/`anchor` to the new heading in the same edit, or the wiring suite's verbatim-category assertion fails.
+Emptying a category by moving its last row out means **deleting the `<h3>`**: an empty table renders as a heading with nothing under it, and the category filter offers a value that matches nothing. Update the mapping's `category`/`anchor` to the new heading in the same edit, or the wiring suite's verbatim-category assertion fails.
 
 A mapping's `section` decides where the analyzer's "See Reference Guide" link points. The ingress-nginx module resolves it with a two-way `=== 'plus' ? 'plus-mappings' : 'mappings'` ternary, which is right only while those are its only two annotation sections: a source with more sections must map every one, or each ConfigMap, CRD and flag finding silently links to `#mappings`.
 
-The wiring suite asserts placement from the rendered rows (`every mapping row sits in the section its surface implies`). It reads the source side of each comparison to decide the surface — which is why a ConfigMap example must actually show `kind: ConfigMap` rather than an annotated Ingress.
+The wiring suite asserts placement from the rendered rows (`every mapping row sits in the section its surface implies`). It reads the source side of each comparison to decide the surface, which is why a ConfigMap example must actually show `kind: ConfigMap` rather than an annotated Ingress.
 
 ## Ordering and structure rules
 
@@ -211,20 +210,20 @@ The wiring suite asserts placement from the rendered rows (`every mapping row si
 - **Annotation mapping rows** within each category table are sorted alphabetically by the community annotation name (left column).
 - **Within a single row**, when multiple annotations are listed on either side, they are in alphabetical order.
 - **"No direct equivalent" rows** (NIC-only annotations) go at the end of their category table, after all community-to-NIC mappings.
-- **NIC-only annotations must not be bundled** into community mapping rows. If an NIC annotation has no community equivalent it gets its own "No direct equivalent" row — never grouped into a row that maps community annotations.
-- **Both sides of every comparison are complete manifests** — `apiVersion`, `kind`, and the `metadata` the values hang off, on the target side as much as the source side. A bare `annotations:` or `data:` block cannot be pasted or diffed against a real cluster, and a fragment facing a full manifest turns the panel's diff into a shape mismatch. Conventions already on the page: Ingress → `name: my-app`; community ConfigMap → `name: ingress-nginx-controller`; NIC ConfigMap → `name: nginx-config`; no `spec:`, and no namespace. Leading document-level comments stay at indent 0 with the manifest below them; a comment-only block ("# No direct equivalent") declares nothing and is exempt. Each `---` document is wrapped separately, and each needs its own name when they coexist (`my-app-master` / `my-app-minion`). The wiring suite asserts it per page — `every comparison example is a complete manifest`.
-- **Every NIC-side line carrying a translated value names its community source** in a trailing comment, two spaces before the `#`: `client-max-body-size: "10m"  # proxy-body-size`. It goes after the value, or after the `|` on a block scalar. Several sources collapsing into one line join with `+` when they combine (`# enable-cors + cors-*`, `# otlp-collector-host + otlp-collector-port`) and `/` when they are alternatives (`# log-format-escape-json / log-format-escape-none`); add a parenthetical when the mapping is not obvious (`# limit-rps (also covers limit-rpm)`). A commented parent covers its children — `errorPages:  # custom-http-errors` means the `codes:` beneath it stays bare, as do `number:`/`size:` under `buffers:`. **Three kinds of line stay bare**: scaffolding a resource needs anyway (`service`, `port`, `host`, `pass`), required companions that translate nothing (`real-ip-recursive` beside `set-real-ip-from`), and NIC-only constructs on a "No direct equivalent" row — naming a source there would invent one. Where the value itself is the puzzle rather than its origin, the comment documents the value instead (`# on | off | merge`). The wiring suite asserts the mechanical half — `mapping comments agree across a row's approach tabs` — because which lines are translated is a judgement no regex can make.
-- **Collapsed cells stay terse.** The always-visible cells (both columns of a `tr.expandable`) show only badges + `<code>` + a short blurb of at most ~6 words — `No direct equivalent`, `Not applicable`, `No direct equivalent (use <code>basicAuth</code>)`. Never put a full explanatory sentence, caveat or workaround in a collapsed cell. Any such explanation belongs in the expanded panel (`tr.example-row`) as an `info-box` banner: `info-box warning` for hard "no equivalent / no replacement" cases, with a bold lead-in like `<strong>No direct equivalent:</strong>`, and `info-box note` for softer guidance. A `warning` added alongside an existing `note` precedes it.
+- **NIC-only annotations must not be bundled** into community mapping rows. If an NIC annotation has no community equivalent it gets its own "No direct equivalent" row, never grouped into a row that maps community annotations.
+- **Both sides of every comparison are complete manifests**: `apiVersion`, `kind`, and the `metadata` the values hang off, on the target side as much as the source side. A bare `annotations:` or `data:` block cannot be pasted or diffed against a real cluster, and a fragment facing a full manifest turns the panel's diff into a shape mismatch. Conventions already on the page: Ingress → `name: my-app`; community ConfigMap → `name: ingress-nginx-controller`; NIC ConfigMap → `name: nginx-config`; no `spec:`, and no namespace. Leading document-level comments stay at indent 0 with the manifest below them; a comment-only block ("# No direct equivalent") declares nothing and is exempt. Each `---` document is wrapped separately, and each needs its own name when they coexist (`my-app-master` / `my-app-minion`). The wiring suite asserts it per page: `every comparison example is a complete manifest`.
+- **Every NIC-side line carrying a translated value names its community source** in a trailing comment, two spaces before the `#`: `client-max-body-size: "10m"  # proxy-body-size`. It goes after the value, or after the `|` on a block scalar. Several sources collapsing into one line join with `+` when they combine (`# enable-cors + cors-*`, `# otlp-collector-host + otlp-collector-port`) and `/` when they are alternatives (`# log-format-escape-json / log-format-escape-none`); add a parenthetical when the mapping is not obvious (`# limit-rps (also covers limit-rpm)`). A commented parent covers its children: `errorPages:  # custom-http-errors` means the `codes:` beneath it stays bare, as do `number:`/`size:` under `buffers:`. **Three kinds of line stay bare**: scaffolding a resource needs anyway (`service`, `port`, `host`, `pass`), required companions that translate nothing (`real-ip-recursive` beside `set-real-ip-from`), and NIC-only constructs on a "No direct equivalent" row, where naming a source would invent one. Where the value itself is the puzzle rather than its origin, the comment documents the value instead (`# on | off | merge`). The wiring suite asserts the mechanical half (`mapping comments agree across a row's approach tabs`), because which lines are translated is a judgement no regex can make.
+- **Collapsed cells stay terse.** The always-visible cells (both columns of a `tr.expandable`) show only badges + `<code>` + a short blurb of at most ~6 words: `No direct equivalent`, `Not applicable`, `No direct equivalent (use <code>basicAuth</code>)`. Never put a full explanatory sentence, caveat or workaround in a collapsed cell. Any such explanation belongs in the expanded panel (`tr.example-row`) as an `info-box` banner: `info-box warning` for hard "no equivalent / no replacement" cases, with a bold lead-in like `<strong>No direct equivalent:</strong>`, and `info-box note` for softer guidance. A `warning` added alongside an existing `note` precedes it.
 - **CRD first, when a row offers both.** A row with a CRD and an annotation approach leads with the CRD in all three places a reader meets it: the collapsed NIC cell lists the CRD option before the `— or —`, the CRD tab comes first, and the CRD tab is the one marked `active` (with its pane). This matches the analyzer, whose default strategy is CRD-first, and holds even when the annotation is the newer answer. **One exception: `custom-http-errors`** leads with the annotation, because `nginx.org/custom-http-errors` proxies to a Service like the community controller while `errorPages[]` can only return or redirect; the row says so in a `Recommended` tip. An exception needs that tip and `preferAnnotation: "<reason>"` on its mapping: the analyzer then keeps it as an annotation under CRD-first too and shows the reason as an info note, and the wiring test reads the flag to know which rows lead with the annotation. The wiring suite asserts it (`rows with a CRD and an annotation approach lead with the CRD`). Rows whose first tab is a Policy (`Policy + Ingress (Recommended)`) are outside this rule; they have no plain annotation tab.
 - **A bold lead-in capitalises the word after an em dash.** The clause after the dash is a title: `New in v5.5.0 &mdash; ExternalAuth Policy:`, not `— externalAuth policy`. A `<code>` identifier straight after the dash keeps its own case (`&mdash; <code>oidcNative</code> on Ingress` would pass), because the assertion reads the markup. Asserted by the wiring suite (`a bold lead-in capitalises the word after an em dash`).
 
 ## Accuracy: check all four, not just "does it exist?"
 
-Every annotation, ConfigMap key, CRD field or feature documented here **must exist in the version the tool's Version Reference banner names**. Verify with `mcp__github__get_file_contents` against that tag — not `main`, and never from memory. Never document unreleased features.
+Every annotation, ConfigMap key, CRD field or feature documented here **must exist in the version the tool's Version Reference banner names**. Verify with `mcp__github__get_file_contents` against that tag, not `main`, and never from memory. Never document unreleased features.
 
 **Record the result, in the same commit.** A mapping you touch is a mapping
-you check: run the four-point check on it as part of the change — a fix, a
-version bump, a new mapping — and set `verified: "<tag>"` there and then. The
+you check: run the four-point check on it as part of the change (a fix, a version
+bump, a new mapping) and set `verified: "<tag>"` there and then. The
 tag is a receipt for work done, never a task of its own: stamping tags after
 the fact means redoing the checks, which is an unasked audit. The
 Version-reference banner makes one claim about every mapping at once, so a
@@ -233,12 +232,12 @@ version bump silently re-asserts all of them; `node
 are behind the current pin, so the next change knows what it has not
 re-checked. It never fails on it.
 
-That rule catches **fabrication**. It does not catch **staleness** — a construct that does exist but is described with outdated semantics, wrong defaults or status codes, or an incomplete field set. Staleness is the more dangerous of the two because an existence check passes straight over it, and adversarial intuition about these constructs is wrong roughly half the time. So check all four against the tagged source in both repos:
+That rule catches **fabrication**. It does not catch **staleness**: a construct that does exist but is described with outdated semantics, wrong defaults or status codes, or an incomplete field set. Staleness is the more dangerous of the two because an existence check passes straight over it, and adversarial intuition about these constructs is wrong roughly half the time. So check all four against the tagged source in both repos:
 
-1. **Exists** — the annotation or field is in the pinned version.
-2. **Semantics match** — behaviour, status codes, defaults and value formats match the pinned source. *Example:* the community `auth-signin` accepts a full URL, but NIC's externalAuth `authSigninURI` is a **relative** URI (CRD pattern `^/.*$`), so the tool must strip the scheme and host rather than pass the URL through.
-3. **Complete** — no omitted fields or sub-options that exist in the pinned version and that a migrator would hit, and no combination NIC quietly reduces. *Example:* NIC's `accessControl` Policy is allow **xor** deny, and a resource that references an allow Policy and a deny Policy gets **only the allow list** (policy reference: "uses only the allow list policies"). Two Policies looked complete and let denied addresses inside the allowed range through. The first fix, one allow Policy plus a location-snippet `deny`, was then verified only inside the range (denied address 403, the rest of the range 200) and was a bypass: that Policy renders at server level, a location with access rules of its own inherits none from its server, and every address *outside* the allow list got 200 (nginx 1.31.7). The analyzer now puts the denies first in the same location — a route's own `routes[].policies` on a VirtualServer, the whole ordered list as `nginx.org/location-snippets` on an Ingress — and the test evaluates each client against the rendered rules. Verify a security control with the addresses it must refuse, not only the ones it must allow.
-4. **NIC side checked both ways** — NIC-side claims are neither overstated (e.g. "no HTTP fallback-service field" when VirtualServer/VirtualServerRoute upstreams have `backup`/`backupPort`) nor understated, and any Plus-only NIC capability (e.g. `least_time`, ExternalName upstream services) is labelled as such.
+1. **Exists**: the annotation or field is in the pinned version.
+2. **Semantics match**: behaviour, status codes, defaults and value formats match the pinned source. *Example:* the community `auth-signin` accepts a full URL, but NIC's externalAuth `authSigninURI` is a **relative** URI (CRD pattern `^/.*$`), so the tool must strip the scheme and host rather than pass the URL through.
+3. **Complete**: no omitted fields or sub-options that exist in the pinned version and that a migrator would hit, and no combination NIC quietly reduces. *Example:* NIC's `accessControl` Policy is allow **xor** deny, and a resource that references an allow Policy and a deny Policy gets **only the allow list** (policy reference: "uses only the allow list policies"). Two Policies looked complete and let denied addresses inside the allowed range through. The first fix, one allow Policy plus a location-snippet `deny`, was then verified only inside the range (denied address 403, the rest of the range 200) and was a bypass: that Policy renders at server level, a location with access rules of its own inherits none from its server, and every address *outside* the allow list got 200 (nginx 1.31.7). The analyzer now puts the denies first in the same location (a route's own `routes[].policies` on a VirtualServer, the whole ordered list as `nginx.org/location-snippets` on an Ingress), and the test evaluates each client against the rendered rules. Verify a security control with the addresses it must refuse, not only the ones it must allow.
+4. **NIC side checked both ways**: NIC-side claims are neither overstated (e.g. "no HTTP fallback-service field" when VirtualServer/VirtualServerRoute upstreams have `backup`/`backupPort`) nor understated, and any Plus-only NIC capability (e.g. `least_time`, ExternalName upstream services) is labelled as such.
 
 The other side of point 4: **never write that a feature also works on NGINX Open Source**, in a note, a row or a comment. Parity is the default, and the disclaimer reads as doubt. Say which target carries a feature (CRD-first, annotation-first, the ConfigMap) and mention NGINX Plus only where it is the real difference.
 
@@ -249,8 +248,8 @@ The four points are only as good as how "the pinned source" is read.
 - **The source controller's parsers, not its docs.** Read how it reads each
   value: the bool parser (ingress-nginx's is `strconv.ParseBool`, so `on` and
   `yes` are not booleans), the time and integer parsers, and the gates (a
-  setting that only fills in another's rule — `auth-realm` without `auth-type`
-  — did nothing). Then what an **invalid** value does, parser by parser: the
+  setting that only fills in another's rule, such as `auth-realm` without
+  `auth-type`, did nothing). Then what an **invalid** value does, parser by parser: the
   Ingress rejected, the default kept, or the setting dropped. The analyzer
   migrates exactly what took effect, and says why for everything else.
 - **A refused Ingress migrates to nothing.** With annotation validation on
@@ -268,9 +267,9 @@ The four points are only as good as how "the pinned source" is read.
   migrate with a step-0 note.
 - **Values, swept.** The sweep tests (`analyzer.test.js`, and each preview
   branch's counterpart) run every mapped key over a spread that tells the
-  readers apart — `''`, `true`, `t`, `1`, `on`, `yes`, `0`, `-1`, `100abc`,
+  readers apart (`''`, `true`, `t`, `1`, `on`, `yes`, `0`, `-1`, `100abc`,
   `5 seconds`, `500us`, an address list with one bad entry, a header value with
-  a comma and one with a colon — against ports of NGINX Ingress Controller's
+  a comma and one with a colon) against ports of NGINX Ingress Controller's
   validators. Extend them rather than writing a one-off. `http-snippets` is the
   blind spot: a bad line reaches `nginx.conf` unchecked and fails the reload
   for every resource.
@@ -280,16 +279,16 @@ The four points are only as good as how "the pinned source" is read.
   to a backend instead; Docker's port mapping hides the client address, so set
   it per request (`set_real_ip_from 0.0.0.0/0; real_ip_header X-Test-IP;`) and
   run a control that must fail first; and test the addresses a security
-  control must refuse, not only those it admits — the first allow-plus-deny
+  control must refuse, not only those it admits: the first allow-plus-deny
   fix passed inside the range and let every address outside it through.
 
 ## Research sources
 
-Prefer GitHub MCP tools over WebFetch. NIC's prose docs are **not** in its code repo — they live in `nginx/documentation`.
+Prefer GitHub MCP tools over WebFetch. NIC's prose docs are **not** in its code repo; they live in `nginx/documentation`.
 
 - Community annotations: `kubernetes/ingress-nginx` → `docs/user-guide/nginx-configuration/annotations.md`, published at https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/. The repository is archived and `controller-v1.15.1` is its final release, so this is a fixed target, not a moving one.
 - NIC annotations: `nginx/documentation` → `content/nic/configuration/ingress-resources/advanced-configuration-with-annotations.md`, published at https://docs.nginx.com/nginx-ingress-controller/configuration/ingress-resources/advanced-configuration-with-annotations/
 - NIC CRD source: `nginx/kubernetes-ingress` → `pkg/apis/configuration/v1/types.go`
-- Published NIC docs: https://docs.nginx.com/nginx-ingress-controller/ — the VirtualServer/VirtualServerRoute, Policy, TransportServer and GlobalConfiguration resource pages under `configuration/`
+- Published NIC docs: https://docs.nginx.com/nginx-ingress-controller/: the VirtualServer/VirtualServerRoute, Policy, TransportServer and GlobalConfiguration resource pages under `configuration/`
 - Migration guide: https://docs.nginx.com/nginx-ingress-controller/install/migrate-ingress-nginx
-- NGINX Gateway Fabric: `nginx/nginx-gateway-fabric`, https://docs.nginx.com/nginx-gateway-fabric/ — and ingress2gateway: `kubernetes-sigs/ingress2gateway`. Neither is on the migration page; both are on the landing page (see `release-update`).
+- NGINX Gateway Fabric: `nginx/nginx-gateway-fabric`, https://docs.nginx.com/nginx-gateway-fabric/, and ingress2gateway: `kubernetes-sigs/ingress2gateway`. Neither is on the migration page; both are on the landing page (see `release-update`).

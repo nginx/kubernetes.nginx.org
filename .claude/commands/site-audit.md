@@ -1,5 +1,5 @@
 ---
-description: The full audit of the site from several engineers' perspectives — seven read-only agents in parallel (front-end JS, tooling and CI, AI-assisted development, frontend rendering, UX and accessibility, hands-on QA in a browser, content accuracy as the end user), consolidated into one AUDIT report beside the repo.
+description: The full audit of the site from several engineers' perspectives: seven read-only agents in parallel (front-end JS, tooling and CI, AI-assisted development, frontend rendering, UX and accessibility, hands-on QA in a browser, content accuracy as the end user), consolidated into one AUDIT report beside the repo.
 argument-hint: "[scope, e.g. haproxy or content]"
 disable-model-invocation: true
 ---
@@ -12,12 +12,12 @@ wrote `../AUDIT-kubernetes.nginx.org-2026-10-09.md` (one directory above the
 repo). Read that file before starting a new one: it is the template, and its
 findings are the baseline the new one is compared against.
 
-It is the heaviest thing done here — seven agents for an hour or more, so it
+It is the heaviest thing done here, seven agents for an hour or more, so it
 runs only as `/site-audit`, typed by the maintainer: `disable-model-invocation`
 keeps it out of the model's reach. Never reproduce it, or any lens of it, to
 finish an adjacent task.
 
-Scope for this run: $ARGUMENTS — when given, audit that surface (a preview
+Scope for this run: $ARGUMENTS. When given, audit that surface (a preview
 branch's tool, one lens) and say what was left out; when empty, the whole
 site.
 
@@ -49,7 +49,7 @@ the pinned source tags as local clones, and a slice of the page each (split by
 - **Read AGENTS.md first**, then the skills its lens needs (`verify-visually`
   to render, `f5ds-design` before calling anything a design defect,
   `migration-tool` for the engine recipe, `repo-checks` for the checks), and
-  the F5 skill packs in `~/.claude/skills/` for design and naming facts —
+  the F5 skill packs in `~/.claude/skills/` for design and naming facts,
   never from memory.
 - **Never read the migration page or its source module whole**: `where.py`.
 - **Separate ports per agent** (`SHOT_PORT`, the `http.server` port and the CDP
@@ -78,7 +78,7 @@ wakeup timer):
 3. **Write `../AUDIT-<site>-<date>.md`**, beside the repo, not in it: grouped by
    area (analyzer output, content accuracy, UX/a11y, frontend, checks/CI, AI
    development, operational), each finding numbered for reference (A1, B4…),
-   a tally, what was checked and found clean, and a suggested order — what
+   a tally, what was checked and found clean, and a suggested order: what
    ships broken config first, then what gates production, then the rest.
 4. **Change nothing in the repo during the audit.** Fixing is a separate step
    the maintainer chooses; say CHANGELOG.md is untouched and that checks were

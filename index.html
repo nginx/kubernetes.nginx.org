@@ -6,18 +6,18 @@
     <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#0F1E57" media="(prefers-color-scheme: dark)">
     <meta name="color-scheme" content="light dark">
-    <meta name="description" content="NGINX on Kubernetes — the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.">
+    <meta name="description" content="NGINX on Kubernetes: the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.">
     <meta name="author" content="F5, Inc.">
     <link rel="canonical" href="https://kubernetes.nginx.org/">
     <link rel="preconnect" href="https://api.github.com" crossorigin>
     <!-- No crossorigin here: the poster <img> and iframe requests are no-cors, and
-         connection reuse is keyed on credential mode — a CORS-mode preconnect
+         connection reuse is keyed on credential mode, and a CORS-mode preconnect
          would warm sockets those requests can never use. -->
     <link rel="preconnect" href="https://www.youtube-nocookie.com">
     <link rel="preconnect" href="https://i.ytimg.com">
     <link rel="preconnect" href="https://blog.nginx.org">
     <meta property="og:title" content="NGINX - Networking for Kubernetes">
-    <meta property="og:description" content="NGINX on Kubernetes — the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.">
+    <meta property="og:description" content="NGINX on Kubernetes: the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.">
     <meta property="og:url" content="https://kubernetes.nginx.org/">
     <meta property="og:type" content="website">
     <meta property="og:image" content="https://kubernetes.nginx.org/assets/img/og-image.png">
@@ -36,7 +36,7 @@
         "@type": "WebSite",
         "name": "NGINX - Networking for Kubernetes",
         "url": "https://kubernetes.nginx.org/",
-        "description": "NGINX on Kubernetes — the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.",
+        "description": "NGINX on Kubernetes: the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.",
         "publisher": {
             "@type": "Organization",
             "name": "F5, Inc.",
@@ -53,7 +53,7 @@
     <link rel="stylesheet" href="assets/css/tokens.css">
     <link rel="stylesheet" href="assets/css/shared.css">
     <link rel="stylesheet" href="assets/css/index.css">
-    <!-- Without JS the inactive product pages stay hidden="until-found" — stack
+    <!-- Without JS the inactive product pages stay hidden="until-found"; stack
          them so the static content is readable (display for the boolean-hidden
          fallback, content-visibility for Chromium's until-found). -->
     <noscript><style>.product-page[hidden] { display: block; content-visibility: visible; }</style></noscript>
@@ -203,7 +203,7 @@
                 <div class="page-hero home">
                     <div class="page-hero-content">
                         <h1>NGINX on Kubernetes</h1>
-                        <p>Your hub for NGINX's Kubernetes ecosystem — Ingress controllers, Gateway API implementations, migration tools, and conversion utilities.</p>
+                        <p>Your hub for NGINX's Kubernetes ecosystem: Ingress controllers, Gateway API implementations, migration tools, and conversion utilities.</p>
                         <div class="cta-row hero-cta-row">
                             <a class="cta cta-primary nic" href="ingress-nginx-migration.html">
                                 Migrating from ingress-nginx? Start here
@@ -330,7 +330,7 @@
                     </div>
 
                     <div class="info-box tip">
-                        <strong>NGINX Ingress Controller</strong> is the NGINX Ingress API implementation built by F5 NGINX &mdash; delivering enterprise-grade traffic management, security, and observability for Kubernetes with both standard Ingress resources and powerful custom resources.
+                        <strong>NGINX Ingress Controller</strong> is the NGINX Ingress API implementation built by F5 NGINX. It delivers enterprise-grade traffic management, security, and observability for Kubernetes with both standard Ingress resources and powerful custom resources.
                     </div>
 
                     <h2 class="sr-only">NGINX Ingress Controller features</h2>
@@ -452,7 +452,7 @@
                     </div>
 
                     <div class="info-box tip-green">
-                        <strong>Gateway API</strong> is the next generation of Kubernetes Ingress &mdash; providing more expressive, extensible, and role-oriented routing for services. NGINX Gateway Fabric is a fully conformant implementation.
+                        <strong>Gateway API</strong> is the next generation of Kubernetes Ingress. It provides more expressive, extensible, and role-oriented routing for services. NGINX Gateway Fabric is a fully conformant implementation.
                     </div>
 
                     <h2 class="sr-only">NGINX Gateway Fabric features</h2>
@@ -682,7 +682,7 @@
                         </div>
                         <div class="feature-card">
                             <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> 9 providers</h3>
-                            <p>Support for NGINX, Istio, Kong, Apisix, GCE, OpenAPI3, Traefik, and more &mdash; each with provider-specific annotation handling.</p>
+                            <p>Support for NGINX, Istio, Kong, Apisix, GCE, OpenAPI3, Traefik, and more, each with provider-specific annotation handling.</p>
                         </div>
                         <div class="feature-card">
                             <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> File or cluster input</h3>
@@ -691,7 +691,7 @@
                     </div>
 
                     <div class="info-box warning">
-                        <strong>Limitations:</strong> ingress2gateway converts core Ingress resources only &mdash; it does not convert CRDs (VirtualServer, etc.) and only translates a subset of NGINX-specific annotations. Review generated output before applying to production.
+                        <strong>Limitations:</strong> ingress2gateway converts core Ingress resources only; it does not convert CRDs (VirtualServer, etc.) and only translates a subset of NGINX-specific annotations. Review generated output before applying to production.
                     </div>
 
                     <div class="info-box note">

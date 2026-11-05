@@ -1,6 +1,6 @@
 ---
 name: verify-visually
-description: How to actually look at this site — shot.sh, the cdp.js helper (deep-link captures, true 320px viewports, overflow and focus-obscured sweeps, forced-colors/print/zoom emulation), DOM measurement, and the four facts that make a correct render command look like it failed (hash-routed SPAs, dark by default, viewport-not-page capture, the 500px macOS clamp). Use after any CSS, markup or layout change.
+description: How to actually look at this site: shot.sh, the cdp.js helper (deep-link captures, true 320px viewports, overflow and focus-obscured sweeps, forced-colors/print/zoom emulation), DOM measurement, and the four facts that make a correct render command look like it failed (hash-routed SPAs, dark by default, viewport-not-page capture, the 500px macOS clamp). Use after any CSS, markup or layout change.
 ---
 
 # Rendering and looking
@@ -8,7 +8,7 @@ description: How to actually look at this site — shot.sh, the cdp.js helper (d
 The checks are static readers. They cannot see a stretched grid, a collapsed
 flex item, a truncated label, a card wrapping 3+1, or text that has become
 unreadable. A clean run means "nothing is structurally broken", not "it looks
-right" — so for anything that changes what a reader sees, render it.
+right", so for anything that changes what a reader sees, render it.
 
 ```bash
 .github/scripts/shot.sh index.html                          # light, 1400px
@@ -32,25 +32,25 @@ hash applies on first load with no interaction.
 
 **2. Headless Chrome renders the dark theme by default here.** It reports
 `prefers-color-scheme: dark`, and the inline flash-prevention script honours
-that. `--force-dark-mode` does **not** drive this site — dark mode is a class
+that. `--force-dark-mode` does **not** drive this site: dark mode is a class
 toggled from `localStorage.darkMode`. `shot.sh` seeds that key ahead of the
 inline script, which is the only reliable way to choose a theme. If you render
 by hand and get a dark page you did not ask for, this is why.
 
-**3. `--screenshot` captures the viewport, not the page — and it captures it at
+**3. `--screenshot` captures the viewport, not the page, and it captures it at
 scroll position zero.** Those two together are nastier than either alone: deep-
 link to `#mappings`, the document scrolls, and a fixed-height capture of a page
 many times taller than the window comes back blank, because the content has
 moved out of the captured band. It looks like the page failed to render.
 
-`shot.sh` sizes the window to the laid-out document, capped at 8000px — which
+`shot.sh` sizes the window to the laid-out document, capped at 8000px, which
 only half solves it. An anchor below the cap (every ConfigMap row) still comes
 back blank, so `shot.sh` now **refuses a capture in which no row holds more than
 one colour** and exits 5 with `BLANK:`. For anything below the first screenful,
 use `cdp.js shot`, which captures from the element itself (below).
 
 **4. Widths below 500px are a lie through `--window-size` on macOS.** The window
-is clamped, so 320, 375 and 400 all render at 500 and the PNG is cropped — which
+is clamped, so 320, 375 and 400 all render at 500 and the PNG is cropped, which
 reads exactly like horizontal overflow that is not there. `cdp.js` sets the
 viewport with `Emulation.setDeviceMetricsOverride` instead, which is not
 clamped: `--width 320` is a true 320px layout.
@@ -70,7 +70,7 @@ node .github/scripts/cdp.js js       index.html --forced-colors --js 'matchMedia
 ```
 
 Options on every command: `--width N` (a **true** N px viewport via
-`Emulation.setDeviceMetricsOverride` — 320 really is 320), `--dark`, `--print`,
+`Emulation.setDeviceMetricsOverride`; 320 really is 320), `--dark`, `--print`,
 `--forced-colors`, `--reduced-motion`, `--zoom F`, `--click SEL` (repeatable,
 in order, e.g. to expand a row first), `--scroll SEL`. Exit 1 means the sweep
 found problems, 3 no browser, 4 the page did not load, 5 a blank capture.
@@ -85,8 +85,8 @@ Three things it does on purpose, each a trap it removes:
   `captureBeyondViewport`, so an anchor 15,000px down is a picture of the
   anchor. It refuses a blank capture exactly as `shot.sh` does.
 - **`focus` presses Tab** rather than calling `element.focus()`, because only a
-  keyboard press applies `:focus-visible` — the skip link sits off-screen until
-  then — and it waits for a focus transition to finish before hit-testing what
+  keyboard press applies `:focus-visible` (the skip link sits off-screen until
+  then), and it waits for a focus transition to finish before hit-testing what
   is painted over the focused element.
 
 It pins the network to localhost, so remote images (YouTube posters, blog
@@ -94,8 +94,8 @@ thumbnails) render as broken: that is the pinning, not a defect.
 
 ## Measuring beats looking
 
-For anything with a number in it — does this label fit, does this row overflow,
-is this touch target big enough — take a measurement rather than squinting at
+For anything with a number in it (does this label fit, does this row overflow,
+is this touch target big enough), take a measurement rather than squinting at
 an image. `--measure` takes a CSS selector and prints JSON: each node's box,
 its text, whether it is clipped (`scrollWidth > width`), the viewport, and
 whether the document overflows horizontally.
@@ -107,8 +107,8 @@ restyle and is 208px against ~215px usable now (2026-10-27). Both facts are in
 the `f5ds-design` skill because they were measured, not guessed.
 
 Structured output also **diffs**. For a change that should not alter layout,
-measure before and after and compare the JSON — far more reliable than
-comparing two images by eye.
+measure before and after and compare the JSON (far more reliable than
+comparing two images by eye).
 
 ## When you cannot render
 
@@ -116,7 +116,7 @@ comparing two images by eye.
 is not a reason to skip the step quietly: **say in your summary that you could
 not render**, and fall back to diffing structured output against a pristine
 worktree. Reporting green checks as visual verification is the specific failure
-this exists to prevent — they cannot see layout, which is the whole point.
+this exists to prevent: they cannot see layout, which is the whole point.
 
 ## Other things worth knowing
 
@@ -125,7 +125,7 @@ this exists to prevent — they cannot see layout, which is the whole point.
   production.
 - `index.js` fetches live release versions from the GitHub API, so a rendered
   page shows *current* upstream versions even when the files are stale. Do not
-  read a screenshot as evidence that the pinned versions are right — that is
+  read a screenshot as evidence that the pinned versions are right; that is
   what `check-versions.py` is for. Pin the network with
   `--host-resolver-rules="MAP * ~NOTFOUND, EXCLUDE 127.0.0.1"` for anything you
   intend to diff.

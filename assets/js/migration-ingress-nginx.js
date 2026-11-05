@@ -698,7 +698,7 @@
                 let dropped = headers.filter(function(h) { return forbidden.test(h); });
                 spec.allowHeaders = headers.filter(function(h) { return !forbidden.test(h); });
                 comments['spec.cors.allowHeaders'] = 'cors-allow-headers' + (a['cors-allow-headers'] ? '' : ' (community default)');
-                if (dropped.length) ctx.note('cors-allow-headers', 'Dropped ' + dropped.join(', ') + ' from allowHeaders — browsers send these themselves and NGINX Ingress Controller rejects them there.');
+                if (dropped.length) ctx.note('cors-allow-headers', 'Dropped ' + dropped.join(', ') + ' from allowHeaders: browsers send these themselves, and NGINX Ingress Controller rejects them there.');
                 // Written when true, and when false was asked for (types.go *bool),
                 // so the line names the annotation that set it.
                 if (creds || a['cors-allow-credentials'] !== undefined) { spec.allowCredentials = !!creds; comments['spec.cors.allowCredentials'] = 'cors-allow-credentials' + (a['cors-allow-credentials'] === undefined ? ' (community default true)' : ''); }
@@ -1055,7 +1055,7 @@
                 if (a['affinity-mode'] !== undefined && a['affinity-mode'] !== 'persistent') ctx.note('affinity-mode', 'The community controller ' + (a['affinity-mode'] === 'balanced' ? '' : 'read "' + a['affinity-mode'] + '" as balanced (the default) and ') + 'moved some sessions to new Pods when the Service scaled. NGINX sticky cookies never move a session, as with persistent; balanced has no NGINX Ingress Controller equivalent.', 'unsupported');
                 if (a['affinity-mode'] === 'persistent') ctx.note('affinity-mode', 'NGINX sticky cookies never rebalance existing sessions, which matches persistent; balanced (the community default) also shifted sessions when Pods scaled, and has no NGINX Ingress Controller equivalent.');
                 ['session-cookie-change-on-failure', 'session-cookie-conditional-samesite-none'].forEach(function(k) { if (a[k] !== undefined && GO_FALSE.test(str(a[k]).trim())) ctx.note(k, k + ' is false, the community default; nothing to migrate.', 'unchanged'); });
-                if (a['session-cookie-change-on-failure'] !== undefined && communityBool(a, 'session-cookie-change-on-failure', ctx, 'false')) ctx.note('session-cookie-change-on-failure', 'NGINX re-picks a server when the bound one fails without rewriting the cookie until the next response — close to, not the same as, what the community controller did.', 'unsupported');
+                if (a['session-cookie-change-on-failure'] !== undefined && communityBool(a, 'session-cookie-change-on-failure', ctx, 'false')) ctx.note('session-cookie-change-on-failure', 'NGINX re-picks a server when the bound one fails without rewriting the cookie until the next response. That is close to what the community controller did, but not the same.', 'unsupported');
                 if (a['session-cookie-conditional-samesite-none'] !== undefined && communityBool(a, 'session-cookie-conditional-samesite-none', ctx, 'false')) ctx.note('session-cookie-conditional-samesite-none', 'NGINX cannot drop SameSite=None for incompatible browsers; samesite is applied to every client.', 'unsupported');
                 if (a['session-cookie-max-age'] && a['session-cookie-expires'] && a['session-cookie-max-age'] !== a['session-cookie-expires']) ctx.note('session-cookie-expires', 'NGINX sets one expiry; session-cookie-max-age was used.');
                 comments.sessionCookie = 'affinity: "cookie"';
@@ -1454,7 +1454,7 @@
                     return;
                 }
                 if (ctx.strategy === 'annotation') {
-                    if (!a['default-backend'] && !ctx.hasDefaultBackend) ctx.note('custom-http-errors', 'NGINX Ingress Controller sends these errors to this Ingress\'s spec.defaultBackend and ignores the annotation without one — the community controller fell back to its global default backend. Set spec.defaultBackend to your error-page Service.', 'warning', true);
+                    if (!a['default-backend'] && !ctx.hasDefaultBackend) ctx.note('custom-http-errors', 'NGINX Ingress Controller sends these errors to this Ingress\'s spec.defaultBackend and ignores the annotation without one; the community controller fell back to its global default backend. Set spec.defaultBackend to your error-page Service.', 'warning', true);
                 } else if (a['default-backend']) {
                     ctx.note('default-backend', 'errorPages can only redirect or return a canned body, so the error pages Service ' + a['default-backend'] + ' served are replaced by a minimal body. To keep serving them from the Service, use annotation-first (nginx.org/custom-http-errors).', 'warning');
                 }
