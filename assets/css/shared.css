@@ -701,6 +701,7 @@ body {
 :root {
     --icon-info: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1a7 7 0 100 14A7 7 0 008 1zm0 1.5A5.5 5.5 0 118 13.5 5.5 5.5 0 018 2.5zM7.25 6.75h1.5v4.5h-1.5v-4.5zM8 4.2a.95.95 0 110 1.9.95.95 0 010-1.9z'/%3E%3C/svg%3E");
     --icon-success: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 1a7 7 0 100 14A7 7 0 008 1zm0 1.5A5.5 5.5 0 118 13.5 5.5 5.5 0 018 2.5zm3.03 3.4l-3.9 3.9-1.9-1.9-1.06 1.06 2.96 2.96 4.96-4.96L11.03 5.9z'/%3E%3C/svg%3E");
+    --icon-alert: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M8 1l7 7-7 7-7-7 7-7zm0 2.12L3.12 8 8 12.88 12.88 8 8 3.12zM7.25 5h1.5v3.75h-1.5V5zM8 9.6a.9.9 0 110 1.8.9.9 0 010-1.8z'/%3E%3C/svg%3E");
     --icon-warning: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 .9L.6 14.2h14.8L8 .9zm0 3.1l5 9H3l5-9zm-.75 3.2h1.5v3.2h-1.5V7.2zm.75 4.1a.9.9 0 110 1.8.9.9 0 010-1.8z'/%3E%3C/svg%3E");
     --icon-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' d='M3 8.5l3.5 3.5 7-7.5'/%3E%3C/svg%3E");
 
@@ -766,6 +767,16 @@ body {
     --icon-mask: var(--icon-warning);
 }
 .info-box.warning::before { background: var(--amber); }
+
+/* F5DS Negative: the `alert` diamond. Something did not happen (a resource
+   the source controller refused is not migrated), where a warning is
+   something that happened differently. */
+.info-box.error {
+    background: var(--pomegranate-tint);
+    border-left-color: var(--pomegranate);
+    --icon-mask: var(--icon-alert);
+}
+.info-box.error::before { background: var(--pomegranate); }
 
 
 /* ── Code block ───────────────────────────────────────────────────────────

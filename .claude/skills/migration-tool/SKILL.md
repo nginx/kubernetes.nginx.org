@@ -253,6 +253,19 @@ The four points are only as good as how "the pinned source" is read.
   — did nothing). Then what an **invalid** value does, parser by parser: the
   Ingress rejected, the default kept, or the setting dropped. The analyzer
   migrates exactly what took effect, and says why for everything else.
+- **A refused Ingress migrates to nothing.** With annotation validation on
+  (the community default), a value that fails its Validator, in a parser that
+  returns the error, makes `Extract` fail: the Ingress is never served. The
+  rules are `REFUSES` and `REFUSES_IF` in the ingress-nginx module, each a
+  Validator under the condition its parser reads it (the proxy, rewrite,
+  canary and CORS parsers swallow theirs and keep a default, so they are not
+  there). `migrateAll` sets such an Ingress aside before anything else reads
+  it; the page shows `plan.errors` above the plan, and `nic-migrate convert`
+  prints the same error and exits 1. A translator therefore never sees a
+  refused value: do not add a "rejected" note to one, add the rule. The five
+  Critical snippet annotations are the exception: a default install refuses
+  them too, but one that ran had raised `annotations-risk-level`, so they
+  migrate with a step-0 note.
 - **Values, swept.** The sweep tests (`analyzer.test.js`, and each preview
   branch's counterpart) run every mapped key over a spread that tells the
   readers apart — `''`, `true`, `t`, `1`, `on`, `yes`, `0`, `-1`, `100abc`,

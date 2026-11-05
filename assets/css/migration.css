@@ -1201,6 +1201,9 @@ button.analyzer-pill { font-family: var(--font); }
 /* Step 0: each install flag beside the reason this output needs it. */
 .analyzer-flag-list { margin: var(--space-base) 0 0; padding-left: var(--space-2hx); font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text); }
 .analyzer-flag-list li + li { margin-top: var(--space-small); }
+/* In an error or a warning, the page's green marker reads as "fine"; follow the text. */
+.info-box.error .analyzer-flag-list li::marker,
+.info-box.warning .analyzer-flag-list li::marker { color: currentColor; }
 .analyzer-crd-kind-badge { margin-right: var(--space-base); }
 .analyzer-crd-category {
     display: flex;

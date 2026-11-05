@@ -44,6 +44,14 @@ function detect(desc, result) {
     const resources = generatedResources(parts);
     const routable = resources.filter((r) => r.kind === 'VirtualServer' || r.kind === 'TransportServer' || r.kind === 'Ingress');
 
+    /* 0. The source controller refused this Ingress: nothing is migrated. */
+    const refused = result.plan && result.plan.errors && result.plan.errors[0];
+    if (refused) {
+        add('refused', 'blocking', refused.message);
+        for (const x of refused.items) add('refused-value', 'blocking', x.code + ' — ' + x.message);
+        return gaps;
+    }
+
     /* 1. A translator that threw was swallowed and its fragment is missing. */
     for (const w of result.warnings || []) {
         add('generator-warning', 'blocking', 'A translator failed and part of the output is missing: ' + w);

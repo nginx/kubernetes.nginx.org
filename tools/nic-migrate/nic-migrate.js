@@ -257,8 +257,10 @@ function runConvert(sources, engine, strategy, opts) {
     const converted = convertAll(models, engine, Object.assign({ resolveServicePort, strategy }, opts));
     const all = converted.map((c, i) => ({ model: models[i], sourceFile: ingresses[i].sourceFile, converted: c, warnings: c.warnings || [] }));
     // A canary folded into its stable Ingress's VirtualServer emits nothing of
-    // its own; its notes are still reported.
-    const results = all.filter((r) => r.converted.mergedInto === null || r.converted.mergedInto === undefined);
+    // its own; its notes are still reported. An Ingress the source controller
+    // refused emits nothing either, and is reported as an error.
+    const refused = all.filter((r) => r.converted.refused);
+    const results = all.filter((r) => !r.converted.refused && (r.converted.mergedInto === null || r.converted.mergedInto === undefined));
     for (const r of all) {
         if (r.converted.mergedInto !== null && r.converted.mergedInto !== undefined) {
             const into = all[r.converted.mergedInto];
@@ -286,10 +288,12 @@ function runConvert(sources, engine, strategy, opts) {
                 mergedCanaries: all.filter((x) => x.converted.mergedInto === all.indexOf(r)).map((x) => x.model.name),
                 notes: r.converted.notes,
                 generatorWarnings: r.warnings
-            }))
+            })),
+            refused: refused.map((r) => ({ name: r.model.name, namespace: r.model.namespace, source: r.sourceFile, error: r.converted.refused }))
         }, null, 2) + '\n');
-        // A translator that failed means part of the output is missing.
-        return results.some((r) => r.warnings.length) ? 1 : 0;
+        // A translator that failed means part of the output is missing, and a
+        // refused Ingress means all of that one is.
+        return results.some((r) => r.warnings.length) || refused.length ? 1 : 0;
     }
 
     let exitCode = 0;
@@ -309,6 +313,12 @@ function runConvert(sources, engine, strategy, opts) {
     }
 
     // Notes and warnings go to stderr so stdout stays pipeable into kubectl.
+    for (const r of refused) {
+        const e = r.converted.refused;
+        process.stderr.write(style.red('✗ ' + e.title + ' — ' + e.message) + '\n');
+        for (const x of e.items) process.stderr.write(style.red('    ' + x.code + ' — ' + x.message) + '\n');
+        exitCode = 1;
+    }
     for (const r of results) {
         const label = (r.model.namespace ? r.model.namespace + '/' : '') + r.model.name;
         for (const w of r.warnings) {

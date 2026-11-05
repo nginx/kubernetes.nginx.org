@@ -1376,6 +1376,42 @@
             });
         }
 
+        // What made a resource look as it does (merged, split, built as the
+        // other kind), above its YAML, where the reader sees it.
+        function appendCardNotes(container, notes) {
+            (notes || []).forEach(function(n) {
+                container.appendChild(buildNoteCard(n.severity === 'warning' ? 'warning' : 'note', { text: n.message }));
+            });
+        }
+
+        // A resource the source controller refused, so nothing below comes
+        // from it: { title, message, items: [{ code, message }] }. `variant`
+        // 'warning' is the same shape for values it ignored, which still migrate.
+        function renderPlanErrors(container, errors, variant) {
+            errors.forEach(function(e) {
+                let card = document.createElement('div');
+                card.className = 'info-box ' + (variant || 'error');
+                let strong = document.createElement('strong');
+                strong.textContent = e.title + ': ';
+                card.appendChild(strong);
+                card.appendChild(document.createTextNode(e.message));
+                if (e.items && e.items.length) {
+                    let list = document.createElement('ul');
+                    list.className = 'analyzer-flag-list';
+                    e.items.forEach(function(x) {
+                        let li = document.createElement('li');
+                        let code = document.createElement('code');
+                        code.textContent = x.code;
+                        li.appendChild(code);
+                        li.appendChild(document.createTextNode(' — ' + x.message));
+                        list.appendChild(li);
+                    });
+                    card.appendChild(list);
+                }
+                container.appendChild(card);
+            });
+        }
+
         function showAnalyzerLoading(container) {
             container.textContent = '';
             let wrap = document.createElement('div');
@@ -1425,12 +1461,24 @@
                 return;
             }
             let plan = SOURCE.analyzer.buildPlan(parsed, _migrationStrategy);
+            // Every resource refused by the source controller: the errors are
+            // the whole result, with no plan for nothing beneath them.
+            if (plan.errors && plan.errors.length && !plan.export) {
+                resultsDiv.textContent = '';
+                renderPlanErrors(resultsDiv, plan.errors);
+                renderParserWarnings(resultsDiv, warnings.concat(plan.warnings || []));
+                let liveStatus = document.getElementById('analyzerLiveStatus');
+                if (liveStatus) liveStatus.textContent = plan.errors.map(function(e) { return e.title; }).join('. ');
+                return;
+            }
             renderPlan(resultsDiv, plan);
             // Prepend any parser/plan warnings inside the renderer's now-populated container.
             let allWarnings = warnings.concat(plan.warnings || []);
-            if (allWarnings.length > 0) {
+            if (allWarnings.length > 0 || (plan.errors && plan.errors.length) || plan.invalid) {
                 let firstChild = resultsDiv.firstChild;
                 let warningHolder = document.createDocumentFragment();
+                renderPlanErrors(warningHolder, plan.errors || []);
+                if (plan.invalid) renderPlanErrors(warningHolder, [plan.invalid], 'warning');
                 renderParserWarnings(warningHolder, allWarnings);
                 resultsDiv.insertBefore(warningHolder, firstChild);
             }
@@ -1757,6 +1805,7 @@
                 }
                 if (item.dualSuffix) catLabel.appendChild(document.createTextNode(item.dualSuffix));
                 groupDiv.appendChild(catLabel);
+                appendCardNotes(groupDiv, item.notes);
                 groupDiv.appendChild(renderComparisonBlock({ old: item.old, new: item.new }, item.category + ' ' + block.kind));
             });
             return groupDiv;
@@ -1798,6 +1847,28 @@
         // Spacing comes from .analyzer-note-card / .analyzer-note-body in
         // migration.css — these used to carry inline `margin: 10px 0` and
         // `margin-top: 6px`, neither of which is on the 4px grid.
+        // A finding about one annotation: its category, the annotation, what
+        // it means, and its reference row. Unsupported annotations and
+        // behaviour differences share it, in their own colour.
+        function buildReferenceCard(variant, opts) {
+            let card = buildNoteCard(variant, { title: opts.title, code: opts.code, text: opts.text });
+            if (opts.anchor) {
+                let link = document.createElement('a');
+                link.href = '#' + opts.anchor;
+                link.className = 'analyzer-note-link';
+                link.textContent = 'See reference guide →';
+                // One of these per card, so the visible text alone does
+                // not say where each goes.
+                if (opts.title) link.setAttribute('aria-label', 'See reference guide: ' + opts.title);
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    goToAnchor(opts.anchor, opts.sidebarSection);
+                });
+                card.appendChild(link);
+            }
+            return card;
+        }
+
         function buildNoteCard(variant, opts) {
             let card = document.createElement('div');
             card.className = 'info-box ' + variant + ' analyzer-note-card';
@@ -1807,9 +1878,11 @@
                 card.appendChild(strong);
                 card.appendChild(document.createTextNode(' — '));
             }
-            let code = document.createElement('code');
-            code.textContent = opts.code;
-            card.appendChild(code);
+            if (opts.code) {
+                let code = document.createElement('code');
+                code.textContent = opts.code;
+                card.appendChild(code);
+            }
             let body = document.createElement('div');
             body.className = 'analyzer-note-body';
             body.textContent = opts.text;
@@ -1848,7 +1921,8 @@
 
             // Announce results to screen readers
             let liveStatus = document.getElementById('analyzerLiveStatus');
-            if (liveStatus) liveStatus.textContent = plan.liveText;
+            // A refused resource is said first: it is what the reader must act on.
+            if (liveStatus) liveStatus.textContent = (plan.errors || []).map(function(e) { return e.title + '. '; }).join('') + plan.liveText;
 
             let animDelay = 0;
             // Under reduced motion there is no fade, so there is no stagger
@@ -1917,6 +1991,8 @@
                 });
                 pre.items.forEach(function(n) {
                     step0.appendChild(buildNoteCard(n.severity === 'warning' ? 'warning' : 'note', { code: n.code, text: n.message }));
+                    // A change the reader can run: the command right under its note.
+                    if (n.command) step0.appendChild(buildYamlBlock(n.command, false, 'Command', 'shell'));
                 });
                 step0.appendChild(buildYamlBlock(pre.command, false, 'Helm install command', 'shell'));
                 let why = document.createElement('ul');
@@ -1961,6 +2037,7 @@
 
                 stepData.blocks.forEach(function(block) {
                     if (block.type === 'comparison') {
+                        appendCardNotes(step, block.notes);
                         step.appendChild(renderComparisonBlock(block, stepData.title));
                     } else if (block.type === 'dual-note') {
                         let dualNote = document.createElement('div');
@@ -1989,13 +2066,50 @@
                     marker: 'i',
                     markerCls: warned ? 'warning' : '',
                     title: 'Behavior differences',
-                    countText: plan.infoNotes.length + ' note' + (plan.infoNotes.length !== 1 ? 's' : '') + (warned ? ', ' + warned + ' to review' : '')
+                    countText: plan.infoNotes.length + ' note' + (plan.infoNotes.length !== 1 ? 's' : '') + (warned ? ', ' + warned + ' to review' : ''),
+                    desc: 'These annotations migrate, but NGINX Ingress Controller applies them differently. Check each one against how you rely on it.'
                 });
                 plan.infoNotes.forEach(function(note) {
-                    stepInfo.appendChild(buildNoteCard(note.severity === 'warning' ? 'warning' : 'note', { code: note.code, text: note.message }));
+                    stepInfo.appendChild(buildReferenceCard(note.severity === 'warning' ? 'warning' : 'note', { title: note.title, code: note.code, text: note.message, anchor: note.anchor, sidebarSection: note.sidebarSection }));
                 });
                 applyFadeIn(stepInfo);
                 container.appendChild(stepInfo);
+            }
+
+            // Settings the source controller ignored or defaulted, which migrate
+            // to the same thing: worth a look if the value was meant to do
+            // something, nothing to act on otherwise. Collapsed, last.
+            if (plan.unchanged && plan.unchanged.length > 0) {
+                let n = plan.unchanged.length;
+                let stepSame = buildStep({
+                    id: 'analyzer-unchanged',
+                    marker: '=',
+                    markerCls: '',
+                    title: 'Not migrated, no change',
+                    countText: n + ' setting' + (n !== 1 ? 's' : ''),
+                    desc: 'The community controller ignored ' + (n !== 1 ? 'these settings' : 'this setting') + ' or used its default, so the migration does the same. Check any value you meant to take effect.'
+                });
+                let list = document.createElement('div');
+                list.id = 'analyzer-unchanged-list';
+                list.hidden = true;
+                plan.unchanged.forEach(function(note) {
+                    list.appendChild(buildNoteCard('note', { code: note.code, text: note.message }));
+                });
+                let toggle = document.createElement('button');
+                toggle.type = 'button';
+                toggle.className = 'analyzer-yaml-expand';
+                toggle.setAttribute('aria-controls', list.id);
+                let setOpen = function(open) {
+                    list.hidden = !open;
+                    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+                    toggle.textContent = open ? 'Hide' : 'Show ' + n + ' Setting' + (n !== 1 ? 's' : '');
+                };
+                setOpen(false);
+                toggle.addEventListener('click', function() { setOpen(list.hidden); });
+                stepSame.appendChild(toggle);
+                stepSame.appendChild(list);
+                applyFadeIn(stepSame);
+                container.appendChild(stepSame);
             }
 
             // Unsupported findings (recognized but no migration path)
@@ -2011,26 +2125,7 @@
                 });
 
                 plan.unsupported.cards.forEach(function(cardData) {
-                    let card = buildNoteCard('warning', {
-                        title: cardData.title,
-                        code: cardData.code,
-                        text: cardData.desc
-                    });
-                    if (cardData.anchor) {
-                        let link = document.createElement('a');
-                        link.href = '#' + cardData.anchor;
-                        link.className = 'analyzer-note-link';
-                        link.textContent = 'See reference guide →';
-                        // One of these per card, so the visible text alone does
-                        // not say where each goes.
-                        if (cardData.title) link.setAttribute('aria-label', 'See reference guide: ' + cardData.title);
-                        link.addEventListener('click', function(e) {
-                            e.preventDefault();
-                            goToAnchor(cardData.anchor, cardData.sidebarSection);
-                        });
-                        card.appendChild(link);
-                    }
-                    step4.appendChild(card);
+                    step4.appendChild(buildReferenceCard('warning', { title: cardData.title, code: cardData.code, text: cardData.desc, anchor: cardData.anchor, sidebarSection: cardData.sidebarSection }));
                 });
 
                 applyFadeIn(step4);

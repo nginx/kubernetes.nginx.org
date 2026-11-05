@@ -18,9 +18,9 @@
    carries (custom-http-errors, a rule with no host). The virtualserver
    target promises a VirtualServer per host, so it asks for one regardless
    (keepIngress false) and the notes say what it loses; --target ingress
-   keeps every Ingress. */
+   keeps every Ingress (keepVirtualServer false), with the same notes. */
 function planOptions(opts) {
-    return { ingressClass: opts.ingressClass || null, nameSuffix: opts.nameSuffix || '', keepIngress: opts.target !== 'virtualserver' };
+    return { ingressClass: opts.ingressClass || null, nameSuffix: opts.nameSuffix || '', keepIngress: opts.target !== 'virtualserver', keepVirtualServer: opts.target !== 'ingress' };
 }
 
 /* A minimal model for naming and reporting: the assembler builds its own. */
@@ -63,7 +63,8 @@ function format(model, out, opts) {
     for (const n of out.notes) {
         const v = model.doc.metadata && model.doc.metadata.annotations
             ? model.doc.metadata.annotations['nginx.ingress.kubernetes.io/' + n.annotation] : undefined;
-        notes.push((v !== undefined ? n.annotation + ': ' + v + ' — ' : '') + n.message);
+        // A change the reader can run comes with its command, as on the page.
+        notes.push((v !== undefined ? n.annotation + ': ' + v + ' — ' : '') + n.message + (n.command ? '\n\n' + n.command : ''));
     }
     for (const t of out.todos) notes.push('unresolved placeholder at ' + t.path + ' — ' + t.message);
     for (const e of out.unsupported) notes.push(e.found.map((x) => x.annotation).join(', ') + ' — ' + e.mapping.nic);
@@ -74,6 +75,9 @@ function format(model, out, opts) {
     }
     resolveDefaultBackend(docs, model, opts, notes);
     return {
+        // The engine's error for an Ingress the source controller refused:
+        // { title, message, items }, exactly what the page shows.
+        refused: out.refused || null,
         docs,
         warnings: out.warnings || [],
         notes: [...new Set(notes)],

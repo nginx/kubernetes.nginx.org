@@ -591,7 +591,9 @@ test('custom-http-errors under CRD-first keeps the Ingress, which alone serves t
     const result = engine.analyze(Y.stringify(ERRORS()), 'crd');
     assert.match(result.yaml, /nginx\.org\/custom-http-errors/);
     assert.ok(!/errorPages:/.test(result.yaml) && !/kind: VirtualServer/.test(result.yaml), result.yaml);
-    assert.ok(result.plan.infoNotes.some((n) => /Kept as an Ingress under CRD-first/.test(n.message) && n.severity === 'warning'),
+    // On the kept Ingress's card, as a warning.
+    const cards = result.plan.steps.flatMap((st) => st.blocks.flatMap((b) => (b.items || [b]).flatMap((it) => it.notes || [])));
+    assert.ok(cards.some((n) => /Kept as an Ingress under CRD-first/.test(n.message) && n.severity === 'warning'),
         'the reason must be a warning');
 });
 
@@ -620,12 +622,13 @@ test('the ingress target turns default-backend into spec.defaultBackend', () => 
     assert.deepEqual(ing.spec.defaultBackend, { service: { name: 'error-svc', port: { number: 8080 } } });
     assert.deepEqual(asked, ['prod/error-svc']);
 
-    // A value that is not a Service name never reaches the resolver (kubectl argv).
+    // A value that is not a Service name never reaches the resolver (kubectl
+    // argv): the community controller refuses that Ingress, so nothing does.
     asked.length = 0;
     ({ out } = runConvert(ERRORS({ 'nginx.ingress.kubernetes.io/default-backend': '--kubeconfig=/tmp/x' }),
         { target: 'ingress', strategy: 'annotation', resolveServicePort }));
     assert.deepEqual(asked, []);
-    assert.equal(out.docs.find((d) => d.kind === 'Ingress').spec.defaultBackend, undefined);
+    assert.deepEqual(out.docs, []);
 
     // Without custom-http-errors, default-backend is the no-endpoints fallback,
     // which spec.defaultBackend is not.
@@ -838,4 +841,53 @@ test('report flags a host that several community Ingresses route, but not a cana
     sharedHosts(items);
     assert.deepEqual(items.map((i) => i.gaps.map((g) => g.id)), [['shared-host'], ['shared-host'], [], []]);
     assert.match(items[0].gaps[0].message, /routed by shop, api\. .*merges them into one VirtualServer/);
+});
+
+test('convert and report say what the page says about a community Ingress the community controller refused', () => {
+    /* The page shows an error and migrates nothing for it. convert writes the
+       others, prints that error to stderr and exits 1 (--json lists it under
+       refused); report gives it blocking gaps. One engine function builds the
+       text for all three, so they cannot disagree. */
+    const fs = require('node:fs');
+    const os = require('node:os');
+    const { spawnSync } = require('node:child_process');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nic-migrate-'));
+    const src = path.join(dir, 'in.yaml');
+    const good = JSON.parse(JSON.stringify(INGRESS));
+    good.metadata.annotations = { 'nginx.ingress.kubernetes.io/proxy-body-size': '8m' };
+    const bad = JSON.parse(JSON.stringify(INGRESS));
+    bad.metadata.name = 'bad';
+    bad.spec.rules = [{ host: 'bad.example.com', http: bad.spec.rules[0].http }];
+    bad.spec.tls = [];
+    bad.metadata.annotations = { 'nginx.ingress.kubernetes.io/limit-rps': 'ten' };
+    fs.writeFileSync(src, Y.stringifyAll([good, bad]));
+    const cli = path.join(TOOL, 'nic-migrate.js');
+    const run = (...args) => spawnSync(process.execPath, [cli, ...args, '--no-color'], { encoding: 'utf8' });
+
+    let r = run('convert', '-f', src);
+    assert.equal(r.status, 1, r.stderr);
+    assert.match(r.stderr, /✗ Ingress \S*bad not migrated — The community controller \(v1\.15\.1\) refuses it by default/);
+    assert.match(r.stderr, /limit-rps: ten — expects a whole number\./);
+    assert.ok(Y.parseAll(r.stdout).every((d) => d && d.metadata.name !== 'bad'), 'nothing written for the refused Ingress');
+    assert.ok(Y.parseAll(r.stdout).some((d) => d && d.kind === 'VirtualServer'), 'the other Ingress still migrates');
+
+    r = run('convert', '-f', src, '--json');
+    assert.equal(r.status, 1);
+    const json = JSON.parse(r.stdout);
+    assert.deepEqual(json.refused.map((x) => x.name), ['bad']);
+    assert.equal(json.refused[0].error.items[0].code, 'nginx.ingress.kubernetes.io/limit-rps: ten');
+
+    r = run('report', '-f', src, '--json');
+    const item = JSON.parse(r.stdout).ingresses.find((x) => x.name === 'bad');
+    assert.deepEqual(item.gaps.map((g) => g.severity + ' ' + g.id), ['blocking refused', 'blocking refused-value']);
+    fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('convert prints the command that gives a basic-auth Secret its htpasswd key, as the page does', () => {
+    const doc = JSON.parse(JSON.stringify(INGRESS));
+    doc.metadata.annotations = { 'nginx.ingress.kubernetes.io/auth-type': 'basic', 'nginx.ingress.kubernetes.io/auth-secret': 'basic-auth' };
+    const { out } = runConvert(doc);
+    const note = out.notes.find((n) => /key named htpasswd/.test(n));
+    assert.ok(note, out.notes.join(' | '));
+    assert.match(note, /\n\nkubectl (-n \S+ )?patch secret basic-auth --type merge/);
 });

@@ -765,7 +765,7 @@ metadata:
   name: basic-auth
 type: Opaque
 data:
-  htpasswd: dXNlcjokYXByMS4uLg==  # the community "auth" key, renamed
+  htpasswd: dXNlcjokYXByMS4uLg==  # auth, copied by the analyzer's command
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -793,7 +793,7 @@ metadata:
   name: basic-auth
 type: Opaque
 data:
-  htpasswd: dXNlcjokYXByMS4uLg==  # the community "auth" key, renamed
+  htpasswd: dXNlcjokYXByMS4uLg==  # auth, copied by the analyzer's command
 ---
 apiVersion: k8s.nginx.org/v1
 kind: Policy
@@ -823,10 +823,12 @@ spec:
                                 </div>
                             </div>
                             <div class="info-box note">
-                                <strong>Note:</strong> The community <code>auth-secret-type</code> annotation
-                                (<code>auth-file</code> or <code>auth-map</code>) has no NGINX Ingress Controller equivalent.
-                                NGINX Ingress Controller only supports the htpasswd format, read from the Secret's
-                                <code>htpasswd</code> key (the community controller read the <code>auth</code> key), so rename the key.
+                                <strong>Note:</strong> NGINX Ingress Controller reads one htpasswd file from the Secret's
+                                <code>htpasswd</code> key, in the resource's own namespace. The community controller read it from the
+                                <code>auth</code> key (<code>auth-secret-type: auth-file</code>), or one user per key (<code>auth-map</code>).
+                                The analyzer gives the <code>kubectl</code> command that adds the <code>htpasswd</code> key for either
+                                format, keeping the existing keys so the community controller still reads the Secret, or copies the Secret
+                                into the resource's namespace when <code>auth-secret</code> names another one.
                                 Since v5.7.0 the Secret can stay <code>Opaque</code>; <code>type: nginx.org/htpasswd</code> is no longer required. The <code>auth-type</code>
                                 annotation is also implicit — NGINX Ingress Controller only supports basic auth
                                 via these annotations.
@@ -2188,7 +2190,7 @@ spec:
                 value: "value"
                 always: true</code></pre></div>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> The headers live in the ConfigMap the annotation names, which the analyzer cannot read: it writes a placeholder header for you to replace with each key and value from that ConfigMap; for the one above, <code>X-Frame-Options: DENY</code> and <code>X-Content-Type-Options: nosniff</code>. The community controller sent them with <code>more_set_headers</code>, on every response code, so each header keeps <code>always: true</code>. To keep an Ingress instead, use <code>nginx.org/add-header</code>, with <code>always</code> as a third field: <code>X-Frame-Options: DENY: always</code>.</div>
+                            <div class="info-box note"><strong>Note:</strong> The headers live in the ConfigMap the annotation names, which the analyzer cannot read: it writes a placeholder header, and gives the <code>kubectl</code> command that prints each key and value of that ConfigMap as the entries to replace it with; for the one above, <code>X-Frame-Options: DENY</code> and <code>X-Content-Type-Options: nosniff</code>. The community controller sent them with <code>more_set_headers</code>, on every response code, so each header keeps <code>always: true</code>. To keep an Ingress instead, use <code>nginx.org/add-header</code>, with <code>always</code> as a third field: <code>X-Frame-Options: DENY: always</code>.</div>
                         </div></td></tr>
                         <tr class="expandable">
                             <td><span class="badge badge-configmap">ConfigMap</span> <code>server-tokens</code></td>
@@ -3976,7 +3978,7 @@ metadata:
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/server-alias</code></td>
-                            <td><span class="badge badge-virtualserver">VirtualServer CRD</span> one resource per hostname<span class="or-text">— or —</span>One Ingress rule per hostname</td>
+                            <td><span class="badge badge-virtualserver">VirtualServer CRD</span> one resource per hostname<span class="or-text">— or —</span>One Ingress per hostname</td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
@@ -3990,14 +3992,53 @@ kind: Ingress
 metadata:
   name: my-app
   annotations:
-    nginx.ingress.kubernetes.io/server-alias: "alias.example.com"</code></pre></div>
-                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># server-alias has no annotation: list alias.example.com as a
-# further rule (and TLS host) in this Ingress's spec, beside its
-# existing host, with the same paths.
+    nginx.ingress.kubernetes.io/server-alias: "alias.example.com"
+spec:
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-svc
+                port:
+                  number: 80</code></pre></div>
+                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># One Ingress per host: the alias is a copy on its own host
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: my-app</code></pre></div>
+  name: my-app
+spec:
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-svc
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app-2
+spec:
+  rules:
+    - host: alias.example.com  # server-alias
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-svc
+                port:
+                  number: 80</code></pre></div>
                                 </div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
@@ -4007,7 +4048,19 @@ kind: Ingress
 metadata:
   name: my-app
   annotations:
-    nginx.ingress.kubernetes.io/server-alias: "alias.example.com"</code></pre></div>
+    nginx.ingress.kubernetes.io/server-alias: "alias.example.com"
+spec:
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-svc
+                port:
+                  number: 80</code></pre></div>
                                     <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># server-alias → separate VirtualServer per host
 apiVersion: k8s.nginx.org/v1
 kind: VirtualServer
@@ -4025,7 +4078,7 @@ spec:
         pass: backend</code></pre></div>
                                 </div>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> The community <code>server-alias</code> annotation adds an additional hostname to the same NGINX server block. NGINX Ingress Controller does not have an equivalent annotation — instead, create a separate VirtualServer resource for each hostname, all pointing to the same backend service, or keep the Ingress and list each alias as a further rule (and TLS host). A <code>server_name</code> line in <code>nginx.org/server-snippets</code> also answers for the alias, but NGINX Ingress Controller cannot see that host, so it neither covers it with the Ingress's TLS certificate nor detects collisions with other resources.</div>
+                            <div class="info-box note"><strong>Note:</strong> The community <code>server-alias</code> annotation adds an additional hostname to the same NGINX server block. NGINX Ingress Controller has no equivalent annotation and gives a host to one resource, so the analyzer gives each alias its own VirtualServer, or its own copy of the Ingress, with the same paths, settings and TLS Secret; that certificate must cover the alias, as the community controller required. A <code>server_name</code> line in <code>nginx.org/server-snippets</code> also answers for the alias, but NGINX Ingress Controller cannot see that host, so it neither covers it with the Ingress's TLS certificate nor detects collisions with other resources.</div>
                         </div></td></tr>
                         <tr class="expandable">
                             <td>No direct equivalent</td>

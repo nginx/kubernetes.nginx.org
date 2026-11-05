@@ -36,7 +36,19 @@ const run = (doc, strategy) => {
     return Object.assign(r, { docs: JSON.parse(JSON.stringify(Y.parseAll(r.text))) });
 };
 const kinds = (r, kind) => r.docs.filter((d) => d.kind === kind);
-const notes = (r) => r.plan.infoNotes.map((n) => n.code + ' — ' + n.message).join('\n');
+// Every note a reader sees, wherever the plan puts it: step 0, the
+// behaviour differences, and the collapsed "no change" list.
+const allNotes = (plan) => (plan.prerequisites ? plan.prerequisites.items : []).concat(plan.infoNotes, plan.unchanged || [],
+    plan.invalid ? plan.invalid.items.map((x) => Object.assign({ severity: 'invalid' }, x)) : [],
+    plan.unsupported ? plan.unsupported.cards.map((c) => ({ code: c.code, message: c.desc, severity: 'unsupported' })) : [],
+    cardNotes(plan));
+// The notes on each resource's card: why it was merged, split or built as the other kind.
+// Array.from: the plan comes from the engine's vm realm, whose arrays fail deepStrictEqual here.
+const cardNotes = (plan) => Array.from(plan.steps.flatMap((st) => st.blocks.flatMap((b) => (b.items || [b]).flatMap((it) => (it.notes || []).map((n) => Object.assign({ code: '', card: it.category || st.title }, n))))));
+const notes = (r) => allNotes(r.plan).map((n) => n.code + ' — ' + n.message).join('\n');
+// The error a community Ingress the community controller refused gets, and
+// the values it names: { title, message, items: [{ code, message }] }.
+const refused = (r) => (r.plan.errors || []).map((e) => e.title + ': ' + e.message + '\n' + e.items.map((x) => x.code + ' — ' + x.message).join('\n')).join('\n');
 // Step 0: the install command, each flag's reason, and what to change first.
 const before = (r) => { const p = r.plan.prerequisites; return [p.command].concat(p.flags.map((x) => x.flag + ' — ' + x.why), p.items.map((n) => n.code + ' — ' + n.message)).join('\n'); };
 
@@ -150,7 +162,9 @@ const SAMPLE = { 'whitelist-source-range': '10.0.0.0/8', canary: 'true', affinit
     'connection-proxy-header': 'keep-alive', 'ssl-passthrough': 'true', 'custom-http-errors': '404', 'permanent-redirect': 'https://x.example.com',
     'temporal-redirect': 'https://t.example.com', 'limit-rps': '10', 'mirror-target': 'https://m.example.com', 'auth-type': 'basic',
     'rewrite-target': '/', 'app-root': '/a', 'stream-snippet': 'server { listen 1; }', 'server-alias': 'b.example.com',
-    'auth-tls-secret': 'ns/ca', 'proxy-ssl-secret': 'ns/c', 'custom-headers': 'ns/cm', 'from-to-www-redirect': 'true', 'default-backend': 'svc' };
+    'auth-tls-secret': 'ns/ca', 'proxy-ssl-secret': 'ns/c', 'custom-headers': 'ns/cm', 'from-to-www-redirect': 'true', 'default-backend': 'svc',
+    // A value the community controller accepts: '7' would refuse the Ingress.
+    'upstream-hash-by-subset': 'true', 'http2-push-preload': 'true', 'limit-whitelist': '10.0.0.0/8' };
 const NEEDS = [[/^canary-/, { canary: 'true' }], [/^cors-/, { 'enable-cors': 'true' }], [/^(session-cookie|affinity-mode)/, { affinity: 'cookie' }],
     [/^auth-(signin|snippet|method|response-headers|request-redirect|signin-redirect-param|cache-key|cache-duration|proxy-set-headers)$/, { 'auth-url': 'http://auth.ns.svc.cluster.local/auth' }],
     [/^permanent-redirect-code$/, { 'permanent-redirect': 'https://x.example.com' }], [/^temporal-redirect-code$/, { 'temporal-redirect': 'https://t.example.com' }],
@@ -172,7 +186,9 @@ test('every recognised annotation is named in the output, under both strategies'
     for (const name of mapped) {
         for (const strategy of ['crd', 'annotation']) {
             const r = run(ingress(sweepInput(name)), strategy);
-            const found = (r.text.match(/#.*$/gm) || []).join('\n') + JSON.stringify([r.plan.infoNotes, r.plan.unsupported, r.plan.unrecognized]);
+            const found = (r.text.match(/#.*$/gm) || []).join('\n') + JSON.stringify([allNotes(r.plan), r.plan.unsupported, r.plan.unrecognized, r.plan.errors]);
+            // A sample the community controller refuses tests the refusal, not the mapping.
+            if ((r.plan.errors || []).length) missing.push(strategy + ' ' + name + ' (sample refused: ' + r.plan.errors[0].items.map((x) => x.code).join(', ') + ')');
             if (!new RegExp('(^|[^a-z-])' + name + '($|[^a-z-])').test(found)) missing.push(strategy + ' ' + name);
             // Named only as "no translation" is a lost feature, not a migration:
             // every mapped annotation has one (this caught mirror-host and
@@ -316,14 +332,64 @@ test('B8: snippets carry the enable-snippets warning, and headers-more is called
     assert.match(before(r), /more_set_headers[^\n]*unknown directive/);
 });
 
-test('B9: what NIC reads from each community Secret is stated', () => {
+test('B9: a community Secret that needs nothing says nothing; one in another namespace gets the copy', () => {
     /* NIC 5.7.0 validates a Secret by its role's keys, not its type (5.6.3
-       required nginx.org/ca and nginx.org/htpasswd): the CA Secret works as it
-       is, and basic auth needs its key renamed from auth to htpasswd. */
-    const mtls = notes(run(ingress({ 'auth-tls-secret': 'ns/ca' })));
-    assert.match(mtls, /ca\.crt key[^\n]*same Secret works as it is/);
-    assert.doesNotMatch(mtls, /nginx\.org\/ca/);
-    assert.match(notes(run(ingress({ 'auth-type': 'basic', 'auth-secret': 's' }))), /key named htpasswd[^\n]*key named auth/);
+       required nginx.org/ca and nginx.org/htpasswd): the CA and backend-TLS
+       Secrets work as they are, which said nothing a reader acts on. A Policy
+       reads a Secret from its own namespace, so one the community controller
+       read from another (allow-cross-namespace-resources) is copied there. */
+    const same = (ann) => { const d = ingress(ann); d.metadata.namespace = 'prod'; return run(d); };
+    for (const [ann, use] of [[{ 'auth-tls-secret': 'prod/ca' }, 'auth-tls-secret'], [{ 'proxy-ssl-secret': 'prod/c' }, 'proxy-ssl-secret']]) {
+        const r = same(ann);
+        assert.doesNotMatch(notes(r), /works as it is|from the same Secret/, use);
+        assert.ok(!r.plan.prerequisites.items.some((n) => n.command && n.code.includes(use)), use + ': no copy for its own namespace');
+        const cross = same({ [use]: 'certs/x' });
+        const item = cross.plan.prerequisites.items.find((n) => n.command && n.code.includes(use));
+        assert.ok(item, use + ': a copy for another namespace');
+        assert.match(item.command, /^kubectl -n certs get secret x -o go-template='apiVersion: v1.*\| kubectl -n prod apply -f -$/s, use);
+    }
+    assert.doesNotMatch(notes(run(ingress({ 'auth-tls-secret': 'ns/ca' }))), /nginx\.org\/ca/);
+    const step0 = run(ingress({ 'auth-type': 'basic', 'auth-secret': 's' })).plan.prerequisites.items;
+    assert.ok(step0.some((n) => /key named htpasswd/.test(n.message) && n.command), 'the htpasswd key is a step-0 change with its command');
+});
+
+test('basic auth comes with the command that gives its Secret the key NGINX Ingress Controller reads', () => {
+    /* The community controller read the htpasswd file from the key auth
+       (auth-file) or one user per key (auth-map, joined as user:hash lines);
+       NGINX Ingress Controller reads the key htpasswd, in the resource's own
+       namespace. Same namespace: a merge patch adds the key and keeps the
+       others, which the community controller still reads. Another: a copy
+       beside the resource, the original untouched. Each command was run on
+       kind, in bash and zsh, against both formats. */
+    const cmd = (ann, ns) => {
+        const doc = ingress(Object.assign({ 'auth-type': 'basic' }, ann));
+        if (ns) doc.metadata.namespace = ns; else delete doc.metadata.namespace;
+        const item = run(doc).plan.prerequisites.items.find((n) => n.command);
+        return item ? item.command : '';
+    };
+    const same = cmd({ 'auth-secret': 'basic-auth' }, 'prod');
+    assert.match(same, /^kubectl -n prod patch secret basic-auth --type merge/);
+    assert.match(same, /kubectl -n prod get secret basic-auth -o jsonpath='\{\.data\.auth\}'/);
+    assert.match(cmd({ 'auth-secret': 'prod/basic-auth' }, 'prod'), /^kubectl -n prod patch secret/, 'a prefix naming its own namespace is not a copy');
+    const map = cmd({ 'auth-secret': 'basic-map', 'auth-secret-type': 'auth-map' }, 'prod');
+    assert.match(map, /go-template='\{\{range \$k, \$v := \.data\}\}\{\{if ne \$k "htpasswd"\}\}\{\{\$k\}\}:\{\{base64decode \$v\}\}/);
+    const cross = cmd({ 'auth-secret': 'auth/basic-auth' }, 'prod');
+    assert.match(cross, /^kubectl -n prod create secret generic basic-auth/);
+    assert.match(cross, /kubectl -n auth get secret basic-auth/);
+    assert.match(cross, /--dry-run=client -o yaml \| kubectl -n prod apply -f -$/);
+    const crossMap = cmd({ 'auth-secret': 'auth/basic-map', 'auth-secret-type': 'auth-map' }, 'prod');
+    assert.match(crossMap, /^kubectl -n prod create secret generic basic-map/);
+    assert.match(crossMap, /kubectl -n auth get secret basic-map -o go-template=/);
+    assert.equal(cmd({}, 'prod'), '', 'no auth-secret, no command: the TODO says so');
+    assert.match(cmd({ 'auth-secret': 'basic-auth' }, null), /^kubectl patch secret basic-auth/);
+    // The reader runs this command: a name Kubernetes would not accept never
+    // reaches it. The auth parser denies such a location rather than refusing
+    // the Ingress, so the analyzer sees these values.
+    for (const bad of ['x$(id)', 'a;b', 'a/b/c', 'Bad_Name', '"; rm -rf ~; "', 'ns with space/s']) {
+        assert.equal(cmd({ 'auth-secret': bad }, 'prod'), '', bad);
+        const doc = ingress({ 'auth-type': 'basic', 'auth-secret': bad });
+        assert.ok(run(doc).plan.prerequisites.items.some((n) => /is not a Secret name Kubernetes accepts/.test(n.message)), bad);
+    }
 });
 
 test('5.7: backend mTLS reads its CA from the community proxy-ssl-secret, with no TODO', () => {
@@ -420,9 +486,44 @@ test('A14: a beta Ingress migrates to a valid networking.k8s.io/v1 one', () => {
     assert.equal(ing.spec.backend, undefined);
 });
 
-test('B17: each server-alias is its own lowercase host', () => {
+test('custom-headers and auth-proxy-set-headers come with the command that prints their ConfigMap as the replacement', () => {
+    /* Both looked the ConfigMap up as <namespace>/<name> (store
+       ConfigMap.ByKey): custom-headers sent each key: value with
+       more_set_headers, auth-proxy-set-headers as proxy_set_header "k" "v"
+       to the auth service. A bare name found nothing and denied the
+       location. Each command was run on kind, in bash and zsh. */
+    const step0 = (ann, strategy) => run(ingress(ann), strategy).plan.prerequisites.items;
+    const cmd = (ann, strategy, code) => (step0(ann, strategy).find((n) => n.command && n.code.includes(code)) || {}).command || '';
+    assert.match(cmd({ 'custom-headers': 'prod/resp' }, 'crd', 'custom-headers'), /^kubectl -n prod get configmap resp \\\n  -o go-template='\{\{range \$k, \$v := \.data\}\}- name: \{\{\$k\}\}.*value: \{\{printf "%q" \$v\}\}.*always: true/);
+    const ann = cmd({ 'custom-headers': 'prod/resp' }, 'annotation', 'custom-headers');
+    assert.match(ann, /^kubectl -n prod get configmap resp /);
+    assert.match(ann, /nginx\.org\/add-header: \{\{printf "%q" \$s\}\}/);
+    assert.doesNotMatch(ann, /\bkeys\b|\bjoin\b/, 'kubectl templates have neither');
+    const auth = cmd({ 'auth-url': 'http://auth.ns.svc/verify', 'auth-proxy-set-headers': 'prod/auth-h' }, 'crd', 'auth-proxy-set-headers');
+    assert.match(auth, /^kubectl -n prod get configmap auth-h \\\n  -o go-template='\{\{range \$k, \$v := \.data\}\}proxy_set_header \{\{printf "%q" \$k\}\} \{\{printf "%q" \$v\}\};/);
+    // A bare name never worked: the location was denied, and no command.
+    for (const [a, code] of [[{ 'custom-headers': 'resp' }, 'custom-headers'], [{ 'auth-url': 'http://auth.ns.svc/verify', 'auth-proxy-set-headers': 'auth-h' }, 'auth-proxy-set-headers']]) {
+        assert.equal(cmd(a, 'crd', code), '', code);
+        assert.ok(run(ingress(a)).plan.infoNotes.concat(step0(a, 'crd')).some((n) => /names no namespace[^]*denied every path of this Ingress \(503\)/.test(n.message)), code);
+    }
+    for (const bad of ['prod/x$(id)', 'prod/a;b', 'Prod/resp', 'a/b/c']) assert.equal(cmd({ 'custom-headers': bad }, 'crd', 'custom-headers'), '', bad);
+});
+
+test('B17: each server-alias is its own lowercase host, a VirtualServer or a migrated Ingress', () => {
+    /* Annotation-first told the reader to add each alias as a further rule
+       on the Ingress, which gave one Ingress two hosts. Each alias is now a
+       copy of the migrated Ingress on its own host, with its TLS Secret. */
     const vs = kinds(run(ingress({ 'server-alias': 'www.example.com,Alt.Example.com' })), 'VirtualServer');
     assert.deepEqual(vs.map((v) => v.spec.host), ['a.example.com', 'www.example.com', 'alt.example.com']);
+    const r = run(ingress({ 'server-alias': 'www.example.com,Alt.Example.com', 'proxy-body-size': '8m' }), 'annotation');
+    const ings = kinds(r, 'Ingress');
+    assert.deepEqual(ings.map((i) => i.spec.rules.map((x) => x.host)), [['a.example.com'], ['www.example.com'], ['alt.example.com']]);
+    assert.deepEqual(ings.map((i) => i.metadata.name), ['app', 'app-2', 'app-3']);
+    for (const i of ings.slice(1)) {
+        assert.equal(i.metadata.annotations['nginx.org/client-max-body-size'], '8m');
+        assert.deepEqual(i.spec.tls, [{ hosts: [i.spec.rules[0].host], secretName: 'a-tls' }]);
+    }
+    assert.doesNotMatch(notes(r), /as further rules/);
 });
 
 test('A5: generated YAML parses back — wildcard hosts, regex values, NO/YES', () => {
@@ -439,9 +540,11 @@ test('A5: generated YAML parses back — wildcard hosts, regex values, NO/YES', 
 });
 
 test('A12/A19: empty and prototype-named values are reported, not crashed on or emitted', () => {
+    /* "constructor" reached Object.prototype once. It is not one of the six
+       load-balance names, so the community controller refuses the Ingress. */
     const r = run(ingress({ 'proxy-buffer-size': '', 'load-balance': 'constructor' }));
-    assert.ok(!/buffer-size|lb-method/.test(r.text.replace(/#.*$/gm, '')), r.text);
-    assert.match(notes(r), /constructor/);
+    assert.equal(r.docs.length, 0, r.text);
+    assert.match(refused(r), /load-balance: constructor — expects round_robin/);
 });
 
 test('B14: force-ssl-redirect follows the request scheme, as the community controller did', () => {
@@ -462,6 +565,48 @@ test('C7: every migration names the ingressClassName change, before anything is 
     assert.match(pre.flags[0].why, /ingressClassName/);
 });
 
+test('each note is where the reader acts on it: step 0, the ignored values, the differences, unsupported, or "no change"', () => {
+    /* All notes rendered in one "Behavior differences" list. Now: a change to
+       make before applying is step 0; a value the community controller could
+       not read and defaulted is the warning box under the errors; one it read
+       but that did nothing is the collapsed "no change" list; a feature with no
+       equivalent is an "Unsupported annotations" card; the rest differ in
+       behaviour. A sweep over every mapped annotation and a spread of values. */
+    const byHand = /^(Paste the main Ingress|.*must also cover|.*does not terminate TLS|.*passes .* through as TLS|.*Set spec\.defaultBackend to your|.*names no namespace|.*This command |auth-url .* (uses|has no scheme))/;
+    const unread = /is not a (whole number|boolean|path starting)|is neither on nor off|is not on or off|is outside \d|is below 0|is not above 0|is not "cookie"|is not a backend protocol/;
+    const noEffect = /nothing (is|was) migrated|nothing to migrate|ignored (it|them|these|the)/;
+    const resource = /was split into one per host|so they are merged into one|Each alias is its own Ingress|counted this rate limit once|^Built as a VirtualServer|^Kept as an Ingress|^Only \S+ sets? |applies to the whole of|matched this Ingress's paths as case-insensitive/;
+    const gone = /^No equivalent|No NGINX Ingress Controller equivalent|does not cache external auth|has no keepalive setting|has no subset hashing|cannot drop SameSite|no such fallback|always sends X-Auth-Request-Redirect|does not append a redirect parameter|matches only "always"|close to, not the same|balanced has no/;
+    const bad = [];
+    // Each mapped annotation alone, and beside a second Ingress on its host
+    // (merged), over a spread of values.
+    const other = ingress({}); other.metadata.name = 'other'; other.spec.rules[0].http.paths[0].path = '/other';
+    const inputs = [];
+    for (const name of MAPPED) for (const value of [sweepInput(name)[name], 'x', '', 'false']) {
+        const doc = ingress(Object.assign(sweepInput(name), { [name]: value }));
+        inputs.push(doc);
+        if (value === sweepInput(name)[name]) inputs.push([doc, other].map((d) => Y.stringify(d)).join('---\n'));
+    }
+    for (const input of inputs) for (const strategy of ['crd', 'annotation']) {
+        const r = run(input, strategy);
+        const name = typeof input === 'string' ? 'shared host' : Object.keys(input.metadata.annotations || {}).join(','), value = '';
+        const where = (n) => r.plan.prerequisites.items.includes(n) ? 'step 0' : n.card !== undefined ? 'card' : n.severity === 'invalid' ? 'ignored values' : n.severity === 'unsupported' ? 'unsupported' : (r.plan.unchanged || []).includes(n) ? 'no change' : 'differences';
+        for (const n of allNotes(r.plan)) {
+            const at = where(n), m = n.message, say = (why) => bad.push(at + ' (' + why + '): ' + m.slice(0, 80));
+            if (byHand.test(m)) { if (at !== 'step 0') say('by hand'); continue; }
+            if (resource.test(m)) { if (at !== 'card') say('about one resource'); continue; }
+            if (unread.test(m)) { if (at !== 'ignored values') say('unreadable value'); continue; }
+            if (gone.test(m)) { if (at !== 'unsupported') say('no equivalent'); continue; }
+            if (noEffect.test(m) && at !== 'no change') say('no effect');
+            if (at === 'no change' && n.severity === 'warning') say('a warning in the no-change list');
+        }
+        const attention = (r.plan.pills.find((p) => / need attention$/.test(p.text)) || { text: '0' }).text;
+        const warned = r.plan.prerequisites.items.concat(r.plan.infoNotes).filter((n) => n.severity === 'warning').length + (r.plan.invalid ? r.plan.invalid.items.length : 0);
+        if (parseInt(attention, 10) < warned) bad.push(name + '=' + value + ': attention ' + attention + ' below ' + warned + ' warnings');
+    }
+    assert.deepEqual([...new Set(bad)], []);
+});
+
 test('the install command carries only the flags the output needs, each with its reason', () => {
     /* Snippets, TLS passthrough and the ConfigMap were notes among the rest,
        read after the YAML they break. They are the install command in step 0
@@ -475,7 +620,8 @@ test('the install command carries only the flags the output needs, each with its
     const r = run(ingress({ 'configuration-snippet': 'more_set_headers "X-A: b";' }));
     assert.match(r.plan.prerequisites.items.map((n) => n.message).join('\n'), /more_set_headers[^\n]*unknown directive/);
     assert.equal(r.plan.prerequisites.items[0].severity, 'warning');
-    assert.doesNotMatch(notes(r), /unknown directive|enableSnippets/);
+    // Not also among the behaviour differences.
+    assert.doesNotMatch(r.plan.infoNotes.map((n) => n.message).join('\n'), /unknown directive|enableSnippets/);
 });
 
 test('C8: the simple sample is not labelled advanced under CRD-first', () => {
@@ -628,12 +774,15 @@ test('the analyzer view keeps its four promises for every annotation and sample'
             const shown = cards.flatMap((card) => card.kinds).sort().join(', ');
             const exported = (r.plan.export ? r.plan.export.parts : []).flatMap(kindsIn).sort().join(', ');
             if (shown !== exported) broken.push('4 ' + at + ': the cards show [' + shown + '], the export holds [' + exported + ']');
-            // 5. CRD-first replaces the Ingress; annotation-first keeps it. TLS
-            //    passthrough has no Ingress form, so it is a TransportServer under both.
+            // 5. CRD-first replaces the Ingress; annotation-first keeps it. Each
+            //    builds the other kind only for a setting its own has no form
+            //    for, and says so. TLS passthrough has no Ingress form, so it
+            //    is a TransportServer under both.
             const all = cards.flatMap((card) => card.kinds);
-            if (strategy === 'crd' && all.includes('Ingress')) broken.push('5 ' + at + ': CRD-first emitted an Ingress');
-            if (strategy === 'annotation' && all.includes('VirtualServer') && !all.includes('TransportServer')) {
-                broken.push('5 ' + at + ': annotation-first emitted a VirtualServer');
+            const said = (re) => allNotes(r.plan).some((n) => re.test(n.message));
+            if (strategy === 'crd' && all.includes('Ingress') && !said(/^Kept as an Ingress under CRD-first/)) broken.push('5 ' + at + ': CRD-first emitted an Ingress, unexplained');
+            if (strategy === 'annotation' && all.includes('VirtualServer') && !all.includes('TransportServer') && !said(/^Built as a VirtualServer under annotation-first/)) {
+                broken.push('5 ' + at + ': annotation-first emitted a VirtualServer, unexplained');
             }
         }
     }
@@ -733,21 +882,117 @@ test('an integer annotation the community controller would have ignored migrates
     assert.match(run(ingress({ 'limit-rate': '100' })).text, /limit_rate 100k;/);
 });
 
-test('an invalid limit-rps, limit-rpm or limit-connections says the community controller rejected the Ingress', () => {
+test('a community Ingress with an invalid limit-rps, limit-rpm or limit-connections is refused, and migrates to nothing', () => {
     /* ratelimit/main.go (controller-v1.15.1) returns these three's
        ValidationError, so Extract fails: the webhook refuses the Ingress and
-       the store never loads it. They were filtered out with no note and
-       listed as "Also applied". limit-burst-multiplier's error is swallowed
+       the store never loads it. limit-burst-multiplier's error is swallowed
        (the default 5 is kept), but parseInt read "10m" as 10. */
     for (const ann of ['limit-rps', 'limit-rpm', 'limit-connections']) {
         for (const strategy of ['annotation', 'crd']) {
             const r = run(ingress({ [ann]: 'x' }), strategy);
-            assert.match(notes(r), new RegExp(ann + ' "x" is not a whole number, so the community controller rejected this Ingress'), ann + ' under ' + strategy);
-            assert.doesNotMatch(notes(r), /no comment there names/, ann + ' under ' + strategy);
+            assert.equal(r.docs.length, 0, ann + ' under ' + strategy);
+            assert.match(refused(r), new RegExp(ann + ': x — expects a whole number'), ann + ' under ' + strategy);
         }
     }
     const burst = kinds(run(ingress({ 'limit-rps': '10', 'limit-burst-multiplier': '10m' })), 'Policy')[0].spec.rateLimit.burst;
     assert.equal(burst, 50, 'an invalid multiplier keeps the community default of 5');
+});
+
+test('a community Ingress the community controller refuses migrates to nothing, with the value and what it accepts', () => {
+    /* Validation is on by default in controller-v1.15.1: a value that fails
+       its annotation's Validator, in a parser that returns the error, makes
+       Extract fail and the Ingress is never served. Each pair: a value the
+       Validator refuses, and one it accepts (parser/validators.go and each
+       parser's annotations map). Siblings set the read order's conditions. */
+    const CASES = [
+        ['server-alias', 'a b.example.com', 'b.example.com,*.c.example.com'],
+        ['upstream-vhost', 'a b', 'internal.example.com'],
+        ['auth-url', 'http://auth/%7e', 'http://auth.ns.svc/verify?x=$host'],
+        ['client-body-buffer-size', '1 MB x', '64k'],
+        ['connection-proxy-header', 'upgrade', 'keep-alive'],
+        ['custom-http-errors', '302', '404, 503'],
+        ['default-backend', 'Error_Svc', 'error-svc'],
+        ['http2-push-preload', 'yes', 'True'],
+        ['load-balance', 'least_conn', 'ewma'],
+        ['load-balance', 'EWMA', 'round_robin'],
+        ['limit-rps', '10r/s', '10'],
+        ['limit-whitelist', '10.0.0.0/8,', '10.0.0.0/8, 192.168.1.1'],
+        ['from-to-www-redirect', 'on', 'false'],
+        ['relative-redirects', 'yes', 'true'],
+        ['temporal-redirect', 'https://b.example.com/%20', 'https://b.example.com/x?a=1'],
+        ['ssl-ciphers', 'ECDHE RSA;', 'ECDHE-RSA-AES128-GCM-SHA256:@STRENGTH'],
+        ['ssl-passthrough', 'enabled', 'true'],
+        ['upstream-hash-by', '$remote_addr;', '$remote_addr'],
+        ['x-forwarded-prefix', '/a b?', '/api'],
+        ['auth-tls-secret', 'ns/ca*', 'ns/ca'],
+        ['proxy-ssl-secret', 'ns/c!', 'ns/c'],
+        ['fastcgi-index', 'index/php', 'index.php'],
+        ['auth-type', 'ldap', 'basic', { 'auth-secret': 's' }],
+        ['auth-secret-type', 'htpasswd', 'auth-map', { 'auth-type': 'basic', 'auth-secret': 's' }],
+        ['permanent-redirect-code', '301x', '308', { 'permanent-redirect': 'https://b.example.com' }],
+        ['temporal-redirect-code', 'x', '307', { 'temporal-redirect': 'https://b.example.com' }],
+        ['opentelemetry-operation-name', 'op.name', 'op_name', { 'enable-opentelemetry': 'true' }]
+    ];
+    const bad = [];
+    for (const [ann, no, yes, extra] of CASES) for (const strategy of ['crd', 'annotation']) {
+        const r = run(ingress(Object.assign({ [ann]: no }, extra || {})), strategy);
+        if (r.docs.length || !new RegExp('/' + ann + ': ').test(refused(r))) bad.push(strategy + ' ' + ann + ': ' + no + ' was not refused');
+        const ok = run(ingress(Object.assign({ [ann]: yes }, extra || {})), strategy);
+        if ((ok.plan.errors || []).length) bad.push(strategy + ' ' + ann + ': ' + yes + ' was refused: ' + refused(ok));
+    }
+    // Read only under a condition: without it the value is never validated.
+    for (const [ann, no] of [['opentelemetry-operation-name', 'op.name'], ['auth-secret-type', 'htpasswd'], ['temporal-redirect-code', 'x']]) {
+        if ((run(ingress({ [ann]: no })).plan.errors || []).length) bad.push(ann + ': refused though its parser never reads it alone');
+    }
+    // Empty values are never validated; swallowed errors keep the default.
+    for (const [ann, v] of [['limit-rps', ''], ['proxy-body-size', '10 MB'], ['proxy-read-timeout', 'x'], ['cors-max-age', 'x']]) {
+        if ((run(ingress({ [ann]: v })).plan.errors || []).length) bad.push(ann + ': "' + v + '" refused, though the community controller kept going');
+    }
+    assert.deepEqual(bad, []);
+});
+
+test('a refused community Ingress leaves the others in the paste to migrate as if it were absent', () => {
+    /* syncIngress stores nothing for it, so it shares no host, pairs with no
+       canary and sets no regex on its host: the others are migrated as the
+       community controller saw them. The page and nic-migrate say the same. */
+    const two = (a, b) => [a, b].map((d) => Y.stringify(d)).join('---\n');
+    const good = ingress({ 'proxy-body-size': '8m' });
+    const bad = ingress({ 'limit-rps': 'ten', 'rewrite-target': '/' });
+    bad.metadata.name = 'bad';
+    for (const strategy of ['crd', 'annotation']) {
+        const r = run(two(good, bad), strategy);
+        assert.equal(r.docs.filter((d) => d.kind === 'VirtualServer' || d.kind === 'Ingress').length, 1, strategy);
+        assert.doesNotMatch(r.text, /served by|merged|~\*|use-regex/, strategy + ': the refused Ingress shaped the output');
+        assert.equal(r.plan.errors.length, 1, strategy);
+        assert.match(r.plan.errors[0].title, /Ingress bad not migrated/);
+    }
+});
+
+test('when every community Ingress is refused, the plan is its errors, and the counts leave refused ones out', () => {
+    /* The page renders only the errors when there is no export: an empty
+       plan beneath them said "1 Ingress with no community annotations" and
+       offered a Helm install for nothing. Beside a good Ingress, the pills
+       count only what was analyzed. */
+    const bad = run(ingress({ 'limit-rps': 'ten', 'proxy-body-size': '8m' }));
+    assert.equal(bad.plan.export, null);
+    assert.equal(bad.plan.errors.length, 1);
+    const good = ingress({ 'proxy-body-size': '8m' });
+    const refusedDoc = ingress({ 'limit-rps': 'ten', 'load-balance': 'x' });
+    refusedDoc.metadata.name = 'bad';
+    const both = run([good, refusedDoc].map((d) => Y.stringify(d)).join('---\n'));
+    assert.equal(both.plan.pills[0].text, '1 annotation found');
+});
+
+test('a community Ingress with snippet annotations says a default install would have refused it', () => {
+    /* The five Critical annotations are above the default annotations-risk-level
+       (High), which refuses the Ingress whatever allow-snippet-annotations says.
+       It ran, so the level was raised; the snippets still migrate. */
+    const r = run(ingress({ 'configuration-snippet': 'add_header X-A 1;', 'server-snippet': 'add_header X-B 1;' }));
+    assert.equal((r.plan.errors || []).length, 0);
+    const note = r.plan.prerequisites.items.find((n) => /annotations-risk-level/.test(n.message));
+    assert.ok(note, 'no risk-level note at step 0');
+    assert.match(note.code, /configuration-snippet, .*server-snippet/);
+    assert.equal((run(ingress({ 'proxy-body-size': '8m' })).plan.prerequisites.items.find((n) => /risk-level/.test(n.message))), undefined);
 });
 
 test('only a mapping that wrote something is reported as folded in', () => {
@@ -850,11 +1095,12 @@ test('a boolean annotation is read as the community controller read it: strconv.
     assert.match(notes(r({ 'enable-cors': 'on' })), /enable-cors "on" is not a boolean, so the community controller read it as false/);
     assert.equal(kinds(r({ 'enable-cors': 'True' }), 'Policy').length, 1, 'Go accepts "True"');
     assert.equal(kinds(r({ 'enable-cors': 'true', 'cors-allow-credentials': 'yes' }), 'Policy')[0].spec.cors.allowCredentials, true, 'invalid credentials kept the default, true');
-    for (const [ann, extra] of [['ssl-passthrough', {}], ['from-to-www-redirect', {}], ['upstream-hash-by-subset', { 'upstream-hash-by': '$remote_addr' }], ['auth-tls-pass-certificate-to-upstream', { 'auth-tls-secret': 'ns/ca' }]]) {
-        assert.match(notes(r(Object.assign({ [ann]: 'yes' }, extra))), new RegExp(ann + ' "yes" is not a boolean, so the community controller rejected this Ingress'), ann);
+    // Those whose parser returns the error refuse the whole Ingress: nothing migrates.
+    for (const [ann, extra] of [['ssl-passthrough', {}], ['from-to-www-redirect', {}], ['upstream-hash-by-subset', { 'upstream-hash-by': '$remote_addr' }]]) {
+        const out = r(Object.assign({ [ann]: 'yes' }, extra));
+        assert.equal(out.docs.length, 0, ann);
+        assert.match(refused(out), new RegExp(ann + ': yes — expects true or false'), ann);
     }
-    // A rejected value migrates nothing for itself.
-    assert.equal(kinds(r({ 'ssl-passthrough': 'yes' }), 'TransportServer').length, 0);
     assert.equal(kinds(r({ 'ssl-passthrough': 'true' }), 'TransportServer').length, 1);
     // An invalid auth-always-set-cookie failed authreq Parse: no external auth at all.
     const auth = r({ 'auth-url': 'http://auth.ns.svc/verify', 'auth-always-set-cookie': 'yes' });
@@ -862,13 +1108,15 @@ test('a boolean annotation is read as the community controller read it: strconv.
     assert.match(notes(auth), /dropped external auth for this Ingress/);
 });
 
-test('redirects follow redirect.go: temporal wins, out-of-range codes fall back, an invalid code rejects', () => {
+test('redirects follow redirect.go: temporal wins, out-of-range codes fall back, an invalid code refuses the community Ingress', () => {
     const vs = (ann) => kinds(run(ingress(ann)), 'VirtualServer')[0].spec.routes[0].action.redirect;
     assert.deepEqual(vs({ 'permanent-redirect': 'https://b.example.com', 'temporal-redirect': 'https://c.example.com' }), { url: 'https://c.example.com', code: 302 });
     assert.equal(vs({ 'permanent-redirect': 'https://b.example.com', 'permanent-redirect-code': '299' }).code, 301);
     assert.match(notes(run(ingress({ 'permanent-redirect': 'https://b.example.com', 'permanent-redirect-code': '299' }))), /299 is outside 300-308, so the community controller used 301/);
     assert.equal(vs({ 'permanent-redirect': 'https://b.example.com', 'permanent-redirect-code': '308' }).code, 308);
-    assert.match(notes(run(ingress({ 'permanent-redirect-code': 'x' }))), /permanent-redirect-code "x" is not a whole number, so the community controller rejected this Ingress/);
+    assert.match(refused(run(ingress({ 'permanent-redirect-code': 'x' }))), /permanent-redirect-code: x — expects a whole number/);
+    // Read only without temporal-redirect: beside it, "x" was never validated.
+    assert.equal((run(ingress({ 'temporal-redirect': 'https://c.example.com', 'permanent-redirect-code': 'x' })).plan.errors || []).length, 0);
     assert.match(notes(run(ingress({ 'temporal-redirect-code': '307' }))), /applies only to temporal-redirect, which is not set/);
 });
 
@@ -915,14 +1163,15 @@ test('values copied onto an NGINX Ingress Controller bool are the bool the commu
     assert.match(notes(run(ingress({ canary: 'yes', 'canary-weight': '10' }))), /canary "yes" is not a boolean/);
 });
 
-test('custom-http-errors with any entry that is not a number migrates none, and proxy-redirect-to alone says why', () => {
-    /* customhttperrors Parse fails on the first entry Atoi rejects, and
-       Extract skips the parser: "404,x" set no error pages at all. */
+test('custom-http-errors with anything but 4xx and 5xx codes refuses the community Ingress, and proxy-redirect-to alone says why', () => {
+    /* customhttperrors/main.go validates ^(?:[4,5]\d{2},?)*$ and returns the
+       error, so "404,x" and "302" both refuse the Ingress. */
     for (const s of ['crd', 'annotation']) {
-        const r = run(ingress({ 'custom-http-errors': '404,x' }), s);
-        assert.doesNotMatch(r.text, /errorPages|nginx\.org\/custom-http-errors/, s);
-        assert.match(notes(r), /"x" is not a status code, so the community controller ignored custom-http-errors altogether/);
-        assert.doesNotMatch(notes(r), /Annotation-first is recommended/);
+        for (const v of ['404,x', '302']) {
+            const r = run(ingress({ 'custom-http-errors': v }), s);
+            assert.equal(r.docs.length, 0, s + ' ' + v);
+            assert.match(refused(r), /custom-http-errors: .* — expects a comma list of 4xx and 5xx codes/, s + ' ' + v);
+        }
     }
     assert.match(notes(run(ingress({ 'proxy-redirect-to': 'x' }))), /proxy-redirect-to applies only with a proxy-redirect-from/);
 });
@@ -986,7 +1235,9 @@ test('a community Ingress with several hosts becomes one VirtualServer or Ingres
         const routing = r.docs.filter((d) => d.kind !== 'Policy' && d.kind !== 'ConfigMap');
         assert.deepEqual(routing.map((d) => hostOf(d).length), [1, 1], strategy + ': one host per resource');
         assert.deepEqual(routing.map((d) => d.metadata.name), ['app-a', 'app-b'], strategy);
-        assert.equal(r.plan.infoNotes.filter((n) => /was split into one per host/.test(n.message)).length, 1, strategy + ': the split is said once');
+        // Said once on each piece's card, nowhere else.
+        assert.deepEqual(Array.from(cardNotes(r.plan).filter((n) => /was split into one per host/.test(n.message)), (n) => n.card), ['app-a — a.example.com', 'app-b — b.example.com'].map((c) => strategy === 'crd' ? c : 'Migrated Ingress'), strategy + ': the split is said on each piece');
+        assert.equal(r.plan.infoNotes.filter((n) => /was split into one per host/.test(n.message)).length, 0, strategy);
         assert.equal(r.plan.banner.strongText, '4 annotations analyzed', strategy + ': the pieces share one set of annotations');
         // One Policy for both pieces, as the source had one set of annotations.
         assert.deepEqual(kinds(r, 'Policy').map((p) => p.metadata.name).sort(), strategy === 'crd' ? ['app-cors', 'app-rate-limit'] : ['app-cors']);
@@ -1079,7 +1330,7 @@ test('community Ingresses on one host merge into one NGINX Ingress Controller In
     const rw = run(paste(host('shop', 'a.example.com', [['/', 'web']]), host('api', 'a.example.com', [['/api(/|$)(.*)', 'api', 'ImplementationSpecific']], { 'rewrite-target': '/$2', 'use-regex': 'true' })), 'annotation');
     assert.equal(kinds(rw, 'Ingress').length, 1);
     assert.match(notes(rw), /Only api sets nginx\.org\/rewrite-target and nginx\.org\/path-regex.*shop's paths .* matched and rewritten with it too\. To keep them as they were, use CRD-first/);
-    assert.equal(rw.plan.infoNotes.find((n) => /rewrite-target and nginx\.org\/path-regex/.test(n.message)).severity, 'warning');
+    assert.equal(cardNotes(rw.plan).find((n) => /rewrite-target and nginx\.org\/path-regex/.test(n.message)).severity, 'warning');
 });
 
 test('merging community Ingresses on one host keeps one TLS, CA and path owner, chosen as the community controller chose', () => {
@@ -1110,6 +1361,44 @@ test('merging community Ingresses on one host keeps one TLS, CA and path owner, 
     assert.match(notes(run(tls())), /set TLS differently/);
 });
 
+test('the strategy is a preference: a setting with no form in it builds the other kind, and one needing both is refused', () => {
+    /* A canary split, a redirect action, a host redirect and samesite have no
+       Ingress annotation; custom-http-errors served from a Service has no
+       VirtualServer form. Each Ingress is built as the kind that carries it,
+       and says why. NGINX Ingress Controller gives a host to one resource, so
+       the kind is the host's: one Ingress needing a VirtualServer takes the
+       others on its host along; a host (or an Ingress) needing both kinds has
+       no single form, and is refused with both sides named. */
+    const kindsOf = (r) => [...new Set(r.docs.filter((d) => ['VirtualServer', 'Ingress'].includes(d.kind)).map((d) => d.kind))];
+    for (const ann of [{ 'permanent-redirect': 'https://b.example.com' }, { 'from-to-www-redirect': 'true' }, { affinity: 'cookie', 'session-cookie-samesite': 'Lax' }]) {
+        const r = run(ingress(ann), 'annotation');
+        assert.deepEqual(kindsOf(r), ['VirtualServer'], JSON.stringify(ann));
+        assert.match(notes(r), /^.*Built as a VirtualServer under annotation-first/m, JSON.stringify(ann));
+    }
+    const errorsSvc = { 'custom-http-errors': '404', 'default-backend': 'errsvc' };
+    assert.deepEqual(kindsOf(run(ingress(errorsSvc), 'crd')), ['Ingress']);
+    // One Ingress needing both.
+    for (const strategy of ['crd', 'annotation']) {
+        const r = run(ingress(Object.assign({ 'permanent-redirect': 'https://b.example.com' }, errorsSvc)), strategy);
+        assert.equal(r.docs.length, 0, strategy);
+        assert.match(refused(r), /only an Ingress carries it[^]*only a VirtualServer carries it/, strategy);
+    }
+    // A host shared by one needing a VirtualServer and one needing an Ingress.
+    const a = ingress({ 'permanent-redirect': 'https://b.example.com' });
+    const b = ingress(errorsSvc); b.metadata.name = 'errs'; b.spec.rules[0].http.paths[0].path = '/e';
+    for (const strategy of ['crd', 'annotation']) {
+        const r = run([a, b].map((d) => Y.stringify(d)).join('---\n'), strategy);
+        assert.equal(r.docs.filter((d) => ['VirtualServer', 'Ingress'].includes(d.kind)).length, 0, strategy);
+        assert.equal(r.plan.errors.length, 2, strategy);
+        assert.match(r.plan.errors[0].message, /Host a\.example\.com is routed by app, errs/, strategy);
+    }
+    // The other Ingress on the host follows the one that needs a VirtualServer.
+    const c = ingress({ 'proxy-body-size': '8m' }); c.metadata.name = 'plain'; c.spec.rules[0].http.paths[0].path = '/p';
+    const r = run([a, c].map((d) => Y.stringify(d)).join('---\n'), 'annotation');
+    assert.deepEqual(kindsOf(r), ['VirtualServer']);
+    assert.match(notes(r), /it shares a\.example\.com with app/);
+});
+
 test('a mixed paste of community Ingresses: every output host has exactly one VirtualServer or Ingress', () => {
     /* The invariant itself, over a paste that mixes every case: a split, a
        shared host, a canary pair beside a third Ingress, and a host of its own. */
@@ -1126,11 +1415,15 @@ test('a mixed paste of community Ingresses: every output host has exactly one Vi
         const r = run(input, strategy);
         const by = owners(r);
         assert.deepEqual(Object.keys(by).sort(), ['a.example.com', 'b.example.com', 'c.example.com'], strategy);
-        // Annotation-first cannot split traffic, so the canary stays an Ingress
-        // of its own beside the main one, and says so; nothing else may.
-        const extra = strategy === 'annotation' ? ['Ingress/shop-canary'] : [];
-        for (const [h, list] of Object.entries(by)) assert.deepEqual(list.filter((x) => !extra.includes(x)).length, 1, strategy + ' ' + h + ': ' + list.join(', '));
-        if (extra.length) assert.match(notes(r), /A canary Ingress shares its host .* left out of the host's Ingress/);
+        // Annotation-first cannot split traffic, so the canary's host, and every
+        // Ingress on it, is one VirtualServer: it used to leave the canary an
+        // Ingress beside the main one, two resources on one host.
+        for (const [h, list] of Object.entries(by)) assert.equal(list.length, 1, strategy + ' ' + h + ': ' + list.join(', '));
+        if (strategy === 'annotation') {
+            assert.deepEqual(by['a.example.com'].map((x) => x.split('/')[0]), ['VirtualServer']);
+            assert.match(notes(r), /Built as a VirtualServer under annotation-first: .*traffic splitting/);
+            assert.match(notes(r), /it shares a\.example\.com with shop-canary/);
+        }
     }
 });
 
@@ -1196,12 +1489,11 @@ test('for any community input, no VirtualServer, Ingress or TransportServer has 
             if (!['VirtualServer', 'TransportServer', 'Ingress'].includes(d.kind)) continue;
             if (hostOf(d).length > 1) bad.push(label + ' ' + strategy + ': ' + d.kind + '/' + d.metadata.name + ' has hosts ' + hostOf(d).join(', '));
         }
-        const warned = r.plan.infoNotes.filter((n) => n.severity === 'warning').map((n) => n.message).join('\n');
+        const warned = allNotes(r.plan).filter((n) => n.severity === 'warning').map((n) => n.message).join('\n');
         for (const [h, list] of Object.entries(owners(r))) {
             if (list.length < 2) continue;
-            const canary = strategy === 'annotation' && /A canary Ingress shares its host/.test(warned);
             const passthrough = list.some((x) => /^TransportServer\//.test(x)) && /passes .* through as TLS/.test(warned);
-            if (!canary && !passthrough) bad.push(label + ' ' + strategy + ': ' + h + ' is claimed by ' + list.join(', '));
+            if (!passthrough) bad.push(label + ' ' + strategy + ': ' + h + ' is claimed by ' + list.join(', '));
         }
     };
     for (const strategy of ['crd', 'annotation']) {
