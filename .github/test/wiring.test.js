@@ -382,3 +382,37 @@ test('shell commands are highlighted without losing a character', () => {
         ['cmd:helm', 'punct:\\', 'flag:--set', 'key:a.b', 'punct:=', 'str:nginx-nic', 'punct:\\', 'flag:--set', 'key:c', 'punct:=', 'cmd:true', 'flag:--version', 'num:2.8.0']);
     assert.deepEqual(roles('a | b && c'), ['cmd:a', 'punct:|', 'cmd:b', 'punct:&&', 'cmd:c']);
 });
+
+test('the core places every source\'s notes: card, step 0, unsupported, ignored values, no change, differences', () => {
+    /* MigrationTool.notes() is the one place a note's section is decided, for
+       every source module; each module only says what a note is. Its
+       contract: a card note stays on its card, deduped by message; step 0
+       keeps its command; an unsupported note is a card with its reason;
+       invalid notes are the box naming the module's controller; unchanged
+       notes are the collapsed list; warnings lead the differences; and the
+       attention count is step-0 warnings, differences warnings and invalid. */
+    const { tool } = loadAnalyzer('assets/js/migration-ingress-nginx.js');
+    const s = tool.notes();
+    const n = (o) => Object.assign({ code: 'x', message: 'm', severity: 'note' }, o);
+    s.add(n({ message: 'merged', card: 'prod/a.example.com' }));
+    s.add(n({ message: 'merged', card: 'prod/a.example.com' }));
+    s.add(n({ message: 'split', card: 'prod/a.example.com', severity: 'warning' }));
+    s.add(n({ code: 'k', message: 'run this', before: true, severity: 'warning', command: 'kubectl get x' }));
+    s.add(n({ code: 'u', message: 'gone', severity: 'unsupported', title: 'Load balancing', anchor: 'lb' }));
+    s.add(n({ code: 'u', message: 'gone', severity: 'unsupported', title: 'Load balancing', anchor: 'lb' }));
+    s.add(n({ code: 'i', message: 'unread', severity: 'invalid' }));
+    s.add(n({ code: 'c', message: 'did nothing', severity: 'unchanged' }));
+    s.add(n({ code: 'd1', message: 'differs', severity: 'note' }));
+    s.add(n({ code: 'd2', message: 'differs badly', severity: 'warning' }));
+    const out = s.sections('the community controller');
+    assert.deepEqual(Array.from(s.cardsFor('prod/a.example.com'), (x) => x.message), ['split', 'merged'], 'warnings first, a repeat dropped');
+    assert.deepEqual(Array.from(s.cardsFor('prod/b.example.com')), []);
+    assert.equal(s.before()[0].command, 'kubectl get x');
+    assert.deepEqual(Array.from(out.unsupported.cards, (c) => c.title + '|' + c.desc + '|' + c.anchor), ['Load balancing|gone|lb']);
+    assert.equal(out.invalid.title, 'Values the community controller ignored');
+    assert.deepEqual(Array.from(out.invalid.items, (x) => x.code), ['i']);
+    assert.deepEqual(Array.from(out.unchanged, (x) => x.code), ['c']);
+    assert.deepEqual(Array.from(out.infoNotes, (x) => x.code), ['d2', 'd1'], 'warnings lead');
+    assert.equal(out.flagged, 1 + 1 + 1, 'step-0 warning, a differences warning, an ignored value');
+    assert.ok(s.has({ code: 'd1', message: 'differs' }) && !s.has({ code: 'd1', message: 'other' }));
+});

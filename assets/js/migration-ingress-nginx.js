@@ -3232,19 +3232,15 @@
             // A refused Ingress was not analyzed: its annotations are in its error.
             let refusedAt = results.filter(function(r) { return r.out.refused; }).map(function(r) { return parsed.ingresses.indexOf(r.model); });
             let totalAnnotations = refusedAt.length ? (parsed.findings || []).filter(function(f) { return refusedAt.indexOf(f.ingress) === -1; }).length : parsed.foundCount;
-            let infoNotes = [];
-            // Notes that explain one resource (merged, split, built as the other
-            // kind), by namespace/host, for that resource's card.
-            let cardNotes = {};
+            // Where each note shows: the core places them (MigrationTool.notes).
+            let sorter = MigrationTool.notes();
             // An Ingress the community controller refused: an error each, above
             // the plan, as nothing below it comes from that Ingress.
             let errors = results.filter(function(r) { return r.out.refused; }).map(function(r) { return r.out.refused; });
-            let before = [];      // { code, message, severity }: step 0
             let passthrough = false;
             let resources = [];   // { doc, comments, model, category }
             let cmAll = { data: {}, comments: {} };
             let http = [];
-            let unsupportedCards = [];
             let unrecognized = [];
             let categories = {};
             results.forEach(function(r) {
@@ -3257,37 +3253,23 @@
                     let v = r.model.community[n.annotation];
                     let code = label + (split ? r.model.splitFrom.hosts.join(', ')
                         : v !== undefined ? COMMUNITY_PREFIX + n.annotation + ': ' + v : n.annotation);
-                    // On its resource's card: each split piece's card says it was split.
-                    if (n.card && !n.before) {
-                        let list = cardNotes[n.card] = cardNotes[n.card] || [];
-                        if (!list.some(function(x) { return x.message === n.message; })) list.push({ code: code, message: n.message, severity: n.severity === 'warning' ? 'warning' : 'note' });
-                        return;
-                    }
-                    if (r.model.splitFrom && infoNotes.concat(before).some(function(x) { return x.code === code && x.message === n.message; })) return;
-                    if (split) { infoNotes.push({ code: code, message: n.message, severity: n.severity }); return; }
-                    if (n.annotation === 'ssl-passthrough' && n.before) passthrough = true;
-                    else if (n.severity === 'unsupported') {
-                        // No equivalent: a card beside the unsupported annotations,
-                        // with its reason, under its mapping's category.
-                        let m = ANNOTATION_MAPPINGS[ANNOTATION_LOOKUP.get(n.annotation)] || {};
-                        if (!unsupportedCards.some(function(c) { return c.code === code && c.desc === n.message; }))
-                            unsupportedCards.push({ title: m.category || n.annotation, code: code, desc: n.message, anchor: m.anchor || null, sidebarSection: m.section === 'plus' ? 'plus-mappings' : 'mappings' });
-                    }
-                    else {
-                        // Its mapping's category and reference row, as an unsupported card has.
-                        let m = ANNOTATION_MAPPINGS[ANNOTATION_LOOKUP.get(n.annotation)] || {};
-                        (n.before ? before : infoNotes).push({ code: code, message: n.message, severity: n.severity, command: n.command || null, title: m.category || null, anchor: m.anchor || null, sidebarSection: m.section === 'plus' ? 'plus-mappings' : 'mappings' });
-                    }
+                    // A split Ingress's pieces share its notes: each says it once.
+                    if (!n.card && r.model.splitFrom && sorter.has({ code: code, message: n.message })) return;
+                    if (n.annotation === 'ssl-passthrough' && n.before && !n.card) { passthrough = true; return; }
+                    // Its mapping's category and reference row, for its card.
+                    let m = split ? {} : ANNOTATION_MAPPINGS[ANNOTATION_LOOKUP.get(n.annotation)] || {};
+                    sorter.add({ code: code, message: n.message, severity: n.severity, before: n.before, command: n.command, card: n.card,
+                        title: n.severity === 'unsupported' ? m.category || n.annotation : m.category || null, anchor: m.anchor || null, sidebarSection: m.section === 'plus' ? 'plus-mappings' : 'mappings' });
                 });
                 // Each placeholder says TODO on its own line; r.out.todos is
                 // for nic-migrate, which has no lines to point at on stderr.
                 if (r.out.configMap) Object.keys(r.out.configMap.data).forEach(function(k) {
-                    if (cmAll.data[k] !== undefined && cmAll.data[k] !== r.out.configMap.data[k]) infoNotes.push({ code: 'ConfigMap ' + k, message: 'Ingresses disagree (' + cmAll.data[k] + ' vs ' + r.out.configMap.data[k] + '); the ConfigMap is global, so the first value is kept.', severity: 'warning' });
+                    if (cmAll.data[k] !== undefined && cmAll.data[k] !== r.out.configMap.data[k]) sorter.add({ code: 'ConfigMap ' + k, message: 'Ingresses disagree (' + cmAll.data[k] + ' vs ' + r.out.configMap.data[k] + '); the ConfigMap is global, so the first value is kept.', severity: 'warning' });
                     else { cmAll.data[k] = r.out.configMap.data[k]; cmAll.comments[k] = r.out.configMap.comments[k]; }
                 });
                 if (r.out.httpSnippets) r.out.httpSnippets.forEach(function(l) { if (http.indexOf(l) === -1) http.push(l); });
                 r.out.unsupported.forEach(function(e) {
-                    unsupportedCards.push({ title: e.mapping.category, code: e.found.map(function(x) { return x.annotation; }).join(', '), desc: e.mapping.nic, anchor: e.mapping.anchor || null, sidebarSection: e.mapping.section === 'plus' ? 'plus-mappings' : 'mappings' });
+                    sorter.unsupportedCard({ title: e.mapping.category, code: e.found.map(function(x) { return x.annotation; }).join(', '), desc: e.mapping.nic, anchor: e.mapping.anchor || null, sidebarSection: e.mapping.section === 'plus' ? 'plus-mappings' : 'mappings' });
                 });
                 r.out.unrecognized.forEach(function(k) { if (!unrecognized.some(function(u) { return u.annotation === k; })) unrecognized.push({ annotation: k, value: r.model.community[k] }); });
                 r.out.matched.forEach(function(e) { categories[e.mapping.category] = e; });
@@ -3310,7 +3292,7 @@
             // means the cluster raised the level; say so once, at step 0.
             let critical = ['auth-snippet', 'configuration-snippet', 'modsecurity-snippet', 'server-snippet', 'stream-snippet'];
             let risky = critical.filter(function(k) { return results.some(function(r) { return !r.out.refused && r.model.community[k]; }); });
-            if (risky.length) before.push({ code: risky.map(function(k) { return COMMUNITY_PREFIX + k; }).join(', '), message: 'The community controller refuses ' + (risky.length > 1 ? 'these annotations' : 'this annotation') + ' at its default annotations-risk-level (High), even with allow-snippet-annotations on, so a cluster that served this Ingress had raised it to Critical. Its snippets are migrated below.', severity: 'note' });
+            if (risky.length) sorter.add({ before: true, code: risky.map(function(k) { return COMMUNITY_PREFIX + k; }).join(', '), message: 'The community controller refuses ' + (risky.length > 1 ? 'these annotations' : 'this annotation') + ' at its default annotations-risk-level (High), even with allow-snippet-annotations on, so a cluster that served this Ingress had raised it to Critical. Its snippets are migrated below.', severity: 'note' });
             let usesConfigMap = Object.keys(cmAll.data).length > 0 || http.length > 0;
             let flags = [{ flag: 'controller.ingressClass.name=nginx-nic', why: 'Both Helm charts name their IngressClass "nginx", and a class can belong to only one controller. Point each migrated resource\'s ingressClassName at nginx-nic when you move it.' }];
             if (usesConfigMap) flags.push({ flag: 'controller.config.name=nginx-config', why: 'The ConfigMap changes below go into nginx-config; the chart otherwise names it after the release, and NGINX Ingress Controller reads only its own.' });
@@ -3322,14 +3304,13 @@
                 command: 'helm install nginx-ingress oci://ghcr.io/nginx/charts/nginx-ingress \\\n' + flags.map(function(x) { return '  --set ' + x.flag; }).join(' \\\n'),
                 flags: flags,
                 anchor: 'side-by-side-install',
-                items: before.filter(function(n) { return n.severity === 'warning'; }).concat(before.filter(function(n) { return n.severity !== 'warning'; }))
+                items: sorter.before().filter(function(n) { return n.severity === 'warning'; }).concat(sorter.before().filter(function(n) { return n.severity !== 'warning'; }))
             };
 
             // A resource's own notes, by its namespace and host.
             let notesFor = function(doc) {
                 let host = doc.kind === 'Ingress' ? (isMap(doc.spec) && Array.isArray(doc.spec.rules) && doc.spec.rules[0] && doc.spec.rules[0].host) : doc.spec && doc.spec.host;
-                let list = host ? cardNotes[((doc.metadata && doc.metadata.namespace) || '') + '/' + host] || [] : [];
-                return list.filter(function(n) { return n.severity === 'warning'; }).concat(list.filter(function(n) { return n.severity !== 'warning'; }));
+                return host ? sorter.cardsFor(((doc.metadata && doc.metadata.namespace) || '') + '/' + host) : [];
             };
 
             // Steps ------------------------------------------------------------
@@ -3408,8 +3389,9 @@
             if (crd.length) pills.push({ cls: 'crds', text: crd.length + ' require CRDs', scrollTo: 'analyzer-step-3' });
             // Attention: the warnings in step 0 and in the notes, and every
             // placeholder. The pill goes to the first of them on the page.
+            let sections = sorter.sections('the community controller');
             let warnBefore = prerequisites.items.filter(function(n) { return n.severity === 'warning'; }).length;
-            let warnNotes = infoNotes.filter(function(n) { return n.severity === 'warning' || n.severity === 'invalid'; }).length;
+            let warnNotes = sections.infoNotes.filter(function(n) { return n.severity === 'warning'; }).length + (sections.invalid ? sections.invalid.items.length : 0);
             let todoCount = 0;
             results.forEach(function(r) { todoCount += r.out.todos.length; });
             let todoStep = steps.find(function(st) { return st.blocks.some(function(b) { return /# TODO:|— TODO:/.test((b.new && b.new.yaml) || '') || (b.items || []).some(function(i) { return /# TODO:|— TODO:/.test(i.new.yaml); }); }); });
@@ -3428,7 +3410,7 @@
                     : ' — the resources below still need the NGINX Ingress Controller class') + (flagged ? ' — ' + flagged + ' need' + (flagged === 1 ? 's' : '') + ' attention before you apply.' : '.'),
                 // Complexity is the migration's, not the strategy's: CRD-first
                 // turns any Ingress into a VirtualServer, which is not "advanced".
-                complexity: flagged > 2 || unsupportedCards.length ? 'advanced' : (flagged || cmDoc || Object.keys(categories).some(function(c) { let e = categories[c]; return e.mapping.type === 'policy' || e.mapping.type === 'virtualserver' || e.mapping.type === 'transportserver'; })) ? 'moderate' : 'simple'
+                complexity: flagged > 2 || sections.unsupported ? 'advanced' : (flagged || cmDoc || Object.keys(categories).some(function(c) { let e = categories[c]; return e.mapping.type === 'policy' || e.mapping.type === 'virtualserver' || e.mapping.type === 'transportserver'; })) ? 'moderate' : 'simple'
             };
 
             let exportData = null;
@@ -3453,28 +3435,10 @@
                 warnings: warnings,
                 steps: steps,
                 prerequisites: prerequisites,
-                // Warnings first: they are the notes that change what to do.
-                // A setting the community controller ignored or defaulted, and
-                // that migrates to the same thing, is `unchanged`: its own
-                // collapsed list, out of the attention count.
-                infoNotes: infoNotes.filter(function(n) { return n.severity === 'warning'; }).concat(infoNotes.filter(function(n) { return n.severity === 'note'; }))
-                    .map(function(n) { return { code: n.code, message: n.message, severity: n.severity, title: n.title || null, anchor: n.anchor || null, sidebarSection: n.sidebarSection || null }; }),
-                unchanged: infoNotes.filter(function(n) { return n.severity === 'unchanged'; })
-                    .map(function(n) { return { code: n.code, message: n.message }; }),
-                // Values the community controller could not read and replaced
-                // with its default: a mistake in the source, shown under the
-                // errors, as an Ingress it refused is, but migrated as it ran.
-                invalid: infoNotes.filter(function(n) { return n.severity === 'invalid'; }).length ? {
-                    title: 'Values the community controller ignored',
-                    message: 'It could not read these values and used its default instead; the migration does the same. Fix any you meant to take effect.',
-                    items: infoNotes.filter(function(n) { return n.severity === 'invalid'; }).map(function(n) { return { code: n.code, message: n.message }; })
-                } : null,
-                unsupported: unsupportedCards.length ? {
-                    title: 'Unsupported annotations',
-                    countText: unsupportedCards.length + ' finding' + (unsupportedCards.length !== 1 ? 's' : ''),
-                    desc: 'These annotations are recognized but have no NGINX Ingress Controller equivalent. Review each one and take the recommended action.',
-                    cards: unsupportedCards
-                } : null,
+                infoNotes: sections.infoNotes,
+                unchanged: sections.unchanged,
+                invalid: sections.invalid,
+                unsupported: sections.unsupported,
                 unrecognized: unrecognized.length ? {
                     title: 'Unrecognized annotations',
                     desc: 'These annotations were not found in the migration database. They may be custom, deprecated, or not yet mapped.',

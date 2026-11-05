@@ -736,9 +736,77 @@
             splitStream: yamlSplitStream
         };
 
+        // Where each note shows, for every source. A source module resolves a
+        // note's code (the annotation and its value) and reference (title,
+        // anchor, sidebarSection), then adds it; the sorter places it:
+        //   card      { card: 'namespace/host' }  on that resource's card
+        //   step 0    before: true                 with its command, if any
+        //   severity  'unsupported'                an "Unsupported annotations" card
+        //             'invalid'                    the box under the errors
+        //             'unchanged'                  the collapsed "no change" list
+        //             'warning' | 'note'           "Behavior differences"
+        // Notes arrive in paste order and keep it within a section; each
+        // section drops a repeat of a note it already holds.
+        function noteSorter() {
+            let s = { before: [], differences: [], cards: {}, unsupported: [] };
+            let same = function(a, b) { return a.code === b.code && a.message === b.message; };
+            return {
+                add: function(n) {
+                    if (n.card && !n.before) {
+                        let list = s.cards[n.card] = s.cards[n.card] || [];
+                        if (!list.some(function(x) { return x.message === n.message; })) list.push({ code: n.code, message: n.message, severity: n.severity === 'warning' ? 'warning' : 'note' });
+                        return;
+                    }
+                    if (n.severity === 'unsupported') {
+                        if (!s.unsupported.some(function(c) { return c.code === n.code && c.desc === n.message; }))
+                            s.unsupported.push({ title: n.title || n.code, code: n.code, desc: n.message, anchor: n.anchor || null, sidebarSection: n.sidebarSection || 'mappings' });
+                        return;
+                    }
+                    (n.before ? s.before : s.differences).push({ code: n.code, message: n.message, severity: n.severity, command: n.command || null, title: n.title || null, anchor: n.anchor || null, sidebarSection: n.sidebarSection || null });
+                },
+                // A card the source builds itself (an annotation with no mapping path).
+                unsupportedCard: function(card) { s.unsupported.push(card); },
+                has: function(n) { return s.differences.concat(s.before).some(function(x) { return same(x, n); }); },
+                before: function() { return s.before; },
+                differences: function() { return s.differences; },
+                cardsFor: function(key) {
+                    let list = s.cards[key] || [];
+                    return list.filter(function(n) { return n.severity === 'warning'; }).concat(list.filter(function(n) { return n.severity !== 'warning'; }));
+                },
+                // The plan's note sections, in the shape renderPlan reads.
+                // `controller` names the source controller in the invalid box;
+                // `unsupported` ({ title, desc }) words that section for the source.
+                sections: function(controller, unsupported) {
+                    unsupported = unsupported || {};
+                    let d = s.differences;
+                    let by = function(sev) { return d.filter(function(n) { return n.severity === sev; }); };
+                    let invalid = by('invalid');
+                    return {
+                        // Warnings first: they are the notes that change what to do.
+                        infoNotes: by('warning').concat(by('note')).map(function(n) { return { code: n.code, message: n.message, severity: n.severity, title: n.title || null, anchor: n.anchor || null, sidebarSection: n.sidebarSection || null }; }),
+                        unchanged: by('unchanged').map(function(n) { return { code: n.code, message: n.message }; }),
+                        invalid: invalid.length ? {
+                            title: 'Values ' + controller + ' ignored',
+                            message: 'It could not read these values and used its default instead; the migration does the same. Fix any you meant to take effect.',
+                            items: invalid.map(function(n) { return { code: n.code, message: n.message }; })
+                        } : null,
+                        unsupported: s.unsupported.length ? {
+                            title: unsupported.title || 'Unsupported annotations',
+                            countText: s.unsupported.length + ' finding' + (s.unsupported.length !== 1 ? 's' : ''),
+                            desc: unsupported.desc || 'These annotations are recognized but have no NGINX Ingress Controller equivalent. Review each one and take the recommended action.',
+                            cards: s.unsupported
+                        } : null,
+                        // Attention: warnings in step 0 and in the notes, and the ignored values.
+                        flagged: s.before.filter(function(n) { return n.severity === 'warning'; }).length + by('warning').length + invalid.length
+                    };
+                }
+            };
+        }
+
         // Shared utilities the SOURCE modules call (call-time only — they load first).
         window.MigrationTool = {
             NIC: NIC,
+            notes: noteSorter,
             util: {
                 splitDocuments: splitDocuments,
                 stripInlineComment: stripInlineComment,
@@ -1986,7 +2054,7 @@
                     marker: '0',
                     markerCls: pre.items.some(function(n) { return n.severity === 'warning'; }) ? 'warning' : '',
                     title: pre.title,
-                    countText: pre.flags.length + ' install flag' + (pre.flags.length !== 1 ? 's' : '') + (pre.items.length ? ', ' + pre.items.length + ' change' + (pre.items.length !== 1 ? 's' : '') : ''),
+                    countText: [pre.flags.length ? pre.flags.length + ' install flag' + (pre.flags.length !== 1 ? 's' : '') : null, pre.items.length ? pre.items.length + ' change' + (pre.items.length !== 1 ? 's' : '') : null].filter(Boolean).join(', '),
                     desc: pre.desc
                 });
                 pre.items.forEach(function(n) {
@@ -1994,18 +2062,21 @@
                     // A change the reader can run: the command right under its note.
                     if (n.command) step0.appendChild(buildYamlBlock(n.command, false, 'Command', 'shell'));
                 });
-                step0.appendChild(buildYamlBlock(pre.command, false, 'Helm install command', 'shell'));
-                let why = document.createElement('ul');
-                why.className = 'analyzer-flag-list';
-                pre.flags.forEach(function(x) {
-                    let li = document.createElement('li');
-                    let code = document.createElement('code');
-                    code.textContent = x.flag;
-                    li.appendChild(code);
-                    li.appendChild(document.createTextNode(' — ' + x.why));
-                    why.appendChild(li);
-                });
-                step0.appendChild(why);
+                // A source with nothing to install has no command and no flags.
+                if (pre.command) step0.appendChild(buildYamlBlock(pre.command, false, 'Helm install command', 'shell'));
+                if (pre.flags && pre.flags.length) {
+                    let why = document.createElement('ul');
+                    why.className = 'analyzer-flag-list';
+                    pre.flags.forEach(function(x) {
+                        let li = document.createElement('li');
+                        let code = document.createElement('code');
+                        code.textContent = x.flag;
+                        li.appendChild(code);
+                        li.appendChild(document.createTextNode(' — ' + x.why));
+                        why.appendChild(li);
+                    });
+                    step0.appendChild(why);
+                }
                 if (pre.anchor) {
                     let link = document.createElement('a');
                     link.href = '#' + pre.anchor;
