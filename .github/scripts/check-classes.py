@@ -66,8 +66,7 @@ STATE_ONLY = {
     # against main: none of these had a rule before the restyle either, so an
     # empty entry here is the accurate description rather than a gap.
     #   tool-page               visibility comes from the `hidden` attribute,
-    #                           not CSS, so find-in-page can still reach an
-    #                           inactive view
+    #                           not CSS
     #   eol-warning             the JS handle migration-core.js uses to find and
     #                           collapse the banner; its looks come from
     #                           `.info-box.warning`, which it is composed with

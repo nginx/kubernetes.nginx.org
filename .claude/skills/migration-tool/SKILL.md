@@ -124,11 +124,12 @@ Considered and rejected: rendering them from the mapping data at load.
 - Only a minority of the mappings have a generator to derive an example from;
   the rest of each row is prose that exists nowhere else, so most of the markup
   would have to move into the data rather than disappear.
-- The page ships a `<noscript>` fallback, print overrides in
-  `migration.css`, and `hidden="until-found"` panes so in-page find still reaches
-  inactive views. All three depend on the content being in the served HTML.
+- The page ships a `<noscript>` fallback and print overrides in
+  `migration.css`. Both depend on the content being in the served HTML.
 - Readers ctrl-F this page. Client-rendered rows are not in the document a search
-  engine or a browser find sees on load.
+  engine or a browser find sees on load. Find searches only the view that is
+  open: the inactive views are plain `hidden`, because `hidden="until-found"`
+  let a match in another view switch to it while the reader was typing.
 
 The sync problem it would have solved is instead solved by assertion:
 `test-analyzer.js` fails when the mappings and the tables disagree in either

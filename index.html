@@ -53,10 +53,9 @@
     <link rel="stylesheet" href="assets/css/tokens.css">
     <link rel="stylesheet" href="assets/css/shared.css">
     <link rel="stylesheet" href="assets/css/index.css">
-    <!-- Without JS the inactive product pages stay hidden="until-found"; stack
-         them so the static content is readable (display for the boolean-hidden
-         fallback, content-visibility for Chromium's until-found). -->
-    <noscript><style>.product-page[hidden] { display: block; content-visibility: visible; }</style></noscript>
+    <!-- Without JS the inactive product pages stay hidden; stack them so the
+         static content is readable. -->
+    <noscript><style>.product-page[hidden] { display: block; }</style></noscript>
     <script>try{let s=localStorage.getItem('darkMode');if(s==='1'||(s===null&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
     <!-- defer: fetch starts with the first HTML chunk instead of after the whole
          document; execution order (shared before page) and after-parse timing keep
@@ -297,7 +296,7 @@
             <!-- ════════════════════════════════════════════ -->
             <!-- NIC Page                                     -->
             <!-- ════════════════════════════════════════════ -->
-            <div class="product-page" id="page-nginx-ingress-controller" hidden="until-found">
+            <div class="product-page" id="page-nginx-ingress-controller" hidden>
                 <div class="page-hero nic">
                     <div class="page-hero-content">
                         <span class="page-hero-badge nic">
@@ -419,7 +418,7 @@
             <!-- ════════════════════════════════════════════ -->
             <!-- NGF Page                                     -->
             <!-- ════════════════════════════════════════════ -->
-            <div class="product-page" id="page-nginx-gateway-fabric" hidden="until-found">
+            <div class="product-page" id="page-nginx-gateway-fabric" hidden>
                 <div class="page-hero ngf">
                     <div class="page-hero-content">
                         <span class="page-hero-badge ngf">
@@ -565,7 +564,7 @@
             <!-- ════════════════════════════════════════════ -->
             <!-- Migration Tool Page                          -->
             <!-- ════════════════════════════════════════════ -->
-            <div class="product-page" id="page-migration-tool" hidden="until-found">
+            <div class="product-page" id="page-migration-tool" hidden>
                 <div class="page-hero migration">
                     <div class="page-hero-content">
                         <span class="page-hero-badge migration">
@@ -641,7 +640,7 @@
             <!-- ════════════════════════════════════════════ -->
             <!-- ingress2gateway Page                         -->
             <!-- ════════════════════════════════════════════ -->
-            <div class="product-page" id="page-ingress2gateway" hidden="until-found">
+            <div class="product-page" id="page-ingress2gateway" hidden>
                 <div class="page-hero i2g">
                     <div class="page-hero-content">
                         <span class="page-hero-badge i2g">

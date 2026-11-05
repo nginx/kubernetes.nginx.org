@@ -2658,8 +2658,8 @@
 
                 // Whether keyboard focus is currently inside a tool page. That page
                 // is about to be hidden, which would strand focus on an element in a
-                // hidden subtree — it is not perceivable, and hidden="until-found"
-                // content is out of the accessibility tree. The one trigger of this
+                // hidden subtree — it is not perceivable, and hidden content is
+                // out of the accessibility tree. The one trigger of this
                 // shape on the page is the "config analyzer" link in the Getting
                 // started tip. Read BEFORE the pages are toggled.
                 //
@@ -2669,12 +2669,13 @@
                     document.activeElement.closest &&
                     document.activeElement.closest('.tool-page'));
 
-                // Toggle tool-page visibility — inactive pages are hidden="until-found"
-                // (not display:none) so browser find-in-page can search their content.
-                document.querySelectorAll('.tool-page').forEach(function(p) { p.classList.remove('active'); p.setAttribute('hidden', 'until-found'); });
+                // Toggle tool-page visibility. Inactive pages are plain hidden, so
+                // find-in-page searches only the page the reader chose;
+                // hidden="until-found" let a match switch pages under them.
+                document.querySelectorAll('.tool-page').forEach(function(p) { p.classList.remove('active'); p.hidden = true; });
                 let page = document.getElementById('page-' + id);
                 if (page) {
-                    page.removeAttribute('hidden');
+                    page.hidden = false;
                     page.classList.add('active');
                     if (focusLeavingPage) {
                         page.setAttribute('tabindex', '-1');
@@ -2745,15 +2746,6 @@
                         }
                     }
                     showPage(id);
-                });
-            });
-
-            // Chromium fires beforematch when find-in-page reveals a
-            // hidden="until-found" page — sync the tool state to it without
-            // touching the scroll position (the browser jumps to the match).
-            document.querySelectorAll('.tool-page').forEach(function(p) {
-                p.addEventListener('beforematch', function() {
-                    showPage(p.id.replace('page-', ''), { updateHash: false, skipScroll: true });
                 });
             });
 

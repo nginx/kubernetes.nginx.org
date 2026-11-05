@@ -51,10 +51,9 @@
     <link rel="stylesheet" href="assets/css/tokens.css">
     <link rel="stylesheet" href="assets/css/shared.css">
     <link rel="stylesheet" href="assets/css/migration.css">
-    <!-- Without JS the inactive tool pages stay hidden="until-found"; stack them
-         so the static reference content is readable (display for the boolean-hidden
-         fallback, content-visibility for Chromium's until-found). -->
-    <noscript><style>.tool-page[hidden] { display: block; content-visibility: visible; }</style></noscript>
+    <!-- Without JS the inactive tool pages stay hidden; stack them so the
+         static reference content is readable. -->
+    <noscript><style>.tool-page[hidden] { display: block; }</style></noscript>
     <script>try{let s=localStorage.getItem('darkMode');if(s==='1'||(s===null&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark-mode')}catch(e){}</script>
     <!-- defer: fetch starts with the first HTML chunk instead of after the whole
          document; execution order and after-parse timing keep the
@@ -428,7 +427,7 @@
         </section>
         </div><!-- /.tool-page #page-getting-started -->
 
-        <div class="tool-page" id="page-analyzer" hidden="until-found">
+        <div class="tool-page" id="page-analyzer" hidden>
         <div class="info-box warning eol-warning" style="margin: 0 0 var(--space-2x);"><strong>Warning:</strong> The community-maintained <code>kubernetes/ingress-nginx</code> project has <a href="https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/" target="_blank" rel="noopener">reached end of maintenance</a>. <strong><span data-ingress-nginx-version>v1.15.1</span> (March 19, 2026) is the final release</strong>: it will receive no further releases, bugfixes, or security patches. NGINX Ingress Controller (<code>nginx/kubernetes-ingress</code>) is actively maintained and is the recommended migration target.</div>
         <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Ingress-NGINX <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.7.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.7.0</span></a>.</div>
         <!-- YAML Migration Analyzer -->
@@ -491,7 +490,7 @@ spec:
 
         </div><!-- /.tool-page #page-analyzer -->
 
-        <div class="tool-page" id="page-reference" hidden="until-found">
+        <div class="tool-page" id="page-reference" hidden>
         <div class="info-box warning eol-warning" style="margin: 0 0 var(--space-2x);"><strong>Warning:</strong> The community-maintained <code>kubernetes/ingress-nginx</code> project has <a href="https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/" target="_blank" rel="noopener">reached end of maintenance</a>. <strong><span data-ingress-nginx-version>v1.15.1</span> (March 19, 2026) is the final release</strong>: it will receive no further releases, bugfixes, or security patches. NGINX Ingress Controller (<code>nginx/kubernetes-ingress</code>) is actively maintained and is the recommended migration target.</div>
         <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Ingress-NGINX <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.7.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.7.0</span></a>.</div>
         <!-- Key Differences -->

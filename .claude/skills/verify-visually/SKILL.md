@@ -23,7 +23,7 @@ Then **read the PNG**. Writing the file is not verification.
 ## Four facts that make a correct command look broken
 
 **1. Both pages are hash-routed SPAs.** `index.html` has five `.product-page`
-panes, four of them `hidden="until-found"`; the migration tool has three
+panes, four of them `hidden`; the migration tool has three
 `.tool-page`. A screenshot with no hash shows the *home* view, so a change to
 the ingress2gateway section or the reference tables will not appear and you
 will conclude, wrongly, that it did not apply. Deep-link:

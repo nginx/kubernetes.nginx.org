@@ -42,6 +42,26 @@ for (const f of allPages) {
     });
 }
 
+// Find-in-page searches only the open view. Inactive views were
+// hidden="until-found", so a match in one revealed it and a beforematch handler
+// switched the page to it while the reader was still typing in the find bar.
+// Plain `hidden` is not searchable, so a view changes only when it is clicked.
+const allScripts = fs.readdirSync(path.join(ROOT, 'assets/js'))
+    .filter((f) => f.endsWith('.js')).map((f) => 'assets/js/' + f);
+
+test('no view is revealed by find-in-page: no hidden="until-found", no beforematch handler', () => {
+    const found = [];
+    for (const f of allPages) {
+        if (/\bhidden\s*=\s*["']?until-found/i.test(read(f))) found.push(f + ': hidden="until-found"');
+    }
+    for (const f of allScripts) {
+        const js = read(f);
+        if (/(setAttribute\(\s*['"]hidden['"]\s*,|\.hidden\s*=)\s*['"]until-found/.test(js)) found.push(f + ': sets until-found');
+        if (/['"]beforematch['"]|onbeforematch/.test(js)) found.push(f + ': beforematch handler');
+    }
+    assert.deepEqual(found, []);
+});
+
 // data-action values the engine dispatches.
 const actionsBlock = core.match(/let ACTIONS = \{([\s\S]*?)\n {12}\};/);
 const engineActions = new Set([...actionsBlock[1].matchAll(/(\w+):\s*function/g)].map((m) => m[1]));

@@ -85,8 +85,8 @@
 }
 .sidebar-subnav .sidebar-link.active { background: var(--surface-sunken); }
 .sidebar-subnav .sidebar-link.active .sidebar-link-name { color: var(--text); font-weight: 500; }
-/* Inactive tool pages are hidden via hidden="until-found" (markup +
-   migration-core.js), not display:none, so find-in-page can search them. */
+/* Inactive tool pages carry the hidden attribute (markup +
+   migration-core.js), so find-in-page searches only the active one. */
 
 
 /* ── Main content ─────────────────────────────────────────────────────────── */

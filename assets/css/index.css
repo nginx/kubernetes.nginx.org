@@ -44,8 +44,8 @@
 
 
 /* ── Product page ─────────────────────────────────────────────────────────
-   Inactive pages are hidden via the hidden="until-found" attribute (markup +
-   index.js), not display:none, so browser find-in-page can still search them. */
+   Inactive pages carry the hidden attribute (markup + index.js), so
+   find-in-page searches only the active one. */
 
 .page-hero {
     position: relative;
