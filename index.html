@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#0F1E57" media="(prefers-color-scheme: dark)">
     <meta name="color-scheme" content="light dark">
-    <meta name="description" content="NGINX on Kubernetes: the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.">
+    <meta name="description" content="NGINX on Kubernetes: the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, ingress2gateway and Gateway Lens resources.">
     <meta name="author" content="F5, Inc.">
     <link rel="canonical" href="https://kubernetes.nginx.org/">
     <link rel="preconnect" href="https://api.github.com" crossorigin>
@@ -17,7 +17,7 @@
     <link rel="preconnect" href="https://i.ytimg.com">
     <link rel="preconnect" href="https://blog.nginx.org">
     <meta property="og:title" content="NGINX - Networking for Kubernetes">
-    <meta property="og:description" content="NGINX on Kubernetes: the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.">
+    <meta property="og:description" content="NGINX on Kubernetes: the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, ingress2gateway and Gateway Lens resources.">
     <meta property="og:url" content="https://kubernetes.nginx.org/">
     <meta property="og:type" content="website">
     <meta property="og:image" content="https://kubernetes.nginx.org/assets/img/og-image.png">
@@ -36,7 +36,7 @@
         "@type": "WebSite",
         "name": "NGINX - Networking for Kubernetes",
         "url": "https://kubernetes.nginx.org/",
-        "description": "NGINX on Kubernetes: the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, and ingress2gateway resources.",
+        "description": "NGINX on Kubernetes: the NGINX Ingress Controller, NGINX Gateway Fabric, migration tools, ingress2gateway and Gateway Lens resources.",
         "publisher": {
             "@type": "Organization",
             "name": "F5, Inc.",
@@ -160,6 +160,13 @@
                             <span class="sidebar-link-desc"><span data-version="i2g.release">v1.2.0</span> &middot; Ingress API &rarr; Gateway API</span>
                         </span>
                     </a></li>
+                    <li><a class="sidebar-link" href="#gateway-lens" data-product="gateway-lens">
+                        <span class="dot" data-color="blue"></span>
+                        <span class="sidebar-link-text">
+                            <span class="sidebar-link-name">Gateway Lens</span>
+                            <span class="sidebar-link-desc"><span data-version="lens.release">v0.4.1</span> &middot; Gateway API topology</span>
+                        </span>
+                    </a></li>
                 </ul>
             </section>
             <div class="sidebar-divider"></div>
@@ -239,6 +246,12 @@
                             <span class="project-card-badge blue">Tool</span>
                             <h3>ingress2gateway</h3>
                             <p>CLI tool to convert Ingress resources to Gateway API resources using the NGINX provider.</p>
+                            <span class="card-link blue" aria-hidden="true">Learn more &rsaquo;</span>
+                        </a>
+                        <a class="project-card" href="#gateway-lens" data-navigate="gateway-lens">
+                            <span class="project-card-badge blue">Tool</span>
+                            <h3>Gateway Lens</h3>
+                            <p>Dashboard that draws your cluster's Gateway API resources as a live topology graph and lists the problems it finds.</p>
                             <span class="card-link blue" aria-hidden="true">Learn more &rsaquo;</span>
                         </a>
                     </div>
@@ -718,6 +731,87 @@
 <span class="cmd">ingress2gateway</span> print \
   <span class="flag">--providers</span>=nginx \
   <span class="flag">--input-file</span>=<span class="str">my-ingress.yaml</span> &gt; gateway-resources.yaml</code></div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════ -->
+            <!-- Gateway Lens Page                            -->
+            <!-- ════════════════════════════════════════════ -->
+            <div class="product-page" id="page-gateway-lens" hidden>
+                <div class="page-hero lens">
+                    <div class="page-hero-content">
+                        <span class="page-hero-badge lens">
+                            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+                            Diagnostic tool
+                            <a class="hero-version" data-version="lens.release" href="https://github.com/nginx/gateway-lens/releases/tag/v0.4.1" target="_blank" rel="noopener">v0.4.1</a>
+                        </span>
+                        <h1>Gateway Lens</h1>
+                        <p>See how your Gateway API resources connect. Gateway Lens watches a cluster and draws its Gateways, routes, policies and Services as an interactive topology graph in your browser.</p>
+                    </div>
+                </div>
+                <div class="page-body">
+                    <div class="cta-row">
+                        <a class="cta cta-primary lens" href="https://github.com/nginx/gateway-lens" target="_blank" rel="noopener">
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><use href="#icon-github"/></svg>
+                            GitHub repository
+                        </a>
+                        <a class="cta cta-secondary" href="https://github.com/nginx/gateway-lens/releases/latest" target="_blank" rel="noopener">Download a release</a>
+                    </div>
+
+                    <h2 class="sr-only">Gateway Lens features</h2>
+                    <div class="feature-grid">
+                        <div class="feature-card">
+                            <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="M7 6h10M6 8l5 8M18 8l-5 8"/></svg> Topology graph</h3>
+                            <p>GatewayClasses, Gateways, routes, ReferenceGrants, policies and Services, laid out with the references between them.</p>
+                        </div>
+                        <div class="feature-card">
+                            <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg> Issues panel</h3>
+                            <p>Lists every <code>Accepted</code>, <code>Programmed</code> or <code>ResolvedRefs</code> condition that is false, plus references to missing resources and Services with no ready endpoints. Select one to jump to it on the graph.</p>
+                        </div>
+                        <div class="feature-card">
+                            <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M15 3v18"/></svg> Resource inspector</h3>
+                            <p>Click a node to see its attributes, relationships, conditions, attached policies and the YAML manifest.</p>
+                        </div>
+                        <div class="feature-card">
+                            <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg> Live updates</h3>
+                            <p>The graph redraws when a resource changes in the cluster, without reloading the page.</p>
+                        </div>
+                        <div class="feature-card">
+                            <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> Read-only</h3>
+                            <p>Gateway Lens only watches, lists and gets. Its RBAC grants no write access to anything in the cluster.</p>
+                        </div>
+                        <div class="feature-card">
+                            <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> JSON API</h3>
+                            <p>The same topology at <code class="code-accent">/api/data</code> and the detected problems at <code class="code-accent">/api/issues</code>, for scripts and <code>jq</code>.</p>
+                        </div>
+                    </div>
+
+                    <div class="info-box note">
+                        <strong>Requirements:</strong> Gateway API v1.6 or later must be installed in the cluster. NGINX Gateway Fabric's quick start installs v1.6.3. To show NGINX Gateway Fabric's own resources (NginxProxy, its policies and filters), install with the <code>nginx-gateway-fabric</code> provider below so Gateway Lens can read them.
+                    </div>
+
+                    <h2 class="section-heading">Installation</h2>
+                    <div class="code-section code-section-flush">
+                        <div class="code-block"><button class="copy-btn" aria-label="Copy Gateway Lens Helm install command">Copy</button><code><span class="comment"># Install with Helm, including NGINX Gateway Fabric's resources</span>
+<span class="cmd">helm</span> install gateway-lens \
+  oci://ghcr.io/nginx/charts/gateway-lens \
+  <span class="flag">--version</span> <span class="str" data-version="lens.helm" data-version-format="bare">0.4.1</span> \
+  <span class="flag">--set</span> <span class="str">rbac.providers={nginx-gateway-fabric}</span></code></div>
+                        <div class="code-block"><button class="copy-btn" aria-label="Copy Gateway Lens manifest install command">Copy</button><code><span class="comment"># Or apply the manifests</span>
+<span class="cmd">kubectl</span> apply -f \
+  <span class="str">https://raw.githubusercontent.com/nginx/gateway-lens/<span data-version="lens.release">v0.4.1</span>/deploy/manifests-nginx-gateway-fabric.yaml</span></code></div>
+                    </div>
+
+                    <h2 class="section-heading">Usage</h2>
+                    <div class="code-section code-section-flush">
+                        <div class="code-block"><button class="copy-btn" aria-label="Copy port-forward command">Copy</button><code><span class="comment"># Open the dashboard at http://localhost:8080</span>
+<span class="cmd">kubectl</span> port-forward svc/gateway-lens 8080:80</code></div>
+                        <div class="code-block"><button class="copy-btn" aria-label="Copy run-locally command">Copy</button><code><span class="comment"># Or run the release binary locally (uses your kubeconfig)</span>
+./gateway-lens</code></div>
+                        <div class="code-block"><button class="copy-btn" aria-label="Copy issues API command">Copy</button><code><span class="comment"># List the detected problems as JSON</span>
+<span class="cmd">curl</span> http://localhost:8080/api/issues | <span class="cmd">jq</span> .</code></div>
                     </div>
 
                 </div>

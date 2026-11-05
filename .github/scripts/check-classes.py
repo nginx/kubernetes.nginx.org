@@ -48,7 +48,7 @@ STATE_ONLY = {
     'downloaded', 'dragging', 'filled', 'show', 'no-results', 'inactive',
     'has-banner', 'dark-mode',
     # per-section modifiers, styled as .page-hero.nic, .cta-primary.migration…
-    'home', 'nic', 'ngf', 'migration', 'i2g', 'blogs', 'videos',
+    'home', 'nic', 'ngf', 'migration', 'i2g', 'lens', 'blogs', 'videos',
     'green', 'blue', 'old', 'new',
     'simple', 'moderate', 'advanced',
     'configmap', 'crd', 'unsupported', 'unrecognized', 'found', 'paths', 'crds',

@@ -1,6 +1,6 @@
 ---
 name: release-update
-description: Checklist for an NIC, NGF or ingress2gateway release, patch or minor: the three version formats a plain grep misses, the extra steps a minor (x.Y.0) brings (featured release post, new constructs, docs links), the feature badges that must not be swept along, and the compatibility and Kubernetes-version rules most often missed. Use when bumping any product version.
+description: Checklist for an NIC, NGF, ingress2gateway or Gateway Lens release, patch or minor: the three version formats a plain grep misses, the extra steps a minor (x.Y.0) brings (featured release post, new constructs, docs links), the feature badges that must not be swept along, and the compatibility and Kubernetes-version rules most often missed. Use when bumping any product version.
 ---
 
 # Release update checklist
@@ -67,6 +67,18 @@ It has no Helm chart and no compatibility table, which is exactly why it is the 
 - The sidebar `data-version="i2g.release"` span.
 - The hero badge: both its text and its `releases/tag/` href.
 - The `go install` line, which is `data-version-format="atv"` and so renders `@v1.2.0`.
+
+## Gateway Lens only
+
+It has no compatibility table, and its chart version is its release version, as NGF's is. Five places:
+
+- `VERSION_CONFIG.lens.fallback.release` and `.helm` in `assets/js/index.js`.
+- The sidebar `data-version="lens.release"` span.
+- The hero badge: both its text and its `releases/tag/` href.
+- The Helm `--version`, which is `data-version-format="bare"`.
+- The manifest URL in the `kubectl apply` line, which pins the tag.
+
+Check the Requirements box too: it names the minimum Gateway API version from Gateway Lens's README at the tag, and the version NGF's quick start installs (`config/crd/gateway-api/standard/kustomization.yaml` at the NGF tag). Either can move on a minor. So can its RBAC provider names (`charts/gateway-lens/providers/`), which the Helm line uses.
 
 ## Feature badges are not version pins
 
