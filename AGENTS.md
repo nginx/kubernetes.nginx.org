@@ -86,6 +86,7 @@ The site follows the **F5 Design System (F5DS)**. Never blend it with the F5 **m
 
 - Commit on the branch you are on; do not create one unless asked. **Stage by path, never `git add -A` or `commit -a`**, and run `git status --short` just before: another session may have work in the same tree, and a sweep once committed it. Files you did not touch are not yours; leave them unstaged, and do not stash them.
 - No `Co-Authored-By` trailer.
+- **Back-to-back commits of one type are one commit.** When a new commit has the same Conventional Commits type (`feat`, `fix`, `docs`, …) as the unpushed commit right before it, fold it into that one, with a message covering both, instead of stacking another; do it unasked. Only unpushed commits: what is already on a remote stays as it is.
 - **Push only when asked**, and to `main` only on an explicit go each time.
 - **Stay on the tool you were asked about.** Work on one preview branch does not touch another, or `main`, unless asked by name — except a fix to what `main` owns (below), which goes on `main` and says so. A finding about another tool is reported, not committed. A bare "continue" after a finished task means ask which flagged item, if any, comes next.
 - `preview/**` branches carry further migration tools on the same engine. **`main` owns the shared engine and the checks** (`shared.js`, `migration-core.js`, `.github/scripts/`, `.github/test/`, this file): merge `main` into a branch rather than porting fixes across.
