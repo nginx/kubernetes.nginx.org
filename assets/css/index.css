@@ -61,7 +61,8 @@
 .page-hero.nic,
 .page-hero.ngf       { background: var(--green-tint); }
 .page-hero.migration,
-.page-hero.i2g       { background: var(--blue-tint); }
+.page-hero.i2g,
+.page-hero.lens      { background: var(--blue-tint); }
 
 /* Every soft edge, in one overlay. Two layers of the page background painted
    back over the tint: downward, so the band dissolves into the page instead of
@@ -120,7 +121,8 @@
 .page-hero.nic::before,
 .page-hero.ngf::before,
 .page-hero.migration::before,
-.page-hero.i2g::before {
+.page-hero.i2g::before,
+.page-hero.lens::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -130,7 +132,8 @@
 .page-hero.nic::after,
 .page-hero.ngf::after,
 .page-hero.migration::after,
-.page-hero.i2g::after {
+.page-hero.i2g::after,
+.page-hero.lens::after {
     background: linear-gradient(to bottom, transparent 60%, var(--bg) 100%),
                 linear-gradient(to right, var(--bg) 0, transparent 22%);
 }
@@ -155,7 +158,8 @@
 .page-hero-badge.nic,
 .page-hero-badge.ngf       { color: var(--green-deep); }
 .page-hero-badge.migration,
-.page-hero-badge.i2g       { color: var(--blue-text); }
+.page-hero-badge.i2g,
+.page-hero-badge.lens      { color: var(--blue-text); }
 :is(html, body).dark-mode .page-hero-badge.nic,
 :is(html, body).dark-mode .page-hero-badge.ngf { color: var(--green-text); }
 
@@ -380,13 +384,38 @@ a.feature-card, a.feature-card:link, a.feature-card:visited { text-decoration: n
 .cta-row { margin-top: var(--space-4x); }
 .cta-primary.nic, .cta-primary.ngf { background: var(--green-text); border-color: var(--green-text); }
 .cta-primary.nic:hover, .cta-primary.ngf:hover { background: var(--green-deep); border-color: var(--green-deep); }
-.cta-primary.migration, .cta-primary.i2g { background: var(--blue-text); border-color: var(--blue-text); color: var(--n0); }
-.cta-primary.migration:hover, .cta-primary.i2g:hover { background: var(--blue-deep); border-color: var(--blue-deep); }
+.cta-primary.migration, .cta-primary.i2g, .cta-primary.lens { background: var(--blue-text); border-color: var(--blue-text); color: var(--n0); }
+.cta-primary.migration:hover, .cta-primary.i2g:hover, .cta-primary.lens:hover { background: var(--blue-deep); border-color: var(--blue-deep); }
 
 :is(html, body).dark-mode .cta-primary.nic,
 :is(html, body).dark-mode .cta-primary.ngf { background: var(--green); border-color: var(--green); color: var(--n700); }
 :is(html, body).dark-mode .cta-primary.migration,
-:is(html, body).dark-mode .cta-primary.i2g { background: var(--blue); border-color: var(--blue); color: var(--n700); }
+:is(html, body).dark-mode .cta-primary.i2g,
+:is(html, body).dark-mode .cta-primary.lens { background: var(--blue); border-color: var(--blue); color: var(--n700); }
+
+
+/* ── Product screenshot ───────────────────────────────────────────────────
+   A tool that is a UI gets one capture under its CTAs. Border-only like the
+   cards, on --radius. The capture is taken in the tool's own light and dark
+   themes and swapped with the site's dark-mode class, so a dark page never
+   shows a bright screenshot; the dark copy has empty alt, as only one shows. */
+.product-shot { margin: var(--space-3x) 0 var(--space-4x); }
+.product-shot img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+.product-shot img.product-shot-dark { display: none; }
+:is(html, body).dark-mode .product-shot img.product-shot-light { display: none; }
+:is(html, body).dark-mode .product-shot img.product-shot-dark { display: block; }
+.product-shot figcaption {
+    margin-top: var(--space-base);
+    font-size: var(--fs-caption);
+    line-height: var(--lh-caption);
+    color: var(--text-secondary);
+}
 
 
 /* ── Key details ──────────────────────────────────────────────────────────── */

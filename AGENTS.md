@@ -6,7 +6,7 @@ Instructions for AI coding agents. Claude Code reads this via `.claude/CLAUDE.md
 
 A static, documentation-only site on NGINX for Kubernetes, owned by F5, Inc., Apache 2.0. No build system and no package manager; there *are* checks and a test suite, and CI runs them on every push and PR. No CDN and no third-party runtime dependencies, with two deliberate exceptions, both images: YouTube poster images (click-to-play into `youtube-nocookie`) and the featured-blog thumbnails hotlinked from `blog.nginx.org`.
 
-It covers **NGINX Ingress Controller** (`nginx/kubernetes-ingress`), **NGINX Gateway Fabric** (`nginx/nginx-gateway-fabric`), the **NGINX Ingress Migration Tool** (community `kubernetes/ingress-nginx` → NIC) and **ingress2gateway** (`kubernetes-sigs/ingress2gateway`).
+It covers **NGINX Ingress Controller** (`nginx/kubernetes-ingress`), **NGINX Gateway Fabric** (`nginx/nginx-gateway-fabric`), the **NGINX Ingress Migration Tool** (community `kubernetes/ingress-nginx` → NIC), **ingress2gateway** (`kubernetes-sigs/ingress2gateway`) and **Gateway Lens** (`nginx/gateway-lens`).
 
 - `index.html` is the landing page, and `ingress-nginx-migration.html` the migration tool: YAML analyzer, annotation mappings, reference tables. Both hold markup only.
 - `assets/css/tokens.css` is THE design surface; `shared.css` and one stylesheet per page follow it. `assets/js/` holds `shared.js`, `index.js` and the migration engine (`migration-core.js` plus one source module per tool).

@@ -6,24 +6,26 @@
         'use strict';
 
         /* ── Constants ── */
-        let PRODUCTS = ['home', 'nginx-ingress-controller', 'nginx-gateway-fabric', 'migration-tool', 'ingress2gateway'];
+        let PRODUCTS = ['home', 'nginx-ingress-controller', 'nginx-gateway-fabric', 'migration-tool', 'ingress2gateway', 'gateway-lens'];
         let PAGE_NAMES = {
             'home': 'Home',
             'nginx-ingress-controller': 'NGINX Ingress Controller',
             'nginx-gateway-fabric': 'NGINX Gateway Fabric',
             'migration-tool': 'NGINX Ingress Migration Tool',
-            'ingress2gateway': 'ingress2gateway'
+            'ingress2gateway': 'ingress2gateway',
+            'gateway-lens': 'Gateway Lens'
         };
 
         /* ── Auto-Fetch Versions ── */
         let VERSION_CONFIG = {
             nic: { repo: 'nginx/kubernetes-ingress',        chartPath: 'charts/nginx-ingress',        fallback: { release: 'v5.7.0', helm: 'v2.8.0' } },
             ngf: { repo: 'nginx/nginx-gateway-fabric',      chartPath: 'charts/nginx-gateway-fabric', fallback: { release: 'v2.8.0', helm: 'v2.8.0' } },
-            i2g: { repo: 'kubernetes-sigs/ingress2gateway',  fallback: { release: 'v1.2.0' } }
+            i2g: { repo: 'kubernetes-sigs/ingress2gateway',  fallback: { release: 'v1.2.0' } },
+            lens: { repo: 'nginx/gateway-lens',              fallback: { release: 'v0.4.1', helm: 'v0.4.1' } }
         };
         // Bump the cache key suffix when VERSION_CONFIG shape or applyVersions logic changes
         // so users don't apply stale payloads from previous schemas.
-        let VERSION_CACHE_KEY = 'nginx_k8s_versions_v3';
+        let VERSION_CACHE_KEY = 'nginx_k8s_versions_v4';
         let VERSION_CACHE_TTL = 3600000; // 1 hour
 
         function readVersionCache() {
@@ -123,8 +125,8 @@
                                 data[key].helm = helm || cfg.fallback.helm || cfg.fallback.release;
                             });
                         }
-                        if (key === 'ngf') {
-                            // NGF tags the chart with the same version as the controller release.
+                        if (key === 'ngf' || key === 'lens') {
+                            // NGF and Gateway Lens tag the chart with the same version as the release.
                             data[key].helm = vTag;
                         }
                     })

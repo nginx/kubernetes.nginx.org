@@ -16,6 +16,7 @@ The community site for NGINX's Kubernetes ecosystem, served via GitHub Pages at 
   - [NGINX Ingress Controller](https://github.com/nginx/kubernetes-ingress): F5 NGINX's Kubernetes Ingress Controller
   - [NGINX Gateway Fabric](https://github.com/nginx/nginx-gateway-fabric): F5 NGINX's Gateway API implementation
   - [ingress2gateway](https://github.com/kubernetes-sigs/ingress2gateway): Kubernetes SIG CLI tool to convert Ingress resources to Gateway API
+  - [Gateway Lens](https://github.com/nginx/gateway-lens): NGINX dashboard that draws a cluster's Gateway API resources as a topology graph
 
 - **[NGINX Ingress Migration Tool](https://kubernetes.nginx.org/ingress-nginx-migration.html)** (`ingress-nginx-migration.html`): interactive tool for migrating from the community Ingress-NGINX controller (`kubernetes/ingress-nginx`) to the NGINX Ingress Controller. Features include:
   - Interactive YAML analyzer
