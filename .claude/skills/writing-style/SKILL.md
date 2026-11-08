@@ -5,7 +5,7 @@ description: The plain-writing pass every commit message, doc, skill and page pr
 
 # Writing in this repo
 
-`AGENTS.md` makes the pass a rule: every commit message gets it before you commit. This file is how to do it, and it is enough on its own, so any agent or person can follow it without installing anything.
+`AGENTS.md` makes the pass a rule for agents: everything an agent writes gets it before it lands, commit messages included. Text the maintainer writes does not. This file is how to do it, and it is enough on its own, so any agent can follow it without installing anything.
 
 The patterns come from the `humanizer` skill (`blader/humanizer`, MIT), which is longer and covers prose this repo does not have: fiction, blog voice, biography. Where your agent has it, run it in embedded mode. Where it and this file disagree, it wins, except for the deliberate exceptions below: those hold here whatever it says. To install it for Claude Code: `claude plugin marketplace add blader/humanizer`, then `claude plugin install humanizer@humanizer`. For other agents, `npx skills add blader/humanizer`.
 

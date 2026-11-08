@@ -90,7 +90,7 @@ The site follows the **F5 Design System (F5DS)**. Never blend it with the F5 **m
 - **Push only when asked**, and to `main` only on an explicit go each time.
 - **Stay on the tool you were asked about.** Work on one preview branch does not touch another, or `main`, unless asked by name. The exception is a fix to what `main` owns (below): it goes on `main`, and says so. A finding about another tool is reported, not committed. A bare "continue" after a finished task means ask which flagged item, if any, comes next.
 - `preview/**` branches carry further migration tools on the same engine. **`main` owns the shared engine and the checks** (`shared.js`, `migration-core.js`, `.github/scripts/`, `.github/test/`, this file): merge `main` into a branch rather than porting fixes across.
-- Undo on `main` with `git revert <sha>`. **Never** `push --force`, `reset --hard` or `clean` a pushed branch without the maintainer's go, asked each time: say what the remote tip loses, and keep anything only it has under an `archive/*` tag first.
+- Undo on `main` with `git revert <sha>`. **Never** `push --force`, `reset --hard` or `clean` a pushed branch without the maintainer's go, asked each time: say what the remote tip loses. Tag it under `archive/*` first only when it loses work, a commit whose changes the new tip does not carry; a rebase or a fold that keeps every change loses nothing and needs no tag.
 
 ## Migration tool: the one rule that cannot wait
 
@@ -100,7 +100,7 @@ The site follows the **F5 Design System (F5DS)**. Never blend it with the F5 **m
 
 Commit bodies are the record of what was tried and rejected: run `git log --grep='Considered and rejected'` or `git log -S'<name>'` before re-proposing or deleting anything. Write yours the same way (`CONTRIBUTING.md`), and keep commits and reports proportionate: a body of ~15 lines, a report of a few, no tables or headings for a small result.
 
-**Every commit message gets a plain-writing pass before you commit**, subject and body, and so does any edit to the docs, the skills or page prose: no dash joining two clauses, no "not X but Y" where nobody claimed X, no one-line closer restating the paragraph, no triad for rhythm, no inflated or stock AI words. Facts, names, numbers and the "Considered and rejected" record stay as they are. How, with examples and the deliberate exceptions, is in `writing-style`.
+**Run the `humanizer` skill in embedded mode on everything you write, before it lands**: commit subjects and bodies, PR text, the docs, the skills, page prose, analyzer notes and your reports to the maintainer. Text the maintainer writes is theirs; leave it as written. An agent without the skill follows `writing-style`, which carries the same patterns plus this repo's deliberate exceptions and a check that a rewrite lost no fact. Where the two disagree, `humanizer` wins, except on those exceptions. The patterns it removes here most often are a dash joining two clauses, "not X but Y" where nobody claimed X, a one-line closer restating the paragraph, a triad for rhythm, and inflated or stock AI words. Facts, names, numbers and the "Considered and rejected" record stay as they are.
 
 - **A finding is verified only as far as you checked it.** A quote can be right and its premise wrong: read the section it is about and who it addresses before calling it confirmed, say which part you checked, and keep "re-verified" apart from "as reported".
 - **During a mockup review, a stated preference changes the mockups, not the repo**, until the maintainer says to implement it.
