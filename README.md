@@ -29,6 +29,11 @@ The community site for NGINX's Kubernetes ecosystem, served via GitHub Pages at 
   - 80+ annotation mappings across all three HAProxy config scopes, plus controller-flag and CRD-field tables
   - route-acl canary translation to VirtualServer traffic splits and matches
   - TCP services conversion to GlobalConfiguration listeners and TransportServer resources
+- **[Traefik Migration Tool](https://kubernetes.nginx.org/traefik-migration.html)** (`traefik-migration.html`, beta) — Interactive tool for migrating from Traefik Proxy (`traefik/traefik`) to the NGINX Ingress Controller. Features include:
+  - Interactive analyzer for IngressRoute, Middleware, TraefikService, and annotated Ingress resources
+  - Mappings for all 24 OSS HTTP middlewares, TCP/UDP routing, and static configuration
+  - Match-rule translation (Host, PathPrefix, Header, ClientIP, …) to VirtualServer routes
+  - TLS and cert-manager migration guidance (replacing Traefik's built-in ACME)
 
 ## Project Structure
 

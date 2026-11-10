@@ -72,6 +72,14 @@ HAPROXY_APP_VERSION = '3.2.19'
 # The controller ConfigMap keys haproxy-source.yaml declares. Helm owns that
 # ConfigMap, so they are set through the chart; --self-test checks they agree.
 HAPROXY_CONFIG = {'timeout-server': '120s'}
+# Traefik Proxy v3.7.17, the version the Traefik guide is written against
+# (TRAEFIK_VERSION in assets/js/migration-traefik.js). The newest chart ships
+# v3.7.16, so the image tag is pinned to the guide's release.
+TRAEFIK_NS = 'traefik'
+TRAEFIK_CLASS = 'traefik'
+TRAEFIK_REPO = 'https://traefik.github.io/charts'
+TRAEFIK_CHART_VERSION = '42.2.0'
+TRAEFIK_APP_VERSION = 'v3.7.17'
 
 
 # --------------------------------------------------------------- plumbing
@@ -363,6 +371,7 @@ def create_cluster(args):
 
 COMMUNITY_SELECTOR = 'app.kubernetes.io/name=ingress-nginx'
 HAPROXY_SELECTOR = 'app.kubernetes.io/instance=hap'
+TRAEFIK_SELECTOR = 'app.kubernetes.io/instance=traefik-traefik'
 NIC_SELECTOR = 'app.kubernetes.io/instance=nic'
 
 
@@ -418,6 +427,34 @@ def uninstall_haproxy():
     helm('uninstall', 'hap', '-n', HAPROXY_NS, '--wait', '--timeout', '5m', check=False, timeout=600)
     wait_for('the HAProxy controller pods to disappear',
              lambda: kubectl('get', 'pods', '-n', HAPROXY_NS, '-l', HAPROXY_SELECTOR,
+                             '-o', 'name', check=False).stdout.strip() == '' or None,
+             timeout=180)
+
+
+def install_traefik(args):
+    say('  installing Traefik Proxy (class %s)' % TRAEFIK_CLASS)
+    helm('repo', 'add', 'traefik', TRAEFIK_REPO, check=False, quiet=True)
+    helm('repo', 'update', 'traefik', quiet=True)
+    helm('upgrade', '--install', 'traefik', 'traefik/traefik',
+         '--version', args.source_chart or TRAEFIK_CHART_VERSION,
+         '-n', TRAEFIK_NS, '--create-namespace', '--wait', '--timeout', '10m',
+         '--set', 'image.tag=' + TRAEFIK_APP_VERSION,
+         '--set', 'service.type=ClusterIP',
+         '--set', 'ingressClass.name=' + TRAEFIK_CLASS,
+         # Not the default class: a class-less Ingress belongs to neither run.
+         '--set', 'ingressClass.isDefaultClass=false',
+         timeout=900)
+    image = running_image(TRAEFIK_NS, TRAEFIK_SELECTOR)
+    if not image.endswith(':' + TRAEFIK_APP_VERSION):
+        raise Fail('the chart runs %s, not Traefik Proxy %s' % (image, TRAEFIK_APP_VERSION))
+    return image
+
+
+def uninstall_traefik():
+    kubectl('delete', 'ingressroute,middleware', '--all', '-n', NS, '--ignore-not-found', check=False)
+    helm('uninstall', 'traefik', '-n', TRAEFIK_NS, '--wait', '--timeout', '5m', check=False, timeout=600)
+    wait_for('the Traefik pods to disappear',
+             lambda: kubectl('get', 'pods', '-n', TRAEFIK_NS, '-l', TRAEFIK_SELECTOR,
                              '-o', 'name', check=False).stdout.strip() == '' or None,
              timeout=180)
 
@@ -519,6 +556,9 @@ def apply_source(args):
     # No wait here: a ClusterIP controller never populates status.loadBalancer,
     # so a wait on it could only ever pass at once (it did, with `or True`).
     # Stage 1 settles by polling the controller until it serves the Ingress.
+    if args.source == 'traefik':
+        say('  applied the IngressRoutes and Middlewares on class %s' % TRAEFIK_CLASS)
+        return
     say('  applied ingress/shop on class %s' % COMMUNITY_CLASS)
 
 
@@ -750,6 +790,42 @@ HAPROXY_CASES = [
          compare=('status',), expect_status=200),
 ]
 
+# The Traefik fixture (traefik-source.yaml). Each case pins what Traefik
+# v3.7.17 does, so stage 1 proves the fixture before anything is compared.
+TRAEFIK_CASES = [
+    # shop.example.com's IngressRoutes carry tls, which makes their routers
+    # HTTPS-only on every entry point they name (GetRoutersByEntryPoints), so
+    # its cases go over HTTPS; b.example.com has no tls and serves plain HTTP.
+    dict(name='root-routes-to-web', host='shop.example.com', path='/', scheme='https',
+         expect_status=200, expect_app='web'),
+    # stripPrefix /api cuts the prefix as plain text: the backend sees the rest.
+    dict(name='api-strip-prefix', host='shop.example.com', path='/api/things/42', scheme='https',
+         compare=('status', 'uri', 'app'), expect_status=200, expect_app='api', expect_uri='/things/42'),
+    # And from the bare prefix, a leading slash restored.
+    dict(name='api-bare-prefix', host='shop.example.com', path='/api', scheme='https',
+         compare=('status', 'uri', 'app'), expect_status=200, expect_app='api', expect_uri='/'),
+    # Not a path boundary: /apix also starts with /api, so Traefik cuts it.
+    dict(name='api-prefix-as-text', host='shop.example.com', path='/apix', scheme='https',
+         compare=('status', 'uri', 'app'), expect_status=200, expect_app='api', expect_uri='/x'),
+    dict(name='second-host-routes-to-web2', host='b.example.com', path='/',
+         expect_status=200, expect_app='web2'),
+    dict(name='unknown-host-is-refused', host='nope.example.com', path='/',
+         compare=('status',), expect_status=404),
+    dict(name='cors-header-present', host='shop.example.com', path='/', scheme='https',
+         headers={'Origin': 'https://shop.example.com'},
+         compare=('status',), expect_status=200, header_present='access-control-allow-origin'),
+    dict(name='affinity-cookie-present', host='shop.example.com', path='/api/x', scheme='https',
+         compare=('status',), expect_status=200, header_present='set-cookie'),
+    # Plain HTTP to the TLS host: Traefik has no router for it and answers 404.
+    # A VirtualServer with a TLS secret serves plain HTTP too; refusing it is
+    # not something a VirtualServer can do (tls.redirect redirects instead),
+    # and the analyzer says so.
+    dict(name='tls-host-refuses-plain-http', host='shop.example.com', path='/',
+         compare=('status',), expect_status=404,
+         known_difference={'virtualserver': 'Traefik refuses plain HTTP for a route with tls; the VirtualServer serves it (the analyzer notes it and offers tls.redirect)',
+                           'ingress': 'Traefik refuses plain HTTP for a route with tls; an IngressRoute stays a VirtualServer under --target ingress, which serves it (the analyzer notes both)'}),
+]
+
 # What differs between the two sources the runner can migrate from. The
 # stages, probes and comparisons are the same; the incumbent, its fixture and
 # its cases are not.
@@ -758,6 +834,10 @@ SOURCES = {
                           fixture='source-ingress.yaml', cases=COMMUNITY_CASES,
                           install=lambda args: install_community(args),
                           uninstall=lambda: uninstall_community()),
+    'traefik': dict(label='Traefik', ns=TRAEFIK_NS, selector=TRAEFIK_SELECTOR,
+                    fixture='traefik-source.yaml', cases=TRAEFIK_CASES,
+                    install=lambda args: install_traefik(args),
+                    uninstall=lambda: uninstall_traefik()),
     'haproxy': dict(label='HAProxy', ns=HAPROXY_NS, selector=HAPROXY_SELECTOR,
                     fixture='haproxy-source.yaml', cases=HAPROXY_CASES,
                     install=lambda args: install_haproxy(args),
@@ -938,10 +1018,10 @@ def probe_against(args, target, baseline, label):
         # note explaining it is now wrong and someone will read it. Both
         # directions have to be checked or the declaration rots.
         #
-        # Used by the shared-host cases on --target ingress: one merged Ingress
-        # cannot keep each source Ingress's settings to its own paths. Kept for
-        # divergences that are real and understood, as opposed to cases that
-        # simply do not apply to a target (skip_targets, above).
+        # Used where a divergence is real and understood: the shared-host cases
+        # on --target ingress (one merged Ingress cannot keep each source
+        # Ingress's settings to its own paths) and Traefik's TLS-only routers.
+        # A case that simply does not apply to a target uses skip_targets.
         known = (case.get('known_difference') or {}).get(args.target)
         if known and problems:
             mark, ok, problems = 'known', True, ['expected: %s' % known]
@@ -997,7 +1077,7 @@ def main():
     ap.add_argument('--source', default='ingress-nginx', choices=sorted(SOURCES),
                     help='the controller migrated from (default ingress-nginx)')
     ap.add_argument('--community-chart', default='', help='pin the ingress-nginx chart version')
-    ap.add_argument('--source-chart', default='', help='pin the HAProxy chart version (default %s)' % HAPROXY_CHART_VERSION)
+    ap.add_argument('--source-chart', default='', help='pin the HAProxy or Traefik chart version (defaults %s, %s)' % (HAPROXY_CHART_VERSION, TRAEFIK_CHART_VERSION))
     ap.add_argument('--workdir', default=os.path.join(E2E, '.work'))
     ap.add_argument('--self-test', action='store_true',
                     help='check the runner\'s own logic; needs no cluster and no Docker')

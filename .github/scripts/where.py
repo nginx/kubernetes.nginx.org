@@ -50,6 +50,10 @@ TOOLS = [
     {'page': 'haproxy-migration.html', 'module': 'assets/js/migration-haproxy.js',
      'inputs': r'^kind: (Ingress|Service|ConfigMap|Global|Defaults|Backend|Frontend|TCP)\b',
      'complete': lambda old, new, strategy: complete_haproxy(old, new, strategy)},
+    # Traefik: its CRDs, annotated Ingresses and the Services that carry service.*.
+    {'page': 'traefik-migration.html', 'module': 'assets/js/migration-traefik.js',
+     'inputs': r'^kind: (Ingress|Service|IngressRoute|IngressRouteTCP|IngressRouteUDP|Middleware|MiddlewareTCP|TraefikService|TLSOption|TLSStore|ServersTransport|ServersTransportTCP)\b',
+     'complete': lambda old, new, strategy: complete_traefik(old, new, strategy)},
 ]
 TOOLS = [t for t in TOOLS if os.path.exists(os.path.join(ROOT, t['page']))]
 
@@ -870,6 +874,53 @@ def complete_haproxy(old, new, strategy):
     return old.rstrip('\n') + ''.join('\n---\n' + e for e in extra) if extra else old
 
 
+# A Traefik row may show a Middleware (or TraefikService) with no router, as a
+# reader pastes it: the analyzer then emits nothing, and a match would compare
+# nothing. Give it the router the NGINX side implies: an annotated Ingress
+# when the tab is annotation-first or the page answers with an Ingress, else an
+# IngressRoute on app.example.com, its middlewares in paste order.
+TRAEFIK_ROUTERS = r'^kind: (Ingress|IngressRoute|IngressRouteTCP|IngressRouteUDP)\b'
+
+
+def complete_traefik(old, new, strategy):
+    if re.search(TRAEFIK_ROUTERS, old, re.M):
+        # Per document: a Middleware's spec is not the Ingress's.
+        return '\n---\n'.join(with_spec(d) if re.search(r'^kind: Ingress\s*$', d, re.M) else d
+                               for d in re.split(r'^---\s*$\n?', old, flags=re.M))
+    # A MiddlewareTCP needs the IngressRouteTCP that names it, on the entry
+    # point and Service the TransportServer shows.
+    tcp = re.findall(r'^kind: MiddlewareTCP\s*\nmetadata:\s*\n(?:\s+[\w-]+:.*\n)*?\s+name:\s*(\S+)', old + '\n', re.M)
+    if tcp:
+        ep = re.search(r'^\s+listener:\s*\n\s+name:\s*([\w-]+)', new, re.M)
+        port = re.search(r'^\s+port:\s*(\d+)', new, re.M)
+        return (old.rstrip('\n') + '\n---\napiVersion: traefik.io/v1alpha1\nkind: IngressRouteTCP\nmetadata:\n  name: my-app\nspec:\n'
+                '  entryPoints:\n    - %s\n  routes:\n    - match: HostSNI(`*`)\n      middlewares:\n%s'
+                '      services:\n        - name: %s\n          port: %s\n'
+                % (ep.group(1) if ep else 'tcp', ''.join('        - name: %s\n' % n for n in tcp),
+                   backend_service(new), port.group(1) if port else '80'))
+    names = lambda kind: re.findall(r'^kind: %s\s*\nmetadata:\s*\n(?:\s+[\w-]+:.*\n)*?\s+name:\s*(\S+)' % kind, old + '\n', re.M)
+    mws, tss = names('Middleware'), names('TraefikService')
+    if not mws and not tss:
+        return old
+    if strategy == 'annotation' or (re.search(r'^kind: Ingress\b', new, re.M) and not re.search(r'^kind: VirtualServer\b', new, re.M)):
+        ann = ',' .join('default-%s@kubernetescrd' % n for n in mws)
+        router = ('apiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: my-app\n'
+                  + ('  annotations:\n    traefik.ingress.kubernetes.io/router.middlewares: "%s"\n' % ann if mws else '')
+                  + ROW_SPEC)
+    else:
+        svc = ('        - name: %s\n          kind: TraefikService\n' % tss[0]) if tss else '        - name: my-service\n          port: 80\n'
+        # A stripPrefix lists the paths its router took: match each, as the
+        # row's routes do.
+        prefixes = re.findall(r'^\s+- (/\S*)\s*$', old.split('stripPrefix:', 1)[1], re.M) if re.search(r'^\s+stripPrefix:\s*$', old, re.M) else []
+        match = 'Host(`app.example.com`)' + (' && (%s)' % ' || '.join('PathPrefix(`%s`)' % x for x in prefixes) if prefixes else '')
+        router = ('apiVersion: traefik.io/v1alpha1\nkind: IngressRoute\nmetadata:\n  name: my-app\nspec:\n  routes:\n'
+                  '    - match: %s\n      kind: Rule\n' % match
+                  + (''.join('      middlewares:\n' if i == 0 else '' for i in range(1)) if mws else '')
+                  + ''.join('        - name: %s\n' % n for n in mws)
+                  + '      services:\n' + svc)
+    return old.rstrip('\n') + '\n---\n' + router
+
+
 def normalise(text, ingress_name='my-app'):
     """The comparable content of a manifest: no comments, no blank lines, no
     step headers, and scaffold values (host, service, names) made generic so a
@@ -1541,6 +1592,11 @@ ALTERNATIVE_TABS = {
                              'translated by hand: the flag that names it is a Deployment argument, which no paste carries',
     ('haproxy-migration.html', 'static-timeouts', '(single)#timeout-queue'): 'the NGINX Plus upstreams[].queue, which needs a '
                              'size HAProxy never set (its queue is unbounded); the analyzer notes it under pod-maxconn',
+    # Traefik page: mirroring is a hand-written mirror location; the analyzer
+    # names the mirrors in a note (no per-host server-snippets channel yet).
+    ('traefik-migration.html', 'traffic-splitting', 'crd'): 'TraefikService mirroring as hand-written mirror '
+                             'snippets; the analyzer passes the main Service and notes the mirrors',
+    ('traefik-migration.html', 'traffic-splitting', 'annotation'): 'the same mirror snippets as Ingress annotations',
     ('haproxy-migration.html', 'rate-limiting', '(single)'): 'rate-limit-whitelist as a hand-written geo/map key '
                              'beside the rate-limit Policy; NGINX Ingress Controller has no exemption field',
 } | {('haproxy-migration.html', 'enterprise', '(single)#' + k): 'HAProxy Enterprise ' + k + ' arrives as raw configuration '
@@ -1558,6 +1614,14 @@ NO_RESOURCE_TABS = {('haproxy-migration.html', 'crd-frontend', t): 'a Frontend C
                     'GlobalConfiguration listeners and ConfigMap keys the reader sets, which the analyzer names in notes'
                     for t in ['crd#binds', 'annotation#binds', '(single)#ssl', '(single)#accept_proxy', '(single)#httplog',
                               '(single)#http_request_rule_list', '(single)#disable_h2_upgrade']}
+NO_RESOURCE_TABS.update({
+    ('traefik-migration.html', 'routing', '(single)#HostRegexp(...)'):
+        'a regex host has no VirtualServer form, and the analyzer cannot list the hosts it matched',
+    ('traefik-migration.html', 'tls-certificates', '(single)#TLSOption spec.sniStrict'):
+        'sniStrict is the controller running without -default-server-tls-secret, which the analyzer names in a note',
+    ('traefik-migration.html', 'tls-certificates', '(single)#TLSStore'):
+        'Traefik picks a store certificate by the SANs in its Secret, which the paste does not hold; '
+        'the analyzer names each Secret in a note'})
 
 
 def mapping_keys():

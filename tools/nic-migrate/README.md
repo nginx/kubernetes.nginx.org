@@ -1,7 +1,7 @@
 # nic-migrate
 
 Run the migration tool's analyzer over real Ingress manifests, from a terminal:
-ingress-nginx by default, or HAProxy with `--source haproxy`.
+ingress-nginx by default, or HAProxy or Traefik with `--source`.
 
 > **Beta.** Review the output before you apply anything to a cluster. Command
 > names, flags, and the manifests it generates may still change.
@@ -23,6 +23,7 @@ and `--validate`.
 # What would change, and what the analyzer cannot work out on its own
 node tools/nic-migrate/nic-migrate.js report -f ./manifests
 node tools/nic-migrate/nic-migrate.js report --source haproxy -f ./manifests
+node tools/nic-migrate/nic-migrate.js report --source traefik --whole-input -f ./crs
 node tools/nic-migrate/nic-migrate.js report --kubectl -n prod
 
 # Manifests you can apply
@@ -45,19 +46,32 @@ manifests. Use it to migrate one.
 transforms and generators all come from `assets/js/`, so the CLI reports exactly
 what the matching page reports.
 
-| | ingress-nginx | haproxy |
-|---|---|---|
-| module | `assets/js/migration-ingress-nginx.js` | `assets/js/migration-haproxy.js` |
-| page (`checklist`) | `ingress-nginx-migration.html` | `haproxy-migration.html` |
-| annotation prefixes | `nginx.ingress.kubernetes.io/` | `haproxy.org/`, `haproxy.com/`, `ingress.kubernetes.io/` |
-| kinds read | Ingress | Ingress, Service, ConfigMap, and the Global / Defaults / Backend / Frontend / TCP / ValidationRules CRs |
-| `--kubectl` reads | `ingress` | `ingress`, `service`, `configmap` and each HAProxy CRD, v3 and v1; a CRD not installed is skipped with a note |
+| | ingress-nginx | haproxy | traefik |
+|---|---|---|---|
+| module | `assets/js/migration-ingress-nginx.js` | `assets/js/migration-haproxy.js` | `assets/js/migration-traefik.js` |
+| page (`checklist`) | `ingress-nginx-migration.html` | `haproxy-migration.html` | `traefik-migration.html` |
+| annotation prefixes | `nginx.ingress.kubernetes.io/` | `haproxy.org/`, `haproxy.com/`, `ingress.kubernetes.io/` | `traefik.ingress.kubernetes.io/` |
+| kinds read | Ingress | Ingress, Service, ConfigMap, and the Global / Defaults / Backend / Frontend / TCP / ValidationRules CRs | Ingress, IngressRoute(+TCP/UDP), Middleware(+TCP), TraefikService, TLSOption, TLSStore, ServersTransport(+TCP) |
+| `--kubectl` reads | `ingress` | `ingress`, `service`, `configmap` and each HAProxy CRD, v3 and v1; a CRD not installed is skipped with a note | `ingress` and each `traefik.io` CRD; a CRD not installed is skipped with a note |
 
-The kinds column is the substantive difference. ingress-nginx keeps every
-setting on the Ingress, so an Ingress-only scan sees all of it. HAProxy spreads
-the same job across annotated Ingress **and Service** objects, its controller
-ConfigMap and five CRs, so a scan that only looked at Ingresses would report
-"nothing found" on a real HAProxy deployment.
+The kinds column is the substantive difference, and the three sources sit at
+different points on it. ingress-nginx keeps every setting on the Ingress, so an
+Ingress-only scan sees all of it. HAProxy spreads the same job across annotated
+Ingress **and Service** objects, its controller ConfigMap and five CRs. Traefik
+inverts that: one annotation prefix, and almost everything real in CRs. A scan
+that only looked at Ingresses would report "nothing found" on either.
+
+Traefik's static configuration is deliberately not in that list: it is CLI flags
+or a `traefik.yml`, not a Kubernetes object, so there is no kind to gate on. The
+page documents it; the CLI cannot read it.
+
+### `--whole-input`
+
+By default `report` gives one entry per resource. Each is analyzed with the rest
+of the run as context, so a Traefik `IngressRoute` resolves the `Middleware`
+documents it references, and a HAProxy Ingress reads its Services, ConfigMap and
+CRs. `--whole-input` analyzes everything as one unit instead, the way the web
+tool treats a paste, and reports it as one entry. `convert` ignores it.
 
 Both commands migrate one Ingress at a time, and for HAProxy resolve it the
 way the controller does: a backend setting from the Service the path routes
@@ -262,6 +276,10 @@ python3 tools/nic-migrate/e2e/run-e2e.py --skip-cluster
 # The HAProxy Kubernetes Ingress Controller as the source, either target
 python3 tools/nic-migrate/e2e/run-e2e.py --source haproxy
 python3 tools/nic-migrate/e2e/run-e2e.py --source haproxy --target ingress
+
+# Traefik Proxy as the source, either target
+python3 tools/nic-migrate/e2e/run-e2e.py --source traefik
+python3 tools/nic-migrate/e2e/run-e2e.py --source traefik --target ingress
 ```
 
 Needs `kubectl`, `helm`, `node`, and `openssl`, plus `kind` and `docker` unless
@@ -273,7 +291,18 @@ place. The fixture is `manifests/haproxy-source.yaml`: the Ingress, the
 annotated Services HAProxy reads backend settings from, and the controller
 ConfigMap, which the runner sets through the chart (`HAPROXY_CONFIG`) instead
 of applying it. The chart's image tag must match `HAPROXY_APP_VERSION` unless
-you pass `--source-chart`. CI runs both sources.
+you pass `--source-chart`.
+
+With `--source traefik` the fixture is `manifests/traefik-source.yaml`:
+Middlewares and IngressRoutes on the same two hosts and three backends. The
+runner installs the chart with the image tag `TRAEFIK_APP_VERSION`, which
+`check-versions.py` holds to the release the Traefik guide is written against.
+An IngressRoute has no Ingress form, so `--target ingress` still converts it to
+a VirtualServer. One case is a known difference: Traefik serves a route with
+`tls` over HTTPS only and answers plain HTTP with 404, while the VirtualServer
+serves both (the analyzer says so and offers `tls.redirect`).
+
+CI runs every source.
 
 Every stage after the first compares against the recorded stage-1 baseline
 rather than against literals. The assertion is equivalence: each case goes to

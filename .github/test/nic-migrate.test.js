@@ -20,6 +20,7 @@ const TOOL = path.join(ROOT, 'tools', 'nic-migrate');
 
 const { readIngresses, describe: describeDoc } = require(path.join(TOOL, 'lib', 'ingress.js'));
 const { detect, sortGaps } = require(path.join(TOOL, 'lib', 'gaps.js'));
+const { renderReport } = require(path.join(TOOL, 'lib', 'render.js'));
 const { createEngine } = require(path.join(TOOL, 'lib', 'engine.js'));
 const { loadChecklist } = require(path.join(TOOL, 'nic-migrate.js'));
 const Y = require(path.join(TOOL, 'lib', 'yaml.js'));
@@ -1035,6 +1036,116 @@ test('report flags a host that several community Ingresses route, but not a cana
     sharedHosts(items);
     assert.deepEqual(items.map((i) => i.gaps.map((g) => g.id)), [['shared-host'], ['shared-host'], [], []]);
     assert.match(items[0].gaps[0].message, /routed by shop, api\. .*merges them into one VirtualServer/);
+});
+
+/* ── Traefik ───────────────────────────────────────────────────────────────
+   Traefik inverts HAProxy's shape: one annotation prefix, but almost all real
+   configuration lives in CRs. Two things follow, and both were bugs before
+   this source existed.
+
+   The renderer used to return early when a document carried no annotations,
+   which is true of every IngressRoute and Middleware, so their resources,
+   notes and gaps were computed and then thrown away — the --json output showed
+   them while the text report did not.
+
+   And a Middleware is a separate document from the IngressRoute that
+   references it, so per-document analysis reports every reference as
+   unresolved. --whole-input is the answer, matching how the web tool treats a
+   paste. */
+
+test('traefik: the source is registered with the kinds its analyzer switches on', () => {
+    const t = resolveSource('traefik');
+    assert.equal(t.module, 'assets/js/migration-traefik.js');
+    assert.deepEqual(t.prefixes, ['traefik.ingress.kubernetes.io/']);
+    for (const k of ['IngressRoute', 'Middleware', 'TraefikService', 'TLSOption', 'ServersTransport']) {
+        assert.ok(t.kinds.indexOf(k) !== -1, 'missing kind ' + k);
+    }
+    // Static config is CLI flags or traefik.yml, not an object — nothing to gate on.
+    assert.equal(t.kinds.indexOf('ConfigMap'), -1);
+});
+
+const TFK_ROUTE = [
+    'apiVersion: traefik.io/v1alpha1', 'kind: IngressRoute', 'metadata:', '  name: web-route',
+    '  namespace: default', 'spec:', '  entryPoints:', '    - websecure', '  routes:',
+    '    - match: Host(`app.example.com`) && PathPrefix(`/api`)', '      kind: Rule',
+    '      middlewares:', '        - name: rate-limit', '      services:',
+    '        - name: api-svc', '          port: 80',
+].join('\n');
+const TFK_MW = [
+    'apiVersion: traefik.io/v1alpha1', 'kind: Middleware', 'metadata:', '  name: rate-limit',
+    '  namespace: default', 'spec:', '  rateLimit:', '    average: 100', '    burst: 50',
+].join('\n');
+
+test('traefik: an IngressRoute reports its resources despite carrying no annotations', () => {
+    const eng = createEngine('traefik');
+    const desc = describeIngress(TFK_ROUTE, resolveSource('traefik').prefixes);
+    assert.equal(desc.kind, 'IngressRoute');
+    assert.deepEqual(desc.annotations, [], 'an IngressRoute has no annotations by design');
+
+    // With its Middleware beside it: a route Traefik builds (a missing
+    // middleware fails the router, so the route alone yields nothing).
+    const result = eng.analyze(TFK_ROUTE + '\n---\n' + TFK_MW, 'crd');
+    assert.equal(result.error, null);
+    assert.deepEqual(result.warnings, []);
+    assert.ok(result.parts.length > 0, 'the analyzer produced resources');
+
+    // The regression: text output must not be empty just because annotations are.
+    const text = renderReport([{ desc, result, sourceFile: 'x.yaml', gaps: [] }],
+        { strategy: 'crd', colour: false, wrap: false, unit: 'resource' });
+    assert.match(text, /VirtualServer/, 'resources were computed but not rendered');
+});
+
+test('traefik: --whole-input resolves a Middleware reference that per-document cannot', () => {
+    /* Traefik refuses a router whose middleware does not exist
+       (server/middleware/middlewares.go: "middleware %q does not exist"), so
+       analyzed alone the route is reported and migrated as nothing. */
+    const eng = createEngine('traefik');
+    const alone = eng.analyze(TFK_ROUTE, 'crd');
+    const notes = (alone.plan && alone.plan.infoNotes) || [];
+    assert.ok(notes.some((n) => /rate-limit.*not in the paste/.test(n.message)),
+        'analyzed alone, the Middleware reference should report as unresolved');
+    assert.doesNotMatch(alone.yaml, /VirtualServer/, 'a route Traefik refused is not migrated');
+
+    const together = eng.analyze(TFK_ROUTE + '\n---\n' + TFK_MW, 'crd');
+    const notes2 = (together.plan && together.plan.infoNotes) || [];
+    assert.ok(!notes2.some((n) => /not in the paste/.test(n.message)),
+        'analyzed together, the reference resolves');
+    assert.match(together.yaml, /rateLimit/, 'the Middleware became a rateLimit Policy');
+});
+
+test('traefik convert: a note goes to the resource it names, not one whose name prefixes it', () => {
+    /* Notes were routed by prefix, so "IngressRoute shop-b" landed on
+       IngressRoute shop (seen in the e2e). */
+    const ir = (name, host) => ['apiVersion: traefik.io/v1alpha1', 'kind: IngressRoute', 'metadata:', '  name: ' + name, '  namespace: default', 'spec:', '  routes:',
+        '    - match: Host(`' + host + '`)', '      kind: Rule', '      services:', '        - name: web', '          port: 80'].join('\n');
+    const r = cli(['convert', '--source', 'traefik', '--target', 'ingress', '--class', 'nginx-nic', '--json'], [ir('shop', 'a.example.com'), ir('shop-b', 'b.example.com')].join('\n---\n'));
+    assert.equal(r.status, 0, r.stderr);
+    const out = JSON.parse(r.stdout);
+    const notesOf = (name) => JSON.stringify(out.ingresses.filter((x) => x.name === name).map((x) => x.notes));
+    assert.match(notesOf('shop-b'), /IngressRoute shop-b has no Ingress form/);
+    assert.doesNotMatch(notesOf('shop'), /shop-b/);
+});
+
+test('traefik convert: IngressRoutes on one host become one VirtualServer with their Policies', () => {
+    /* convert --source traefik was refused while the module had no whole-run
+       assembler. Middlewares, TLSOptions and Services are the run each router
+       is resolved against, not units of their own. */
+    const run = [TFK_ROUTE, TFK_MW, [
+        'apiVersion: traefik.io/v1alpha1', 'kind: IngressRoute', 'metadata:', '  name: web-root', '  namespace: default', 'spec:', '  routes:',
+        '    - match: Host(`app.example.com`) && PathPrefix(`/`)', '      kind: Rule', '      services:', '        - name: web', '          port: 80'].join('\n')].join('\n---\n');
+    const r = cli(['convert', '--source', 'traefik', '--class', 'nginx-nic'], run);
+    assert.equal(r.status, 0, r.stderr);
+    const docs = Y.parseAll(r.stdout).filter(Boolean);
+    const vs = docs.filter((d) => d.kind === 'VirtualServer');
+    assert.equal(vs.length, 1, 'one host, one VirtualServer');
+    assert.deepEqual(JSON.parse(JSON.stringify(vs[0].spec.routes.map((x) => x.path))).sort(), ['/', '/api']);
+    assert.equal(vs[0].spec.ingressClassName, 'nginx-nic');
+    const rl = docs.find((d) => d.kind === 'Policy' && d.spec.rateLimit);
+    assert.ok(rl, 'the rateLimit Policy');
+    assert.equal(rl.spec.rateLimit.burst, 49, 'Traefik burst 50, less the request NGINX always admits');
+    assert.doesNotMatch(r.stdout, /# Source: rate-limit/, 'a Middleware is not a unit of its own');
+    assert.match(r.stderr + r.stdout, /IngressRoute web-root shares host app\.example\.com; merged into this VirtualServer/);
+    assert.doesNotMatch(r.stderr + r.stdout, /canary/, 'nothing here is a canary');
 });
 
 test('convert and report say what the page says about a community Ingress the community controller refused', () => {

@@ -3,7 +3,8 @@
        page navigation, checklist persistence, and the shared MigrationTool.NIC
        target-version constants. Everything source-specific (mapping data,
        parsers, generators, strings) lives in the page's SOURCE module
-       (migration-ingress-nginx.js / migration-haproxy.js), which defines
+       (migration-ingress-nginx.js / migration-haproxy.js /
+       migration-traefik.js), which defines
        window.MIGRATION_SOURCE and must load BEFORE this file:
        shared.js → migration-<source>.js → migration-core.js.
        Shared behavior (dark mode, sidebar drawer, copy-to-clipboard, copyright

@@ -1,0 +1,102 @@
+# The Traefik Proxy resources under migration, chosen so each way the Traefik
+# analyzer translates a setting is exercised once against a real controller:
+#
+#   stripPrefix         a path middleware: Traefik cuts /api as plain text and
+#                       the backend sees the rest, observable only from it
+#   headers (CORS)      a middleware that becomes a Policy the VirtualServer
+#                       must reference
+#   sticky.cookie       a service setting on the IngressRoute: Set-Cookie
+#   two IngressRoutes   one host on two resources, merged into one
+#                       VirtualServer (the pinned shared-host convention)
+#   tls                 TLS terminates with the shop-tls Secret, and the
+#                       router is HTTPS-only although it names web too:
+#                       Traefik answers plain HTTP for shop.example.com with
+#                       404, and a VirtualServer serves it (a known difference)
+#
+# Two hosts and three backends, as source-ingress.yaml has, on the same
+# workload (workload.yaml).
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-api
+  namespace: e2e-shop
+spec:
+  stripPrefix:
+    prefixes:
+      - /api
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: shop-cors
+  namespace: e2e-shop
+spec:
+  headers:
+    accessControlAllowOriginList:
+      - https://shop.example.com
+    accessControlAllowMethods:
+      - GET
+      - POST
+---
+# The API leg: its own IngressRoute on the same host as the web one.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: shop-api
+  namespace: e2e-shop
+spec:
+  ingressClassName: traefik
+  entryPoints:
+    - web
+    - websecure
+  routes:
+    - match: Host(`shop.example.com`) && PathPrefix(`/api`)
+      kind: Rule
+      middlewares:
+        - name: strip-api
+        - name: shop-cors
+      services:
+        - name: api-svc
+          port: 8080
+          sticky:
+            cookie:
+              name: shop_affinity
+  tls:
+    secretName: shop-tls
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: shop
+  namespace: e2e-shop
+spec:
+  ingressClassName: traefik
+  entryPoints:
+    - web
+    - websecure
+  routes:
+    - match: Host(`shop.example.com`)
+      kind: Rule
+      middlewares:
+        - name: shop-cors
+      services:
+        - name: web-svc
+          port: 8080
+  tls:
+    secretName: shop-tls
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: shop-b
+  namespace: e2e-shop
+spec:
+  ingressClassName: traefik
+  entryPoints:
+    - web
+  routes:
+    - match: Host(`b.example.com`)
+      kind: Rule
+      services:
+        - name: web2-svc
+          port: 8080

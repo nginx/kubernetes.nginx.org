@@ -12,6 +12,7 @@ const { loadAnalyzer, analyze } = require('./lib/load.js');
 const MODULES = [
     { name: 'ingress-nginx', file: 'assets/js/migration-ingress-nginx.js' },
     { name: 'haproxy', file: 'assets/js/migration-haproxy.js' },
+    { name: 'traefik', file: 'assets/js/migration-traefik.js' },
 ];
 
 for (const mod of MODULES) {
@@ -254,4 +255,28 @@ test('haproxy: a verified: tag names both pinned sources', (t) => {
     }
     assert.deepEqual(malformed, [], 'verified: must be { haproxy: \'vX.Y.Z\', nic: \'vX.Y.Z\' }');
     t.diagnostic(`${tagged} of ${lines.length} HAProxy mapping(s) record a verified: tag; ${behind} behind ${haproxy} / ${nic}, ${lines.length - tagged} carry none.`);
+});
+
+test('traefik: a verified: tag names both pinned sources', (t) => {
+    /* As HAProxy's: Traefik moves too, so the tag is { traefik, nic }. The
+       count is reported, never failed; a tag of any other shape fails. */
+    const fs = require('node:fs'), path = require('node:path');
+    const { ROOT } = require('./lib/load.js');
+    const mod = fs.readFileSync(path.join(ROOT, 'assets/js/migration-traefik.js'), 'utf8');
+    const traefik = mod.match(/const TRAEFIK_VERSION = '([^']+)'/)[1];
+    const { tool } = loadAnalyzer('assets/js/migration-traefik.js');
+    const nic = 'v' + String(tool.NIC.VERSION).replace(/^v/, '');
+    const lines = mod.split('\n').filter((l) => /^\s*\{ keys: \[/.test(l));
+    const malformed = [];
+    let tagged = 0, behind = 0;
+    for (const l of lines) {
+        if (!/verified:/.test(l)) continue;
+        const m = l.match(/verified: \{ traefik: '(v[\d.]+)', nic: '(v[\d.]+)' \}/);
+        if (!m) { malformed.push(l.match(/keys: \[([^\]]*)\]/)[1]); continue; }
+        tagged++;
+        if (m[1] !== traefik || m[2] !== nic) behind++;
+    }
+    assert.deepEqual(malformed, [], 'verified: must be { traefik: \'vX.Y.Z\', nic: \'vX.Y.Z\' }');
+    assert.ok(tagged > 0, 'no Traefik mapping records a verified: tag');
+    t.diagnostic(`${tagged} of ${lines.length} Traefik mapping(s) record a verified: tag; ${behind} behind ${traefik} / ${nic}, ${lines.length - tagged} carry none.`);
 });
