@@ -1511,8 +1511,32 @@
 
         function vsRoutePath(p, regex) {
             if (regex) return '~ (?i)^' + p.path;
-            if (p.pathType === 'Exact') return '=' + p.path;
+            if (p.pathType === 'Exact' || p.exact) return '=' + p.path;
             return p.path;
+        }
+
+        // A plain pathType Prefix path is two locations in the community
+        // controller: /foo/ as a prefix and = /foo (updateServerLocations,
+        // location.go, v1.15.1), so /foobar is not matched. NGINX Ingress
+        // Controller renders Prefix as one plain prefix, on a VirtualServer
+        // route and on an Ingress, which matches /foobar too. "/" is not split;
+        // an Exact path already at /foo keeps that location and the prefix
+        // becomes /foo/ alone. A path written /foo/ stays /foo/ for both, so
+        // a request for /foo matches neither, as in the community controller. Regex mode (use-regex, rewrite-target) splits
+        // nothing: every location is ~* "^<path>" there.
+        const PREFIX_PAIR = 'pathType Prefix';
+        function prefixPaths(paths) {
+            let exact = {};
+            paths.forEach(function(p) { if (p.pathType === 'Exact') exact[p.path] = true; });
+            let out = [];
+            paths.forEach(function(p) {
+                if (p.pathType !== 'Prefix' || p.path === '/') { out.push(p); return; }
+                let slash = /\/$/.test(p.path) ? p.path : p.path + '/';
+                out.push(Object.assign({}, p, { path: slash, pair: true }));
+                // The exact copy keeps the path as written: /foo/ gives = /foo/.
+                if (!exact[p.path]) out.push(Object.assign({}, p, { exact: true, pair: true }));
+            });
+            return out;
         }
 
         // Does the community rewrite target reference capture group n?
@@ -2099,7 +2123,7 @@
                 // order. The community controller sorted a host's paths longest
                 // first (ties: reverse lexical), so "/api(/|$)(.*)" was tried
                 // before "/" — keep that order or "/" swallows everything.
-                let ordered = regex ? regexOrder(h.paths) : h.paths;
+                let ordered = regex ? regexOrder(h.paths) : prefixPaths(h.paths);
                 ordered.forEach(function(p, pi) {
                     if (!p.backend || p.backend.resource) { ctx.note('backend', 'Path ' + p.path + ' on ' + h.host + ' has a resource backend, which VirtualServer cannot route to; it is skipped.', 'warning'); return; }
                     let up = upstreamName(p.backend.service, p.backend.port, taken);
@@ -2109,6 +2133,8 @@
                         upstreams.push(u);
                     }
                     let route = { path: vsRoutePath(p, regex && p.pathType !== 'Exact') };
+                    if (p.pair) c['spec.routes.' + routes.length + '.path'] = PREFIX_PAIR;
+                    else if (p.pathType === 'Exact' && !regex) c['spec.routes.' + routes.length + '.path'] = 'pathType Exact';
                     if (regex && p.pathType !== 'Exact' && !routes.some(function(x) { return /^~/.test(x.path); })) {
                         let why = model.community['use-regex'] !== undefined && GO_TRUE.test(str(model.community['use-regex']).trim()) ? 'use-regex' : f.rewrite !== null && f.rewrite !== undefined ? 'rewrite-target' : options.regexHost ? 'another Ingress on this host' : null;
                         if (why) c['spec.routes.' + routes.length + '.path'] = why + ' makes every path a case-insensitive regex';
@@ -2399,6 +2425,7 @@
                 let port = /^\d+$/.test(str(b.servicePort)) ? { number: parseInt(b.servicePort, 10) } : { name: str(b.servicePort) };
                 return { service: { name: str(b.serviceName), port: port } };
             };
+            let specComments = {};
             if (spec.backend && !spec.defaultBackend) { spec.defaultBackend = spec.backend; delete spec.backend; }
             if (spec.defaultBackend) spec.defaultBackend = v1Backend(spec.defaultBackend);
             (Array.isArray(spec.rules) ? spec.rules : []).forEach(function(r) {
@@ -2411,12 +2438,22 @@
                 // With nginx.org/path-regex every path is a regex, tried in the
                 // order written: put them in the community controller's order.
                 if (ann['nginx.org/path-regex'] && isMap(r) && isMap(r.http) && Array.isArray(r.http.paths)) r.http.paths = regexOrder(r.http.paths.filter(isMap));
+                // Otherwise a Prefix path is /foo/ plus an Exact /foo, as the
+                // community controller split it (prefixPaths).
+                else if (!f.regexPaths && !options.regexHost && !options.regexHostPaths && isMap(r) && isMap(r.http) && Array.isArray(r.http.paths)) {
+                    let ri = spec.rules.indexOf(r);
+                    let split = prefixPaths(r.http.paths.filter(isMap).map(function(p) { return { path: p.path ? str(p.path) : '/', pathType: str(p.pathType), src: p }; }));
+                    r.http.paths = split.map(function(x, pi) {
+                        if (x.pair) specComments['spec.rules.' + ri + '.http.paths.' + pi + '.path'] = PREFIX_PAIR;
+                        if (!x.pair) return x.src;
+                        return Object.assign({}, x.src, { path: x.path, pathType: x.exact ? 'Exact' : 'Prefix', backend: JSON.parse(JSON.stringify(x.src.backend)) });
+                    });
+                }
             });
             let cls = options.ingressClass || model.ingressClassName;
             if (cls) spec.ingressClassName = cls;
             // nginx.org/custom-http-errors sends errors only to spec.defaultBackend
             // (default-backend alone is reported by its translator).
-            let specComments = {};
             if (f.defaultBackendService && f.errorCodes && f.errorCodes.length) {
                 if (!spec.defaultBackend) {
                     spec.defaultBackend = { service: { name: f.defaultBackendService, port: { number: 80 } } };
@@ -2955,20 +2992,27 @@
             // The rules: every path, in the order the Ingresses list them.
             // Every path, in the order the paste lists the Ingresses; a path two
             // claim goes to the oldest, as the community controller kept it.
+            // NGINX keys a location on its modifier too: = /api and /api differ.
+            let key = function(pp) { return (pp.pathType === 'Exact' ? '=' : '') + pp.path; };
             let claimed = {};
             group.forEach(function(g) {
                 (g.doc.spec.rules[0].http && g.doc.spec.rules[0].http.paths || []).forEach(function(pp) {
-                    if (claimed[pp.path]) { note(g, 'Path ' + pp.path + ' on ' + host + ' is routed by ' + claimed[pp.path].g.r.model.name + ' and ' + g.r.model.name + '. One Ingress cannot route a path twice, so the merged Ingress keeps ' + claimed[pp.path].g.r.model.name + '\'s: ' + group.why + '.'); return; }
-                    claimed[pp.path] = { g: g, p: pp };
+                    let k = key(pp);
+                    if (claimed[k]) { note(g, 'Path ' + pp.path + ' on ' + host + ' is routed by ' + claimed[k].g.r.model.name + ' and ' + g.r.model.name + '. One Ingress cannot route a path twice, so the merged Ingress keeps ' + claimed[k].g.r.model.name + '\'s: ' + group.why + '.'); return; }
+                    claimed[k] = { g: g, p: pp };
                 });
             });
-            let paths = [];
+            let paths = [], pathComments = [];
             group.listed.forEach(function(g) {
-                (g.doc.spec.rules[0].http && g.doc.spec.rules[0].http.paths || []).forEach(function(pp) { if (claimed[pp.path] && claimed[pp.path].g === g && claimed[pp.path].p === pp) paths.push(pp); });
+                let gc = g.r.out.comments[g.i] || {};
+                (g.doc.spec.rules[0].http && g.doc.spec.rules[0].http.paths || []).forEach(function(pp, pi) {
+                    let k = key(pp);
+                    if (claimed[k] && claimed[k].g === g && claimed[k].p === pp) { paths.push(pp); pathComments.push(gc['spec.rules.0.http.paths.' + pi + '.path']); }
+                });
             });
             // path-regex covers every path of the one Ingress: they are tried in
             // the order written, so put them in the community controller's.
-            if (ann['nginx.org/path-regex']) paths = regexOrder(paths);
+            if (ann['nginx.org/path-regex']) { paths = regexOrder(paths); pathComments = []; }
             let spec = {};
             if (group[0].doc.spec.ingressClassName) spec.ingressClassName = group[0].doc.spec.ingressClassName;
             let hasTls = function(g) { return Array.isArray(g.doc.spec.tls) && g.doc.spec.tls.length; };
@@ -2982,6 +3026,7 @@
             let dflt = group.find(function(g) { return g.doc.spec.defaultBackend; });
             if (dflt) spec.defaultBackend = dflt.doc.spec.defaultBackend;
             spec.rules = [{ host: host, http: { paths: paths } }];
+            pathComments.forEach(function(pc, pi) { if (pc) c['spec.rules.0.http.paths.' + pi + '.path'] = pc; });
             if (Object.keys(ann).length) merged.metadata.annotations = ann;
             merged.spec = spec;
             c['spec.rules.0.host'] = 'served by ' + names.join(', ') + ', merged';
@@ -3100,6 +3145,8 @@
                 if (pairs.has(m)) o.canaryStable = pairs.get(m);
                 let hk = m.hosts.length === 1 ? (m.namespace || '') + '/' + m.hosts[0].host : null;
                 if (strategy === 'crd' && hk && regexHosts[hk] && perHost[hk] > 1) o = Object.assign({}, o, { regexHost: true });
+                // Annotation-first: a regex host splits no Prefix path (prefixPaths).
+                if (strategy !== 'crd' && hk && regexHosts[hk] && perHost[hk] > 1) o = Object.assign({}, o, { regexHostPaths: true });
                 return { model: m, out: migrateIngress(m, strategy, o) };
             });
             if (strategy === 'crd') {

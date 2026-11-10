@@ -161,6 +161,8 @@ h2[id], h3[id], section[id] { scroll-margin-top: var(--space-4x); }
 .heading-row:hover .heading-anchor, .heading-anchor:focus-visible { opacity: 1; }
 
 .doc-list { padding-left: var(--space-5x); }
+/* A paragraph that follows a list needs the gap the reset took away. */
+.doc-list + p { margin-top: var(--space-3x); }
 
 
 /* ── Tables ───────────────────────────────────────────────────────────────
@@ -342,6 +344,9 @@ pre code { background: none; border: 0; padding: 0; color: inherit; }
 .comparison-block.old h4 { background: var(--pomegranate-tint); color: var(--text); }
 .comparison-block.new h4 { background: var(--green-tint); color: var(--text); }
 .comparison-block pre { margin: 0; border: 0; border-radius: 0; }
+/* A side with no configuration to show holds the answer itself: the note sits
+   inside the block, under its header, with no code and so no Copy button. */
+.comparison-block.answer-only .info-box { margin: 0; border-radius: 0; border-left-width: 0; }
 /* Copy-button geometry and the copied state are shared with the landing page
    and live in shared.css; what is here is placement and rest colours.
 
@@ -465,13 +470,23 @@ pre code { background: none; border: 0; padding: 0; color: inherit; }
 .badge-configmap           { background: var(--badge-cm-bg);     border-color: transparent; color: var(--badge-cm-fg); }
 .badge-plus                { background: var(--badge-plus-bg);   border-color: transparent; color: var(--badge-plus-fg); font-weight: 700; }
 .badge-new                 { background: var(--badge-new-bg);    border-color: transparent; color: var(--badge-new-fg); }
+/* The odd one out. Every badge above names a resource the reader creates;
+   this one names the Ingress they already have, so the field beside it is
+   edited in place rather than authored. It exists because HAProxy's
+   ingress.class and defaultBackend migrate to native Ingress fields, which
+   left the resource unnamed or spelled out in bare text. */
+.badge-ingress             { background: var(--badge-ingress-bg); border-color: transparent; color: var(--badge-ingress-fg); }
+/* A cell whose answer is a controller flag rather than a resource; teal,
+   the free family (tokens.css). */
+.badge-flag                { background: var(--badge-flag-bg);   border-color: transparent; color: var(--badge-flag-fg); }
 /* There is no `.badge-annotation` rule here, and that is deliberate. The
    class has never been put on an element anywhere in this tool — the only
    matches `git log -S` finds are the CSS rule itself, from back when the
    styles lived inside the HTML. It was restyled twice by people who assumed
    it showed up on the page. check-classes.py now reports it; it used to skip
-   every class starting with `badge-`. If an annotation badge is ever wanted,
-   the teal colour group is free, and tokens.css has the value it would need. */
+   every class starting with `badge-`. The two families it might have had
+   are spent: olive (6) on the Ingress badge and teal (5) on the
+   controller-flag badge; yellow (11) is what is left. */
 /* The one neutral, and production agrees — GlobalConfiguration is grey there,
    at zero saturation, so it is the only badge with no nearest graph family.
    It is also the right one to leave uncoloured: GlobalConfiguration is
@@ -577,7 +592,7 @@ pre code { background: none; border: 0; padding: 0; color: inherit; }
        rather than a bug. Clearance goes here rather than on `.controls`,
        because the negative margin is what keeps the bar flush with the fixed
        header once it sticks. */
-    .main-inner section > p:has(+ .controls) { margin-bottom: var(--space-2x); }
+    .main-inner section > :is(p, ul):has(+ .controls) { margin-bottom: var(--space-2x); }
     /* Everything below the sticky bar needs to clear the bar as well as the
        fixed header, and html's scroll-padding covers only the header. The
        headings keep their old landing spot (header + 80px); every other

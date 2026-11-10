@@ -61,13 +61,15 @@ function format(model, out, opts) {
     const docs = JSON.parse(JSON.stringify(out.docs));
     const notes = [];
     for (const n of out.notes) {
+        // ingress-nginx notes carry `annotation`, HAProxy's `name`.
+        const name = n.annotation || n.name;
         const v = model.doc.metadata && model.doc.metadata.annotations
-            ? model.doc.metadata.annotations['nginx.ingress.kubernetes.io/' + n.annotation] : undefined;
+            ? model.doc.metadata.annotations['nginx.ingress.kubernetes.io/' + name] : undefined;
         // A change the reader can run comes with its command, as on the page.
-        notes.push((v !== undefined ? n.annotation + ': ' + v + ' — ' : '') + n.message + (n.command ? '\n\n' + n.command : ''));
+        notes.push((v !== undefined ? name + ': ' + v + ' — ' : (n.name ? name + ' — ' : '')) + n.message + (n.command ? '\n\n' + n.command : ''));
     }
     for (const t of out.todos) notes.push('unresolved placeholder at ' + t.path + ' — ' + t.message);
-    for (const e of out.unsupported) notes.push(e.found.map((x) => x.annotation).join(', ') + ' — ' + e.mapping.nic);
+    for (const e of out.unsupported) notes.push((e.found ? e.found.map((x) => x.annotation) : e.names).join(', ') + ' — ' + e.mapping.nic);
     if (out.unrecognized.length) notes.push('not in the mapping database: ' + out.unrecognized.join(', '));
     if (strategy === 'crd' && docs.some((d) => /snippets/.test(JSON.stringify(d.spec || {}))) ||
         docs.some((d) => d.metadata && d.metadata.annotations && /snippets/.test(Object.keys(d.metadata.annotations).join(',')))) {
@@ -97,10 +99,33 @@ function convert(model, engine, opts) {
    Ingress folds into the VirtualServer of its stable one (same namespace,
    host and path) instead of claiming the host a second time. Each result
    carries `mergedInto` (the index it joined) or null. */
-function convertAll(models, engine, opts) {
+function convertAll(models, engine, opts, runDocs) {
     const strategy = opts.strategy || (opts.target === 'ingress' ? 'annotation' : 'crd');
-    const outs = engine.migrateMany(models.map((m) => m.doc), strategy, planOptions(opts));
-    return outs.map((o, i) => Object.assign(format(models[i], o.out, opts), { mergedInto: o.mergedInto }));
+    const outs = engine.migrateMany(models.map((m) => m.doc), strategy, planOptions(opts), runDocs);
+    const results = outs.map((o, i) => Object.assign(format(models[i], o.out, opts), { mergedInto: o.mergedInto, mergeNote: o.mergeNote || null }));
+    // A source that resolves settings across the run (HAProxy) also returns
+    // what belongs to the controller: ConfigMap keys, a GlobalConfiguration
+    // and TransportServers. Its keys join the merge document; its resources
+    // are one more output, so nothing global is written once per Ingress.
+    results.controller = outs.controller ? controllerResult(outs.controller, outs[0] ? outs[0].out.warnings : []) : null;
+    return results;
+}
+
+/* The controller pass as a convert result. */
+function controllerResult(g, warnings) {
+    const notes = g.notes.map((n) => n.name + ' — ' + n.message);
+    for (const t of g.todos) notes.push('unresolved placeholder at ' + t.path + ' — ' + t.message);
+    for (const e of g.unsupported) notes.push(e.names.join(', ') + ' — ' + e.mapping.nic);
+    if ((g.unrecognised || []).length) notes.push('not in the mapping database: ' + g.unrecognised.map((u) => u.name).join(', '));
+    return {
+        docs: JSON.parse(JSON.stringify(g.docs)),
+        warnings: warnings || [],
+        notes: [...new Set(notes)],
+        configMap: Object.keys(g.cmData).length ? { data: g.cmData, comments: g.cmComments } : null,
+        httpSnippets: null,
+        policies: 0,
+        mergedInto: null
+    };
 }
 
 /* The ConfigMap keys a run needs, merged across Ingresses. It is global, so it

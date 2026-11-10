@@ -60,7 +60,7 @@ The badges use **Graph Colors** instead: a shade/tint pair per family, the shade
 
 **Which family each badge gets is not an aesthetic choice.** Production already ships a badge identity for each of these and readers know them, so the assignment is a translation: take the production hue, give the badge the graph family nearest it on the hue circle. Production lands within 5° of a family for five of the eight. `tokens.css` carries the full hue table, the CIEDE2000 collision analysis behind ConfigMap taking family 2's *inner* tint, and the reasoning for GlobalConfiguration being the neutral: production gives it saturation 0.00, so there is no hue to match.
 
-Teal (family 5) is deliberately unspent rather than unusable: production styles a teal `.badge-annotation` that renders nowhere, so the family is reserved in case that badge is ever wanted. If it is, note that it needs a derived label (see the derivation rule above).
+Olive (family 6) carries `.badge-ingress`, the one badge naming a resource the reader already has rather than one to author. It needs no derived label (published Green Leaf `#4F6E22` clears 4.69:1 on Gossip `#D1F1A2`), and its nearest neighbour, the New badge, sits at CIEDE2000 10.4, the separation Plus and GlobalConfiguration already ship at. Teal (family 5) was tried first and rejected: its tints read as a third blue beside VirtualServer and VirtualServerRoute, and its published shade needs deepening to pass. Teal and yellow (11) are what remain unspent; production styles a teal `.badge-annotation` that has never rendered, so teal stays the natural pick if that badge is ever wanted.
 
 ## F5DS publishes no accessibility guidance, and three of its pairings fail AA
 
@@ -187,4 +187,4 @@ Say so when touching these. F5DS does not specify them: table cell padding (ther
 
 An automated design-system scanner is **not** a sufficient gate either. Scanners generally cannot resolve `var()`, so a correct `var(--space-2x)` is invisible to them while a literal `16px` counts as on-token: a site that uses tokens properly scores *worse*. Read `tokens.css` instead.
 
-`tokens.css` is 32KB, so read it whole only when you need the reasoning in its comments. To find a value, `python3 .github/scripts/where.py --list <needle>` prints matching tokens with their light and dark values (`-s` adds the measured-ratio comments), and `where.py --<token-name>` gives one token's definition, its dark override and every file that uses it.
+`tokens.css` is 34KB, so read it whole only when you need the reasoning in its comments. To find a value, `python3 .github/scripts/where.py --list <needle>` prints matching tokens with their light and dark values (`-s` adds the measured-ratio comments), and `where.py --<token-name>` gives one token's definition, its dark override and every file that uses it.

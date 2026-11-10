@@ -6,12 +6,13 @@
         'use strict';
 
         /* ── Constants ── */
-        let PRODUCTS = ['home', 'nginx-ingress-controller', 'nginx-gateway-fabric', 'migration-tool', 'ingress2gateway', 'gateway-lens'];
+        let PRODUCTS = ['home', 'nginx-ingress-controller', 'nginx-gateway-fabric', 'migration-tool', 'haproxy-migration-tool', 'ingress2gateway', 'gateway-lens'];
         let PAGE_NAMES = {
             'home': 'Home',
             'nginx-ingress-controller': 'NGINX Ingress Controller',
             'nginx-gateway-fabric': 'NGINX Gateway Fabric',
             'migration-tool': 'NGINX Ingress Migration Tool',
+            'haproxy-migration-tool': 'HAProxy Migration Tool',
             'ingress2gateway': 'ingress2gateway',
             'gateway-lens': 'Gateway Lens'
         };

@@ -39,15 +39,28 @@ from html.parser import HTMLParser
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-PAGES = ['index.html', 'ingress-nginx-migration.html']
+MIGRATION = 'ingress-nginx-migration.html'
+SOURCE = 'assets/js/migration-ingress-nginx.js'
+# Every migration tool: its page, its source module, and which example kinds
+# its analyzer takes (ingress-nginx reads Ingresses; HAProxy also reads
+# Services, its ConfigMap and its CRs). Preview branches add a row here; main
+# ships the first. Every lookup below covers each tool present on the branch.
+TOOLS = [
+    {'page': MIGRATION, 'module': SOURCE, 'inputs': r'^kind: Ingress\b'},
+    {'page': 'haproxy-migration.html', 'module': 'assets/js/migration-haproxy.js',
+     'inputs': r'^kind: (Ingress|Service|ConfigMap|Global|Defaults|Backend|Frontend|TCP)\b',
+     'complete': lambda old, new, strategy: complete_haproxy(old, new, strategy)},
+]
+TOOLS = [t for t in TOOLS if os.path.exists(os.path.join(ROOT, t['page']))]
+
+PAGES = ['index.html'] + [t['page'] for t in TOOLS]
 CSS = ['assets/css/tokens.css', 'assets/css/shared.css',
        'assets/css/index.css', 'assets/css/migration.css']
-JS = ['assets/js/shared.js', 'assets/js/index.js', 'assets/js/migration-core.js',
-      'assets/js/migration-ingress-nginx.js']
+JS = ['assets/js/shared.js', 'assets/js/index.js', 'assets/js/migration-core.js'] \
+    + [t['module'] for t in TOOLS]
 
-# Source modules define ANNOTATION_MAPPINGS; the core deliberately does not.
-SOURCES = [p for p in JS if p.startswith('assets/js/migration-')
-           and not p.endswith('migration-core.js')]
+# Source modules define the mappings; the core deliberately does not.
+SOURCES = [t['module'] for t in TOOLS]
 
 
 _CACHE = {}
@@ -344,14 +357,16 @@ def reference_rows(rel='ingress-nginx-migration.html'):
     return rows
 
 
-def find_rows(name, rel='ingress-nginx-migration.html'):
+def find_rows(name, rel=None):
     """Reference rows whose collapsed cells name `name` in a <code> span.
 
     Whole-name equality after stripping prefix and value, so `auth-secret`
     never matches `auth-secret-type`, and a ConfigMap key or a NIC-only
     construct on a "No direct equivalent" row is found the same way as an
-    annotation.
+    annotation. Every tool's page unless `rel` names one.
     """
+    if rel is None:
+        return [h for t in TOOLS for h in find_rows(name, t['page'])]
     bare = name.split('/')[-1].strip()
     hits = []
 
@@ -373,19 +388,27 @@ def find_rows(name, rel='ingress-nginx-migration.html'):
 
 def find_annotation(name):
     bare = name.split('/')[-1].strip()
-    hits, generators = [], set()
+    hits = []
 
     for rel in SOURCES:
         lines = read(rel)
+        generators = set()
         for i, line in enumerate(lines):
+            # ingress-nginx lists `community: ["name"]` with a `templateFn`;
+            # HAProxy lists `keys: ['annotation:name', 'configmap:name']`
+            # with a `generator`, a TRANSLATORS member.
             m = re.search(r'community:\s*\[([^\]]*)\]', line)
-            if not m or bare not in re.findall(r'"([^"]+)"', m.group(1)):
+            names = re.findall(r'"([^"]+)"', m.group(1)) if m else []
+            k = re.search(r'\bkeys:\s*\[([^\]]*)\]', line)
+            if k:
+                names = [n.split(':', 1)[-1] for n in re.findall(r"'([^']+)'", k.group(1))]
+            if bare not in names:
                 continue
             end = brace_extent(lines, i)
             block = '\n'.join(lines[i:end + 1])
-            cat = re.search(r'category:\s*"([^"]+)"', block)
+            cat = re.search(r'''category:\s*["']([^"']+)["']''', block)
             hits.append(Hit('mapping', rel, i, end, cat.group(1) if cat else ''))
-            generators.update(re.findall(r'templateFn:\s*"([^"]+)"', block))
+            generators.update(re.findall(r'''(?:templateFn|generator):\s*["']([^"']+)["']''', block))
 
         # Generators are object-literal members (`generateFoo: function(found) {`),
         # not declarations — matching only `function foo(` finds nothing at all,
@@ -558,8 +581,10 @@ def find_function(name):
 # went stale within weeks, while the page and the analyzer kept changing under
 # them. So the docs no longer quote them; this computes them on demand.
 
-MIGRATION = 'ingress-nginx-migration.html'
-SOURCE = 'assets/js/migration-ingress-nginx.js'
+def tool_for(page_rel):
+    return next(t for t in TOOLS if t['page'] == page_rel)
+
+
 FONT = 'assets/fonts/InterVariable-subset.woff2'
 
 
@@ -730,7 +755,7 @@ process.stdout.write(JSON.stringify(out));
 # Which analyzer strategy a tab demonstrates. CRD-first replaces the Ingress
 # with a VirtualServer; annotation-first keeps the Ingress, so a Policy that
 # attaches through nginx.org/policies (`ingress-policy`) is annotation-first.
-TAB_STRATEGY = {'crd': 'crd', 'annotation': 'annotation', 'policy': 'annotation',
+TAB_STRATEGY = {'crd': 'crd', 'annotation': 'annotation', 'ingress': 'annotation', 'policy': 'annotation',
                 'ingress-policy': 'annotation', 'vs-policy': 'crd', 'crd-headers': 'crd'}
 
 
@@ -785,6 +810,66 @@ def with_spec(ingress_yaml):
     return ingress_yaml.rstrip('\n') + '\n' + ROW_SPEC
 
 
+# A row whose paste the analyzer cannot route on its own makes it emit nothing,
+# and a match would compare nothing: 52 of the HAProxy page's 138 comparisons
+# did. Each tool's completer adds what the NGINX side implies the reader also
+# had, so the example is held to real output. A row that answers with no
+# resource at all (a Frontend CR) is listed in ALTERNATIVE_TABS instead.
+def scaffold_name(new, kind, default):
+    m = re.search(r'^kind: %s\s*\nmetadata:\s*\n(?:\s+[\w-]+:.*\n)*?\s+name:\s*(\S+)' % kind, new + '\n', re.M)
+    return m.group(1) if m else default
+
+
+def backend_service(new):
+    """The Service the NGINX side routes to: its upstream or backend."""
+    m = re.search(r'^\s+service:\s*([a-z0-9][-a-z0-9]*)\s*(?:#.*)?$', new, re.M) or \
+        re.search(r'^\s+service:\s*\n\s+name:\s*([a-z0-9][-a-z0-9]*)', new, re.M)
+    return m.group(1) if m else 'backend-svc'
+
+
+def haproxy_ingress(service, annotations='', tls=False):
+    return ('apiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: my-app\n'
+            + ('  annotations:\n' + annotations if annotations else '')
+            + 'spec:\n'
+            + ('  tls:\n    - hosts:\n        - app.example.com\n      secretName: app-tls\n' if tls else '')
+            + '  rules:\n    - host: app.example.com\n      http:\n        paths:\n'
+              '          - path: /\n            pathType: Prefix\n            backend:\n'
+              '              service:\n                name: %s\n                port:\n'
+              '                  number: 80\n' % service)
+
+
+def complete_haproxy(old, new, strategy):
+    """An Ingress for a paste without one: HAProxy applied a Service's
+    annotations, a cr-backend Backend and the ConfigMap's per-backend keys to
+    the Ingresses routing to them. Global and Defaults CRs also need the
+    controller ConfigMap's cr-global / cr-defaults pointer."""
+    if re.search(r'^kind: Ingress\b', old, re.M):
+        return with_spec(old)
+    kinds = re.findall(r'^kind: (\w+)', old, re.M)
+    extra = []
+    svc = backend_service(new)
+    svcs = re.findall(r'^kind: Service\s*\nmetadata:\s*\n(?:\s+[\w-]+:.*\n)*?\s+name:\s*(\S+)', old + '\n', re.M)
+    if svcs:
+        svc = svcs[0]
+    ann = ''
+    for kind in ('Global', 'Defaults'):
+        if kind in kinds and 'ConfigMap' not in kinds:
+            name = scaffold_name(old, kind, kind.lower())
+            ns = re.search(r'^kind: %s\s*\nmetadata:\s*\n(?:\s+[\w-]+:.*\n)*?\s+namespace:\s*(\S+)' % kind, old + '\n', re.M)
+            extra.append('apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: haproxy-kubernetes-ingress\ndata:\n'
+                         '  cr-%s: "%s"\n' % (kind.lower(), (ns.group(1) + '/' if ns else '') + name))
+    if 'Backend' in kinds:
+        name = scaffold_name(old, 'Backend', 'backend')
+        ns = re.search(r'^kind: Backend\s*\nmetadata:\s*\n(?:\s+[\w-]+:.*\n)*?\s+namespace:\s*(\S+)', old + '\n', re.M)
+        ann = '    haproxy.org/cr-backend: "%s"\n' % ((ns.group(1) + '/' if ns else '') + name)
+    # Client certificates are asked for on HTTPS only (HAProxy's client-ca
+    # binds to the https frontend): give the Ingress TLS when the row is one.
+    tls = bool(re.search(r'^\s+(client-ca|client-crt-optional):', old, re.M))
+    if set(kinds) & {'Service', 'Backend', 'ConfigMap'} or extra:
+        extra.append(haproxy_ingress(svc, ann, tls))
+    return old.rstrip('\n') + ''.join('\n---\n' + e for e in extra) if extra else old
+
+
 def normalise(text, ingress_name='my-app'):
     """The comparable content of a manifest: no comments, no blank lines, no
     step headers, and scaffold values (host, service, names) made generic so a
@@ -803,8 +888,17 @@ def normalise(text, ingress_name='my-app'):
         m = SCAFFOLD.match(line)
         if m:
             line = '%s: <%s>' % (m.group(1), m.group(1).strip(' -'))
-        # `"/$2"` and `/$2` are the same scalar.
+        # `"/$2"` and `/$2` are the same scalar, as a value or a list item.
         line = re.sub(r'''^(\s*(?:-\s+)?[\w./-]+:\s+)(["'])(.*)\2$''', r'\1\3', line)
+        line = re.sub(r'''^(\s*-\s+)(["'])(.*)\2$''', r'\1\3', line)
+        # `key: [a, b]` is the block list `key:` / `- a` / `- b`.
+        flow = re.match(r'^(\s*)((?:-\s+)?[\w./-]+):\s+\[([^\[\]{}]*)\]$', line)
+        if flow:
+            pad = flow.group(1) + ('  ' if flow.group(2).startswith('-') else '')
+            lines.append(flow.group(1) + flow.group(2) + ':')
+            lines.extend('%s  - %s' % (pad, re.sub(r'''^(["'])(.*)\1$''', r'\2', v.strip()))
+                         for v in flow.group(3).split(',') if v.strip())
+            continue
         lines.append(line)
     if lines and lines[0] == 'annotations:':
         lines = ['apiVersion: networking.k8s.io/v1', 'kind: Ingress', 'metadata:',
@@ -854,12 +948,12 @@ def sort_siblings(lines):
     return out
 
 
-def run_analyzer(cases):
+def run_analyzer(cases, module=SOURCE):
     """Run [(yaml, strategy)] through .github/test/lib/load.js in one node."""
     node = shutil.which('node')
     if not node:
         return None, 'node is not on PATH — --diff did not run'
-    payload = json.dumps({'module': SOURCE,
+    payload = json.dumps({'module': module,
                           'cases': [{'yaml': y, 'strategy': s} for y, s in cases]})
     loader = os.path.join(ROOT, '.github/test/lib/load.js')
     try:
@@ -873,37 +967,56 @@ def run_analyzer(cases):
 
 
 def diff_annotation(name):
-    """[(row, tab, strategy, diff_lines, warnings)] and an error string."""
+    """[(page, row, tab, strategy, diff_lines, extra, warnings)] and an error string."""
     bare = name.split('/')[-1]
-    results, err = diff_rows([r for r in reference_rows() if bare in r['left']])
-    if not results and not err:
-        return [], 'no reference row shows an Ingress for %r to analyze' % bare
-    return results, err
+    out, errs = [], []
+    for t in TOOLS:
+        if not read(t['page']):
+            continue
+        results, err = diff_rows([r for r in reference_rows(t['page']) if bare in r['left']], t['page'])
+        out += results
+        if err:
+            errs.append(err)
+    if not out and not errs:
+        return [], 'no reference row shows an example for %r to analyze' % bare
+    return out, '; '.join(errs)
 
 
-def diff_rows(rows):
+def diff_rows(rows, page_rel=MIGRATION):
     """Every tab of `rows` against the analyzer, in one node process."""
+    tool = tool_for(page_rel)
     plan, cases = [], []
     for row in rows:
-        for tab, old, new in panels(row):
-            if 'kind: Ingress' not in old:
-                continue                          # a ConfigMap row: not analyzer input
+        for tab, old, new in panels(row, page_rel):
+            if not re.search(tool['inputs'], old, re.M):
+                continue                          # nothing the analyzer reads
+            if not re.search(r'^\s*[^#\s]', new, re.M):
+                continue                          # an explainer: "# No standalone equivalent"
+
             strategy = TAB_STRATEGY.get(tab, 'crd')
             plan.append((row, tab or '(single)', strategy, new))
-            cases.append((with_spec(old), strategy))
+            cases.append((tool['complete'](old, new, strategy) if tool.get('complete') else
+                          (with_spec(old) if 'kind: Ingress' in old else old), strategy))
     if not cases:
         return [], ''
-    results, err = run_analyzer(cases)
+    results, err = run_analyzer(cases, tool['module'])
     if results is None:
         return [], err
     out = []
     for (row, tab, strategy, new), res in zip(plan, results):
         if res['error']:
-            out.append((row, tab, strategy, ['+ERROR: ' + res['error']], [], res['warnings']))
+            out.append((page_rel, row, tab, strategy, ['+ERROR: ' + res['error']], [], res['warnings']))
             continue
+        if not re.search(r'^kind:', res['text'], re.M):
+            EMPTY_OUTPUT.add((page_rel, row['start'], tab))
         delta, extra = compare_documents(normalise(new), normalise(res['text']), tab, strategy)
-        out.append((row, tab, strategy, delta, extra, res['warnings']))
+        out.append((page_rel, row, tab, strategy, delta, extra, res['warnings']))
     return out, ''
+
+
+# (page, row start, tab) of every compared tab whose analyzer output held no
+# resource, filled by diff_rows: such a tab compares nothing, and passes.
+EMPTY_OUTPUT = set()
 
 
 def documents(lines):
@@ -969,11 +1082,11 @@ def print_diff(name):
         return 1
     drift = 0
     print()
-    for row, tab, strategy, delta, extra, warnings in results:
+    for page_rel, row, tab, strategy, delta, extra, warnings in results:
         state = 'matches' if not delta else 'DIFFERS'
         drift += bool(delta) or bool(warnings)
         print('  %-7s  %s:%d  #%s  tab %-15s strategy %s%s' % (
-            state, MIGRATION, row['start'] + 1, row['heading'] or row['section'], tab, strategy,
+            state, page_rel, row['start'] + 1, row['heading'] or row['section'], tab, strategy,
             ('   (page also shows: %s)' % ', '.join(extra)) if extra else ''))
         for w in warnings:
             print('           WARNING from the analyzer: %s' % w[:160])
@@ -1035,6 +1148,16 @@ SELF_TEST = [
     ('filterTable',           {'function'}),
     ('ANNOTATION_MAPPINGS',   {'binding'}),
 ]
+# A second tool's schema (`keys:` and a TRANSLATORS `generator`) and its page:
+# before these, every HAProxy name was NOT FOUND and #traffic-splitting
+# resolved to an id-less index.html heading.
+if any(t['page'] == 'haproxy-migration.html' for t in TOOLS):
+    SELF_TEST += [
+        ('route-acl',             {'mapping', 'generator', 'reference row'}),
+        ('cookie-persistence',    {'mapping', 'generator', 'reference row'}),
+        ('#traffic-splitting',    {'h3'}),
+        ('routeRewrite',          {'function'}),
+    ]
 
 
 def query_kinds(query):
@@ -1103,10 +1226,12 @@ def resolver_failures():
     # Every reference row resolves by every name in its collapsed cells, and
     # the row the resolver returns is that row.
     unfound = []
-    for row in reference_rows():
-        for name in (row['left'] or row['right'])[:1]:
-            if not any(h.start == row['start'] + 1 for h in find_rows(name)):
-                unfound.append('%s@%d' % (name, row['start'] + 1))
+    for t in TOOLS:
+        for row in reference_rows(t['page']):
+            for name in (row['left'] or row['right'])[:1]:
+                if not any(h.rel == t['page'] and h.start == row['start'] + 1
+                           for h in find_rows(name)):
+                    unfound.append('%s@%s:%d' % (name, t['page'], row['start'] + 1))
     if unfound:
         failures.append('%d reference row(s) unfindable by their own code name: %s'
                         % (len(unfound), ', '.join(unfound[:5])))
@@ -1368,7 +1493,7 @@ def command_failures():
     results, err = diff_annotation('proxy-body-size')
     if err or not results:
         failures.append('--diff proxy-body-size did not run: %s' % (err or 'no tabs'))
-    elif any(r[3] for r in results):
+    elif any(r[4] for r in results):
         failures.append('--diff proxy-body-size reports drift on a row that matches')
     row = [r for r in reference_rows() if 'proxy-body-size' in r['left']][0]
     tab, old, new = [p for p in panels(row) if p[0] == 'crd'][0]
@@ -1392,6 +1517,8 @@ def command_failures():
 # annotation, because #oidc-authentication lists the external-auth annotations
 # whose own row must still match. An entry that stops differing fails too, so
 # the list cannot outlive its reason.
+# Keyed (heading, tab) for the ingress-nginx page; (page, heading, tab) for
+# any other, so the main page's entries keep their form.
 ALTERNATIVE_TABS = {
     ('error-handling', 'crd'): 'VirtualServer errorPages, what a VirtualServer can do instead: CRD-first keeps this '
                              'Ingress an Ingress (custom-http-errors has no CRD form); --target virtualserver emits it',
@@ -1404,7 +1531,33 @@ ALTERNATIVE_TABS = {
     ('configuration-snippets', 'transportserver'): 'stream-snippet as a GlobalConfiguration listener and '
                              'TransportServer: the long-term form, read from the snippet by hand; the analyzer '
                              'moves the snippet to the stream-snippets key',
-}
+    # HAProxy page: a tab that answers with something the analyzer must not
+    # choose for the reader.
+    ('haproxy-migration.html', 'configuration-snippets', 'configmap'): 'the global location-snippets key, which '
+                             'applies to every location; the analyzer keeps a backend-config-snippet on its own Ingress',
+    ('haproxy-migration.html', 'crd-backend', '(single)#acl_list'): 'Backend CR rules re-expressed by hand as a '
+                             'VirtualServer route; ACLs and switching rules do not carry over as data, and the analyzer says so',
+    ('haproxy-migration.html', 'controller-flags', '(single)#--configmap-errorfiles'): 'the errorfiles ConfigMap '
+                             'translated by hand: the flag that names it is a Deployment argument, which no paste carries',
+    ('haproxy-migration.html', 'static-timeouts', '(single)#timeout-queue'): 'the NGINX Plus upstreams[].queue, which needs a '
+                             'size HAProxy never set (its queue is unbounded); the analyzer notes it under pod-maxconn',
+    ('haproxy-migration.html', 'rate-limiting', '(single)'): 'rate-limit-whitelist as a hand-written geo/map key '
+                             'beside the rate-limit Policy; NGINX Ingress Controller has no exemption field',
+} | {('haproxy-migration.html', 'enterprise', '(single)#' + k): 'HAProxy Enterprise ' + k + ' arrives as raw configuration '
+                             'in a snippet key; the tab shows the NGINX Plus product that replaces it, which the analyzer '
+                             'cannot read from the snippet (it converts the snippet key itself, with a TODO per line)'
+     for k in ['Global Profiling Engine', 'Global Rate Limiting', 'Intelligent WAF', 'UDP']}
+
+
+# A tab whose analyzer output holds no resource compares nothing, so it passes
+# whatever the page shows; that is drift the sweep could not see (52 HAProxy
+# tabs did, before each tool's completer). One listed here answers, correctly,
+# with no resource: flags and notes only. Keyed as ALTERNATIVE_TABS; an entry
+# whose tab starts producing output fails, so the list cannot outlive its reason.
+NO_RESOURCE_TABS = {('haproxy-migration.html', 'crd-frontend', t): 'a Frontend CR becomes listener flags, '
+                    'GlobalConfiguration listeners and ConfigMap keys the reader sets, which the analyzer names in notes'
+                    for t in ['crd#binds', 'annotation#binds', '(single)#ssl', '(single)#accept_proxy', '(single)#httplog',
+                              '(single)#http_request_rule_list', '(single)#disable_h2_upgrade']}
 
 
 def mapping_keys():
@@ -1442,13 +1595,29 @@ def reference_row_failures():
             if bare not in shown:
                 failures.append('%s maps to %s, which no row for it names in its NIC cell (%s:%d)'
                                 % (k['community'], key, MIGRATION, rows[0]['start'] + 1))
-    results, err = diff_rows(reference_rows())
-    if err:
-        return failures + ['the reference rows did not run through the analyzer: %s' % err]
-    differing = set()
-    for row, tab, strategy, delta, extra, warnings in results:
-        key = (row['heading'] or row['section'], tab)
-        where = '%s:%d #%s tab %s' % (MIGRATION, row['start'] + 1, key[0], tab)
+    results = []
+    for t in TOOLS:
+        if not read(t['page']):
+            continue
+        res, err = diff_rows(reference_rows(t['page']), t['page'])
+        if err:
+            return failures + ['the reference rows of %s did not run through the analyzer: %s' % (t['page'], err)]
+        results += res
+    differing, empty = set(), set()
+    for page_rel, row, tab, strategy, delta, extra, warnings in results:
+        key = (row['heading'] or row['section'], tab) if page_rel == MIGRATION else (page_rel, row['heading'] or row['section'], tab)
+        if key not in ALTERNATIVE_TABS and row['left']:
+            named = key[:-1] + (tab + '#' + row['left'][0],)
+            if named in ALTERNATIVE_TABS:
+                key = named
+        where = '%s:%d #%s tab %s' % (page_rel, row['start'] + 1, row['heading'] or row['section'], tab)
+        if (page_rel, row['start'], tab) in EMPTY_OUTPUT:
+            nkey = (page_rel, row['heading'] or row['section'], tab + ('#' + row['left'][0] if row['left'] else ''))
+            empty.add(nkey)
+            if nkey not in NO_RESOURCE_TABS:
+                failures.append('%s: the analyzer emits no resource for this tab, so it compares nothing; complete '
+                                'its paste (the tool\'s completer) or list it in NO_RESOURCE_TABS with the reason' % where)
+            continue
         for w in warnings:
             failures.append('%s: the analyzer warned: %s' % (where, w[:160]))
         if not delta:
@@ -1458,10 +1627,14 @@ def reference_row_failures():
             failures.append('%s differs from the analyzer (%s); first line: %s'
                             % (where, 'where.py --diff ' + row['left'][0] if row['left']
                                else 'its left cell names no annotation: see the row', delta[0].strip()))
+    for key, why in sorted(NO_RESOURCE_TABS.items()):
+        if key not in empty:
+            failures.append('NO_RESOURCE_TABS lists %s, which emits a resource now or names no tab: remove the entry (%s)'
+                            % (' '.join(key), why))
     for key, why in sorted(ALTERNATIVE_TABS.items()):
         if key not in differing:
-            failures.append('ALTERNATIVE_TABS lists #%s tab %s, which now matches the '
-                            'analyzer: remove the entry (%s)' % (key[0], key[1], why))
+            failures.append('ALTERNATIVE_TABS lists %s, which now matches the '
+                            'analyzer: remove the entry (%s)' % (' '.join(key), why))
     return failures
 
 

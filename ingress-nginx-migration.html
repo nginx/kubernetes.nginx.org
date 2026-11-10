@@ -212,7 +212,7 @@
                 <li><strong>NGINX Ingress Controller</strong> is <strong>CRD-native</strong>: it uses Custom Resource Definitions (VirtualServer, Policy, TransportServer) as its primary config model, providing structured, schema-validated YAML with IDE autocompletion.</li>
             </ul>
 
-            <p style="margin-top: var(--space-3x);">While NGINX Ingress Controller still supports annotations for common settings, CRDs unlock capabilities that annotations cannot express:</p>
+            <p>While NGINX Ingress Controller still supports annotations for common settings, CRDs unlock capabilities that annotations cannot express:</p>
             <ul class="doc-list">
                 <li><strong>Schema validation</strong>: Kubernetes validates CRD fields at apply time, catching misconfigurations before they reach NGINX</li>
                 <li><strong>Structured configuration</strong>: nested YAML objects replace long annotation strings, making complex routing, traffic splitting, and security policies readable and maintainable</li>
@@ -517,10 +517,22 @@ spec:
                     <button class="approach-tab" data-action="switchApproach" data-approach="v5-5-0">v5.5.0</button>
                     <button class="approach-tab" data-action="switchApproach" data-approach="v5-4-0">v5.4.0</button>
                 </div>
-                <div class="approach-content active" data-approach="v5-7-0"><strong>Fewer snippets, and the Secrets you already have:</strong> <code>proxy-http-version</code> maps to <code>nginx.org/proxy-http-version</code> or a VirtualServer upstream's <code>proxy-http-version</code> instead of a snippet, and HTTP/2 to upstreams joins it. gRPC turns HTTP/2 on per host with <code>nginx.org/http2</code> or <code>spec.http2</code>, with or without TLS. <code>opentelemetry-trust-incoming-span</code> maps to the <code>otel-trace-context</code> ConfigMap key, and the community's <code>ewma</code> load balancing to <code>least_time last_byte</code>, now on NGINX Open Source. An <code>Opaque</code> Secret works wherever a CA, TLS, or htpasswd Secret did, so the community controller's Secrets can be used as they are; basic auth still needs its key renamed from <code>auth</code> to <code>htpasswd</code>. The <code>use-forwarded-headers</code> ConfigMap key keeps the forwarded headers a proxy in front has set. cert-manager HTTP-01 challenges pass the HTTPS redirect and authentication, as the community controller's defaults let them, and <code>-enable-topology-aware-routing</code> arrives with the community flag's name.</div>
-                <div class="approach-content" data-approach="v5-6-0"><strong>Custom error pages and upstream Host on Ingress:</strong> Two community annotations now have direct Ingress equivalents: <code>nginx.org/custom-http-errors</code> serves intercepted errors from the Ingress's <code>spec.defaultBackend</code>, and <code>nginx.org/upstream-vhost</code> sets the <code>Host</code> header sent upstream. A new <code>hsts</code> Policy CRD sets HSTS on a VirtualServer, including <code>preload</code> on request. With NGINX Plus, the new <code>oidcNative</code> Policy runs OpenID Connect in the built-in module and attaches to Ingress through <code>nginx.com/policies</code>.</div>
-                <div class="approach-content" data-approach="v5-5-0"><strong>ExternalAuth Policy and expanded Policy CRDs on Ingress:</strong> A new <code>externalAuth</code> Policy CRD replaces the community's generic <code>auth_request</code> annotations (<code>auth-url</code>, <code>auth-signin</code>, <code>auth-snippet</code>), the headline migration win of this release. The <code>ingressMTLS</code>, <code>egressMTLS</code>, and <code>waf</code> (Plus, via <code>nginx.com/policies</code>) Policy CRDs can now also be attached directly to Ingress resources. New direct annotation mappings arrived for <code>proxy-redirect-from</code>/<code>proxy-redirect-to</code>, alongside a new inline <code>nginx.org/add-header</code> (plus <code>nginx.org/add-header-inherit</code>) for response header injection.</div>
-                <div class="approach-content" data-approach="v5-4-0"><strong>Policy CRDs on Ingress objects:</strong> Policy CRDs (e.g. <code>accessControl</code>, <code>cors</code>) can now be referenced directly from Ingress resources using the <code>nginx.org/policies</code> annotation, with no VirtualServer required. This is the recommended migration path for features that support it. Look for the <strong>(Recommended)</strong> tab in the mapping examples.</div>
+                <div class="approach-content active" data-approach="v5-7-0">
+                    <p><strong>In NGINX Ingress Controller:</strong> <code>nginx.org/proxy-http-version</code> and a VirtualServer upstream's <code>proxy-http-version</code> set the HTTP version spoken to the backend, HTTP/2 included, where a snippet was needed before. <code>nginx.org/http2</code> or <code>spec.http2</code> turns HTTP/2 on per host. An <code>Opaque</code> Secret works wherever a CA, TLS, or htpasswd Secret did. The <code>otel-trace-context</code> ConfigMap key can continue an incoming trace, and the <code>use-forwarded-headers</code> key keeps the forwarded headers a proxy in front has set. <code>least_time last_byte</code> load balancing is now on NGINX Open Source. cert-manager HTTP-01 challenges pass the HTTPS redirect and authentication, and <code>-enable-topology-aware-routing</code> sends traffic to the endpoints in the controller pod's own zone when the Service asks for it.</p>
+                    <p><strong>For Ingress-NGINX users:</strong> <code>nginx.ingress.kubernetes.io/proxy-http-version</code> maps to these with no snippet, and a gRPC backend gets HTTP/2 per host, with or without TLS. <code>nginx.ingress.kubernetes.io/opentelemetry-trust-incoming-span</code> maps to the <code>otel-trace-context</code> ConfigMap key, and <code>nginx.ingress.kubernetes.io/load-balance: ewma</code> to <code>least_time last_byte</code>. The community controller's Secrets can be used as they are, though basic auth still needs its key renamed from <code>auth</code> to <code>htpasswd</code>. The <code>use-forwarded-headers</code> ConfigMap key keeps its name, cert-manager HTTP-01 challenges pass as the community controller's defaults let them, and <code>-enable-topology-aware-routing</code> arrives with the community flag's name.</p>
+                </div>
+                <div class="approach-content" data-approach="v5-6-0">
+                    <p><strong>In NGINX Ingress Controller:</strong> <code>nginx.org/custom-http-errors</code> serves intercepted errors from the Ingress's <code>spec.defaultBackend</code>, and <code>nginx.org/upstream-vhost</code> sets the <code>Host</code> header sent upstream. The <code>disable-forwarded-headers</code> ConfigMap key stops the <code>X-Forwarded-*</code> headers. A new <code>hsts</code> Policy CRD sets HSTS on a VirtualServer, including <code>preload</code> on request. With NGINX Plus, the new <code>oidcNative</code> Policy runs OpenID Connect in the built-in module and attaches to an Ingress through <code>nginx.com/policies</code>.</p>
+                    <p><strong>For Ingress-NGINX users:</strong> <code>nginx.ingress.kubernetes.io/custom-http-errors</code> and <code>nginx.ingress.kubernetes.io/upstream-vhost</code> now map directly to these Ingress annotations.</p>
+                </div>
+                <div class="approach-content" data-approach="v5-5-0">
+                    <p><strong>In NGINX Ingress Controller:</strong> A new <code>externalAuth</code> Policy CRD sends each request to an external authentication service first. The <code>egressMTLS</code>, <code>externalAuth</code>, and <code>ingressMTLS</code> Policies attach directly to an Ingress, and so does <code>waf</code> (NGINX Plus, through <code>nginx.com/policies</code>). <code>nginx.org/add-header</code> (with <code>nginx.org/add-header-inherit</code>) adds response headers inline, and <code>nginx.org/proxy-redirect-from</code> / <code>nginx.org/proxy-redirect-to</code> rewrite the <code>Location</code> header.</p>
+                    <p><strong>For Ingress-NGINX users:</strong> The <code>externalAuth</code> Policy replaces the community controller's generic <code>auth_request</code> annotations (<code>nginx.ingress.kubernetes.io/auth-url</code>, <code>nginx.ingress.kubernetes.io/auth-signin</code>, <code>nginx.ingress.kubernetes.io/auth-snippet</code>), and <code>nginx.ingress.kubernetes.io/proxy-redirect-from</code> / <code>nginx.ingress.kubernetes.io/proxy-redirect-to</code> map directly.</p>
+                </div>
+                <div class="approach-content" data-approach="v5-4-0">
+                    <p><strong>In NGINX Ingress Controller:</strong> The <code>accessControl</code> and <code>cors</code> Policy CRDs attach directly to an Ingress through <code>nginx.org/policies</code>, with no VirtualServer.</p>
+                    <p><strong>For Ingress-NGINX users:</strong> Referencing the Policy from the Ingress is the recommended migration path wherever a feature supports it. Look for the <strong>(Recommended)</strong> tab in the mapping examples.</p>
+                </div>
             </div>
         </section>
 
@@ -588,7 +600,7 @@ metadata:
       allow 172.16.0.0/12;
       deny all;</code></pre></div>
                                 </div>
-                                <div class="info-box warning"><strong>Allow plus deny:</strong> When a resource references an allow and a deny Policy, NGINX Ingress Controller applies only the allow list. The community controller checked the deny list first, so an address inside an allowed range could still be denied. NGINX takes the first <code>allow</code> or <code>deny</code> that matches, and a location with rules of its own inherits none from its server, where a Policy in <code>spec.policies</code> or <code>nginx.org/policies</code> renders. So never pair a location-snippet <code>deny</code> with such a Policy: it lifts the allow list for every client (verified on nginx 1.31.7: an address outside it got <code>200</code>). Put the denies first in the same location instead, as above. Denied ranges that overlap no allowed range need nothing, because allow-only already blocks them. Snippets need the controller's <code>-enable-snippets</code> flag.</div>
+                                <div class="info-box warning"><strong>Allow plus deny:</strong> When a resource references an allow and a deny Policy, NGINX Ingress Controller applies only the allow list. The community controller checked the deny list first, so an address inside an allowed range could still be denied. NGINX takes the first <code>allow</code> or <code>deny</code> that matches, and a location with rules of its own inherits none from its server, where a Policy in <code>spec.policies</code> or <code>nginx.org/policies</code> renders. So never pair a location-snippet <code>deny</code> with such a Policy: it lifts the allow list for every client (verified on NGINX 1.31.7: an address outside it got <code>200</code>). Put the denies first in the same location instead, as above. Denied ranges that overlap no allowed range need nothing, because allow-only already blocks them. Snippets need the controller's <code>-enable-snippets</code> flag.</div>
                                 <div class="info-box note"><strong>New in v5.4.0:</strong> AccessControl policies can now be referenced directly from Ingress resources using the <code>nginx.org/policies</code> annotation. This is the simplest migration path: you stay on Ingress resources.</div>
                             </div>
                             <div class="approach-content" data-approach="vs-policy">
@@ -634,7 +646,7 @@ spec:
       action:
         pass: backend</code></pre></div>
                                 </div>
-                                <div class="info-box warning"><strong>Allow plus deny:</strong> When a resource references an allow and a deny Policy, NGINX Ingress Controller applies only the allow list. The community controller checked the deny list first, so an address inside an allowed range could still be denied. NGINX takes the first <code>allow</code> or <code>deny</code> that matches, and a location with rules of its own inherits none from its server, where a Policy in <code>spec.policies</code> or <code>nginx.org/policies</code> renders. So never pair a location-snippet <code>deny</code> with such a Policy: it lifts the allow list for every client (verified on nginx 1.31.7: an address outside it got <code>200</code>). Put the denies first in the same location instead, as above. Denied ranges that overlap no allowed range need nothing, because allow-only already blocks them. Snippets need the controller's <code>-enable-snippets</code> flag.</div>
+                                <div class="info-box warning"><strong>Allow plus deny:</strong> When a resource references an allow and a deny Policy, NGINX Ingress Controller applies only the allow list. The community controller checked the deny list first, so an address inside an allowed range could still be denied. NGINX takes the first <code>allow</code> or <code>deny</code> that matches, and a location with rules of its own inherits none from its server, where a Policy in <code>spec.policies</code> or <code>nginx.org/policies</code> renders. So never pair a location-snippet <code>deny</code> with such a Policy: it lifts the allow list for every client (verified on NGINX 1.31.7: an address outside it got <code>200</code>). Put the denies first in the same location instead, as above. Denied ranges that overlap no allowed range need nothing, because allow-only already blocks them. Snippets need the controller's <code>-enable-snippets</code> flag.</div>
                                 <div class="info-box note"><strong>Note:</strong> The VirtualServer approach has been available since before v5.4.0. Use this if you are already migrating to VirtualServer resources for other reasons (e.g., advanced routing, traffic splitting).</div>
                             </div>
                         </div></td></tr>
@@ -1121,12 +1133,8 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/enable-global-auth: "false"</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># NGINX Ingress Controller does not have a global external
-# auth feature. Authentication is configured per-resource
-# via Policy CRDs or annotations.
-# No migration action needed for this annotation.</code></pre></div>
+                                <div class="comparison-block new answer-only"><h4>NGINX Ingress Controller</h4><div class="info-box note">The community controller supports global external authentication via ConfigMap keys (<code>global-auth-url</code>, etc.), and <code>enable-global-auth: "false"</code> opts an Ingress out of it. NGINX Ingress Controller has no global external auth: authentication is always configured per resource, through the <code>externalAuth</code>, <code>oidc</code> or <code>jwt</code> Policy CRDs or <code>location-snippets</code>. Remove the annotation; it needs no replacement.</div></div>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> The community controller supports global external authentication via ConfigMap keys (<code>global-auth-url</code>, etc.). The <code>enable-global-auth: "false"</code> annotation opts an Ingress out of this global setting. NGINX Ingress Controller does not have global external auth: authentication is always configured per-resource (via the <code>externalAuth</code>/<code>oidc</code>/<code>jwt</code> Policy CRDs or <code>location-snippets</code>). This annotation can be safely removed during migration.</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -1993,11 +2001,8 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/http2-push-preload: "true"</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># Not supported — HTTP/2 Server Push was deprecated
-# by major browsers and removed from NGINX 1.25.1.
-# No migration action needed.</code></pre></div>
+                                <div class="comparison-block new answer-only"><h4>NGINX Ingress Controller</h4><div class="info-box note">HTTP/2 Server Push (<code>http2_push_preload</code>) was removed from NGINX in version 1.25.1 after major browsers deprecated it. Remove the annotation; it needs no replacement.</div></div>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> HTTP/2 Server Push (<code>http2_push_preload</code>) was removed from NGINX in version 1.25.1 after major browsers deprecated the feature. This annotation can be safely removed during migration.</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -2427,9 +2432,8 @@ metadata:
             <div class="table-wrapper">
                 <table class="mapping-table" aria-labelledby="ingress-configuration"><thead><tr><th scope="col">Ingress-NGINX</th><th scope="col">NGINX Ingress Controller</th></tr></thead>
                     <tbody>
-                        <tr class="expandable"><td>Several Ingresses on one host</td><td><span class="badge badge-virtualserver">VirtualServer CRD</span> One VirtualServer with every path<span class="or-text">— or —</span>One Ingress with every path</td></tr>
+                        <tr class="expandable" id="several-ingresses-one-host"><td>Several Ingresses on one host</td><td><span class="badge badge-virtualserver">VirtualServer CRD</span> <code>spec.routes[]</code><span class="or-text">— or —</span><span class="badge badge-ingress">Ingress</span> <code>spec.rules[].http.paths[]</code></td></tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="info-box note"><strong>One host, one resource:</strong> The community controller served every Ingress that names a host from one server block. NGINX Ingress Controller gives a host to one resource and rejects a second that claims it, so the analyzer merges the Ingresses of a host into one resource. What applies to the whole host (TLS, HTTP/2, server snippets, an <code>ingressMTLS</code> Policy) comes from one Ingress: where two set it differently, the community controller kept the oldest Ingress's, and so does the analyzer. An Ingress that routes several hosts is split into one per host first.</div>
                             <div class="approach-tabs">
                                 <button class="approach-tab active" data-action="switchApproach" data-approach="crd">One VirtualServer</button>
                                 <button class="approach-tab" data-action="switchApproach" data-approach="annotation">One Ingress</button>
@@ -2499,7 +2503,10 @@ spec:
     - path: /
       action:
         pass: web
-    - path: /api
+    - path: /api/  # pathType Prefix
+      action:
+        pass: api
+    - path: =/api  # pathType Prefix
       action:
         pass: api</code></pre></div>
                                 </div>
@@ -2570,8 +2577,15 @@ spec:
                 name: web
                 port:
                   number: 80
-          - path: /api
+          - path: /api/  # pathType Prefix
             pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 8080
+          - path: /api  # pathType Prefix
+            pathType: Exact
             backend:
               service:
                 name: api
@@ -2580,7 +2594,132 @@ spec:
                                 </div>
                                 <div class="info-box warning"><strong>Settings become host-wide:</strong> In one Ingress, only the per-Service annotations (<code>nginx.org/ssl-services</code>, <code>nginx.org/grpc-services</code>, <code>nginx.org/websocket-services</code>, <code>nginx.org/rewrites</code>, <code>nginx.org/sticky-cookie-services</code>) stay with the Service they name. Every other setting covers every path, so the <code>proxy-read-timeout</code> above, set only on <code>api</code>, applies to <code>web</code> too; the community controller scoped it to <code>api</code>'s paths. A <code>rewrite-target</code> or <code>use-regex</code> on one Ingress rewrites or matches the other's paths as well. The analyzer names each setting that changes scope. To keep them per Ingress, use the VirtualServer approach, where each Ingress keeps its own upstreams.</div>
                             </div>
+                            <div class="info-box note"><strong>One host, one resource:</strong> The community controller served every Ingress that names a host from one server block. NGINX Ingress Controller gives a host to one resource and rejects a second that claims it, so the analyzer merges the Ingresses of a host into one resource. What applies to the whole host (TLS, HTTP/2, server snippets, an <code>ingressMTLS</code> Policy) comes from one Ingress: where two set it differently, the community controller kept the oldest Ingress's, and so does the analyzer. An Ingress that routes several hosts is split into one per host first.</div>
                             <div class="info-box tip"><strong>A resource per team:</strong> NGINX Ingress Controller can also delegate a host's paths to VirtualServerRoutes, or to mergeable minion Ingresses under a master, and NGINX Gateway Fabric attaches several HTTPRoutes to one Gateway listener. Each gives a team a resource of its own, and each needs setting up with the result in mind: regex paths in different VirtualServerRoutes, for one, are not tried longest first. The analyzer does not emit them.</div>
+                        </div></td></tr>
+                        <tr class="expandable" id="path-type">
+                            <td><code>pathType</code><br>(Exact / Prefix / ImplementationSpecific)</td>
+                            <td><span class="badge badge-virtualserver">VirtualServer CRD</span> <code>routes[].path</code></td>
+                        </tr>
+                        <tr class="example-row"><td colspan="2"><div class="example-content">
+                            <div class="approach-tabs">
+                                <button class="approach-tab active" data-action="switchApproach" data-approach="exact">Exact</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="prefix">Prefix</button>
+                                <button class="approach-tab" data-action="switchApproach" data-approach="implementation-specific">ImplementationSpecific</button>
+                            </div>
+                            <div class="approach-content active" data-approach="exact">
+                                <div class="comparison">
+                                    <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /foo
+            pathType: Exact  # /foo only
+            backend:
+              service:
+                name: foo-svc
+                port:
+                  number: 80</code></pre></div>
+                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code>apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: my-app
+spec:
+  ingressClassName: nginx
+  host: app.example.com
+  upstreams:
+    - name: foo-svc
+      service: foo-svc
+      port: 80
+  routes:
+    - path: =/foo  # pathType Exact
+      action:
+        pass: foo-svc</code></pre></div>
+                                </div>
+                            </div>
+                            <div class="approach-content" data-approach="prefix">
+                                <div class="comparison">
+                                    <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /foo
+            pathType: Prefix  # not /foobar
+            backend:
+              service:
+                name: foo-svc
+                port:
+                  number: 80</code></pre></div>
+                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code>apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: my-app
+spec:
+  ingressClassName: nginx
+  host: app.example.com
+  upstreams:
+    - name: foo-svc
+      service: foo-svc
+      port: 80
+  routes:
+    - path: /foo/  # pathType Prefix
+      action:
+        pass: foo-svc
+    - path: =/foo  # pathType Prefix
+      action:
+        pass: foo-svc</code></pre></div>
+                                </div>
+                            </div>
+                            <div class="approach-content" data-approach="implementation-specific">
+                                <div class="comparison">
+                                    <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-app
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /foo
+            pathType: ImplementationSpecific  # /foo and /foobar alike
+            backend:
+              service:
+                name: foo-svc
+                port:
+                  number: 80</code></pre></div>
+                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code>apiVersion: k8s.nginx.org/v1
+kind: VirtualServer
+metadata:
+  name: my-app
+spec:
+  ingressClassName: nginx
+  host: app.example.com
+  upstreams:
+    - name: foo-svc
+      service: foo-svc
+      port: 80
+  routes:
+    - path: /foo
+      action:
+        pass: foo-svc</code></pre></div>
+                                </div>
+                            </div>
+                            <div class="info-box note"><strong>Note:</strong> NGINX matches a plain <code>/foo</code> prefix against <code>/foobar</code>, and the community controller's <code>Prefix</code> did not: it wrote <code>/foo/</code> as a prefix and <code>= /foo</code> beside it, so <code>Prefix</code> becomes those two routes. A path written <code>/foo/</code> keeps its slash in both, and <code>/</code> is not split. <code>Exact</code> becomes <code>=/foo</code>, and <code>ImplementationSpecific</code> stays a plain <code>/foo</code> prefix, which the community controller also matched against <code>/foobar</code>. A migrated Ingress gets the same split, a <code>Prefix</code> path <code>/foo/</code> and an <code>Exact</code> path <code>/foo</code>, because NGINX Ingress Controller renders <code>Prefix</code> as a plain prefix too.</div>
+                            <div class="info-box note"><strong>Regex hosts:</strong> once any Ingress on a host sets <code>use-regex</code> or <code>rewrite-target</code>, the community controller made every location on that host a case-insensitive regex, <code>/foobar</code> included for <code>/foo</code>, and split no <code>Prefix</code> path. The analyzer follows it (see <a href="#several-ingresses-one-host">Several Ingresses on one host</a>).</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -2859,12 +2998,8 @@ metadata:
       SecRuleEngine On
       SecRule ARGS "@contains &lt;script&gt;" "id:1,deny,status:403"
     nginx.ingress.kubernetes.io/modsecurity-transaction-id: "$request_id"</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># No direct NGINX Open Source replacement
-# For WAF capabilities, see the Plus WAF section
-# which uses the F5 WAF for NGINX (App Protect)</code></pre></div>
+                                <div class="comparison-block new answer-only"><h4>NGINX Ingress Controller</h4><div class="info-box warning">NGINX Ingress Controller does not include ModSecurity or any built-in WAF module. For WAF capabilities, <a href="#waf">F5 WAF for NGINX</a> (formerly App Protect) is available with NGINX Plus; see the <a href="#waf">WAF section</a> in NGINX Plus mappings for migration examples.</div><div class="info-box note">The community controller's ModSecurity support relies on a third-party module compiled into the controller image; it is not a native Kubernetes-integrated WAF solution. Neither controller provides an open-source WAF alternative.</div></div>
                             </div>
-                            <div class="info-box warning"><strong>No NGINX Open Source equivalent:</strong> NGINX Ingress Controller does not include ModSecurity or any built-in WAF module. For WAF capabilities, <a href="#waf">F5 WAF for NGINX</a> is available with NGINX Plus; see the <a href="#waf">WAF section</a> in NGINX Plus mappings for migration examples.</div>
-                            <div class="info-box note"><strong>Note:</strong> The community controller's ModSecurity support relies on a third-party module compiled into the controller image; it is not a native Kubernetes-integrated WAF solution. Neither controller provides an open-source WAF alternative.</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -4084,8 +4219,6 @@ spec:
                             <td><span class="badge badge-virtualserverroute">VirtualServerRoute CRD</span> <code>routes[].route</code></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
-                            <div class="info-box tip"><strong>Tip:</strong> This feature requires CRDs. See <a href="#installation">Installing CRDs</a> for Helm and manifest installation instructions.</div>
-                            <div class="info-box note"><strong>Note:</strong> The community controller has no equivalent for cross-namespace route delegation. VirtualServerRoute allows different teams to manage their own routing rules while a central VirtualServer controls the domain. The analyzer migrates several Ingresses on one host into one VirtualServer instead, which keeps the community routing order; see <a href="#ingress-configuration">Ingress configuration</a>. Since v5.7.0, a VirtualServerRoute may omit <code>spec.host</code> and be referenced by any number of VirtualServers, so paths that several hosts share, migrated from Ingresses that repeated them per host, can be defined once.</div>
                             <div class="comparison">
                                 <div class="comparison-block old"><h4>Ingress-NGINX</h4><pre><code># No equivalent across namespaces: several
 # Ingresses can share a host, but the
@@ -4121,6 +4254,8 @@ spec:
       action:
         pass: api-v1</code></pre></div>
                             </div>
+                            <div class="info-box tip"><strong>Tip:</strong> This feature requires CRDs. See <a href="#installation">Installing CRDs</a> for Helm and manifest installation instructions.</div>
+                            <div class="info-box note"><strong>Note:</strong> The community controller has no equivalent for cross-namespace route delegation. VirtualServerRoute allows different teams to manage their own routing rules while a central VirtualServer controls the domain. The analyzer migrates several Ingresses on one host into one VirtualServer instead, which keeps the community routing order; see <a href="#ingress-configuration">Ingress configuration</a>. Since v5.7.0, a VirtualServerRoute may omit <code>spec.host</code> and be referenced by any number of VirtualServers, so paths that several hosts share, migrated from Ingresses that repeated them per host, can be defined once.</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -4340,7 +4475,7 @@ metadata:
                         </div></td></tr>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/preserve-trailing-slash</code></td>
-                            <td>Not needed, trailing slash preserved by default</td>
+                            <td>Not needed (default behavior)</td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="comparison">
@@ -4350,10 +4485,8 @@ metadata:
   name: my-app
   annotations:
     nginx.ingress.kubernetes.io/preserve-trailing-slash: "true"</code></pre></div>
-                                <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># No annotation needed — NGINX Ingress
-# Controller preserves trailing slashes by default.</code></pre></div>
+                                <div class="comparison-block new answer-only"><h4>NGINX Ingress Controller</h4><div class="info-box note">NGINX Ingress Controller preserves trailing slashes by default, so the community <code>preserve-trailing-slash</code> annotation has no equivalent to migrate to. Remove it.</div></div>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> The community <code>preserve-trailing-slash</code> annotation has no NGINX Ingress Controller equivalent because trailing slashes are preserved by default. You can safely drop it during migration.</div>
                         </div></td></tr>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/ssl-ciphers</code></td>

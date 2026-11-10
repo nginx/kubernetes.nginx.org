@@ -24,7 +24,7 @@ const { createEngine } = require(path.join(TOOL, 'lib', 'engine.js'));
 const { loadChecklist } = require(path.join(TOOL, 'nic-migrate.js'));
 const Y = require(path.join(TOOL, 'lib', 'yaml.js'));
 // describe() reads a parsed Ingress; the tests write theirs as text.
-const describeIngress = (text) => describeDoc(Y.parse(text));
+const describeIngress = (text, prefixes) => describeDoc(Y.parse(text), prefixes);
 const { toModel, convert } = require(path.join(TOOL, 'lib', 'convert.js'));
 
 const engine = createEngine();
@@ -715,12 +715,13 @@ test('every backend the e2e community Ingresses route to exists in the e2e workl
 });
 
 test('the e2e community Ingresses convert to one VirtualServer or Ingress per host with every path routed', () => {
-    /* The fixture holds shop (two hosts, so it is split) and admin (/admin on
-       shop's host, so the host is merged). convert runs them together, as
-       the runner does. */
+    /* The fixture holds shop (two hosts, so it is split), admin (/admin on
+       shop's host, so the host is merged) and docs (a plain Prefix /api on a
+       host of its own, so it is split into /api/ and = /api). convert runs
+       them together, as the runner does. */
     const { convertAll } = require(path.join(TOOL, 'lib', 'convert.js'));
     const ingresses = Y.parseAll(readE2E('source-ingress.yaml'));
-    assert.deepEqual(ingresses.map((i) => i.metadata.name), ['shop', 'admin']);
+    assert.deepEqual(ingresses.map((i) => i.metadata.name), ['shop', 'admin', 'docs']);
     for (const target of ['virtualserver', 'ingress']) {
         const out = convertAll(ingresses.map(toModel), engine, { target, ingressClass: 'nginx-nic' });
         assert.deepEqual(out.flatMap((o) => o.warnings), [], target + ': a generator failed on the e2e fixture');
@@ -728,10 +729,16 @@ test('the e2e community Ingresses convert to one VirtualServer or Ingress per ho
         const routing = docs.filter((d) => d.kind === (target === 'virtualserver' ? 'VirtualServer' : 'Ingress'));
         const hosts = routing.map((d) => (d.spec.host ? [d.spec.host] : d.spec.rules.map((r) => r.host)));
         assert.ok(hosts.every((h) => h.length === 1), target + ': one host per resource');
-        assert.deepEqual(hosts.map((h) => h[0]).sort(), ['b.example.com', 'shop.example.com'], target + ': one resource per host');
+        assert.deepEqual(hosts.map((h) => h[0]).sort(), ['b.example.com', 'c.example.com', 'shop.example.com'], target + ': one resource per host');
+        // Every source path is routed. shop's rewrite-target puts its hosts in
+        // regex mode, where no Prefix path is split; docs's /api is split in
+        // two, and "/" never is: one route per source path, plus one.
         const sourcePaths = ingresses.reduce((n, i) => n + i.spec.rules.reduce((m, r) => m + r.http.paths.length, 0), 0);
         const routed = routing.reduce((n, d) => n + (d.spec.routes ? d.spec.routes.length : d.spec.rules[0].http.paths.length), 0);
-        assert.equal(routed, sourcePaths, target + ': every path is routed');
+        assert.equal(routed, sourcePaths + 1, target + ': every path is routed');
+        const docsHost = routing.find((d) => (d.spec.host || d.spec.rules[0].host) === 'c.example.com');
+        const docsPaths = docsHost.spec.routes ? docsHost.spec.routes.map((x) => x.path) : docsHost.spec.rules[0].http.paths.map((x) => x.pathType[0] + ':' + x.path);
+        assert.deepEqual(docsPaths, target === 'virtualserver' ? ['/api/', '=/api', '/'] : ['P:/api/', 'E:/api', 'P:/'], target + ': docs\'s Prefix /api split as the community controller split it');
         // The TLS secret the pipeline creates is the one referenced, and with
         // ssl-redirect "false" on both, no redirect: the runner asserts plain HTTP.
         const shop = routing.find((d) => (d.spec.host || d.spec.rules[0].host) === 'shop.example.com');
@@ -756,6 +763,193 @@ test('the e2e workload and runner agree on names', () => {
         assert.ok(workload.some((d) => d.kind === 'Deployment' && d.metadata.name === dep),
             'run-e2e.py waits for deploy/' + dep);
     }
+});
+
+/* ── Multi-source support ──────────────────────────────────────────────────
+   The CLI grew a --source flag so it can batch any migration tool the site
+   ships, not just ingress-nginx. Three things have to hold for a new source:
+   its module boots, the scanner counts ITS annotation prefixes, and the input
+   gate accepts the kinds that source keeps config on. HAProxy is the first
+   source where that last one matters — its settings live on Service objects,
+   a controller ConfigMap and five CRs as well as on the Ingress, so an
+   Ingress-only gate reports "nothing found" on a real deployment. */
+
+const { SOURCES, DEFAULT_SOURCE, resolveSource } = require(path.join(TOOL, 'lib', 'sources.js'));
+
+test('sources: every entry names a module that exists and boots an analyzer', () => {
+    for (const id of Object.keys(SOURCES)) {
+        const src = resolveSource(id);
+        assert.ok(fs.existsSync(path.join(ROOT, src.module)), id + ': ' + src.module + ' missing');
+        const e = createEngine(id);
+        assert.ok(e.source && e.source.analyzer, id + ': no analyzer');
+        assert.equal(e.sourceInfo.id, id);
+        assert.ok(src.prefixes.length > 0 && src.kinds.length > 0, id + ': empty prefixes/kinds');
+        assert.ok(src.kinds.indexOf('Ingress') !== -1, id + ': Ingress must be analyzable');
+    }
+});
+
+test('sources: an unknown source is refused by name, not defaulted', () => {
+    assert.throws(() => resolveSource('nope'), /unknown source "nope"/);
+    // Absent means default, which is what the pre-flag callers and tests rely on.
+    assert.equal(resolveSource(undefined).id, DEFAULT_SOURCE);
+    assert.equal(resolveSource(null).id, DEFAULT_SOURCE);
+});
+
+test('haproxy: the scanner reads Service annotations, which ingress-nginx has no tier for', () => {
+    const svc = [
+        'apiVersion: v1', 'kind: Service', 'metadata:', '  name: app-svc', '  namespace: default',
+        '  annotations:',
+        '    haproxy.org/check: "true"',
+        '    ingress.kubernetes.io/cookie-persistence: JSESSIONID',
+        'spec:', '  ports:', '    - port: 80',
+    ].join('\n');
+    const hap = resolveSource('haproxy');
+    const desc = describeIngress(svc, hap.prefixes);
+    assert.equal(desc.kind, 'Service');
+    assert.deepEqual(desc.annotations.sort(), ['check', 'cookie-persistence']);
+    // The gate: read for haproxy, skipped for ingress-nginx.
+    assert.equal(readIngresses(svc, hap.kinds).ingresses.length, 1);
+    assert.deepEqual(readIngresses(svc, resolveSource('ingress-nginx').kinds).skipped, { Service: 1 });
+});
+
+test('haproxy: the analyzer produces a plan for an annotated Ingress', () => {
+    const hapEngine = createEngine('haproxy');
+    const ing = [
+        'apiVersion: networking.k8s.io/v1', 'kind: Ingress', 'metadata:', '  name: web-app',
+        '  annotations:',
+        '    haproxy.org/load-balance: leastconn',
+        '    haproxy.org/ssl-redirect: "true"',
+        'spec:', '  rules:', '    - host: app.example.com', '      http:', '        paths:',
+        '          - path: /', '            pathType: Prefix', '            backend:',
+        '              service:', '                name: app-svc', '                port:',
+        '                  number: 80',
+    ].join('\n');
+    const r = hapEngine.analyze(ing, 'crd');
+    assert.equal(r.error, null);
+    assert.deepEqual(r.warnings, [], 'a generator failed and dropped its resource');
+    assert.match(r.yaml, /lb-method: "?least_conn/);
+});
+
+test('haproxy: an unmapped annotation is named as a gap, and snippets warn about HAProxy directives', () => {
+    /* The gap read unknown keys with ingress-nginx's prefix only, so under
+       --source haproxy the report counted "1 unrecognized" and named none; the
+       snippet gap blamed ingress-nginx's modules. */
+    const hap = resolveSource('haproxy');
+    const hapEngine = createEngine('haproxy');
+    const ing = [
+        'apiVersion: networking.k8s.io/v1', 'kind: Ingress', 'metadata:', '  name: web-app',
+        '  annotations:',
+        '    haproxy.org/not-a-real-annotation: "1"',
+        '    haproxy.org/backend-config-snippet: "http-send-name-header x-dst"',
+        'spec:', '  rules:', '    - host: app.example.com', '      http:', '        paths:',
+        '          - path: /', '            pathType: Prefix', '            backend:',
+        '              service:', '                name: app-svc', '                port:',
+        '                  number: 80',
+    ].join('\n');
+    const result = hapEngine.analyze(ing, 'crd');
+    const gaps = detect(describeIngress(ing, hap.prefixes), result, hap);
+    const note = gaps.find((g) => g.id === 'unrecognized');
+    assert.ok(note, 'expected unrecognized, got: ' + gaps.map((g) => g.id).join(', '));
+    assert.match(note.message, /not-a-real-annotation/);
+    const snip = gaps.find((g) => g.id === 'snippet-passthrough');
+    assert.match(snip.message, /HAProxy directives/);
+    assert.doesNotMatch(snip.message, /more_set_headers/);
+});
+
+/* HAProxy keeps an application's settings on the Ingress, the Services it
+   routes to, the controller ConfigMap and its CRs, and applies them per
+   backend (Service > Ingress > ConfigMap). convert hands the assembler the
+   whole run, and writes the controller-wide part once. */
+const HAP_RUN = [
+    'apiVersion: networking.k8s.io/v1', 'kind: Ingress', 'metadata:', '  name: web', '  namespace: shop',
+    '  annotations:', '    haproxy.org/load-balance: leastconn', '    haproxy.org/rate-limit-requests: "20"',
+    'spec:', '  ingressClassName: haproxy', '  rules:', '    - host: a.example.com', '      http:', '        paths:',
+    '          - path: /', '            pathType: Prefix', '            backend:', '              service:', '                name: web',
+    '                port:', '                  number: 80',
+    '---', 'apiVersion: v1', 'kind: Service', 'metadata:', '  name: web', '  namespace: shop',
+    '  annotations:', '    haproxy.org/load-balance: source', '    haproxy.org/timeout-server: 30s', 'spec:', '  ports:', '    - port: 80',
+    '---', 'apiVersion: v1', 'kind: ConfigMap', 'metadata:', '  name: haproxy-kubernetes-ingress', '  namespace: haproxy-controller',
+    'data:', '  timeout-connect: "3s"',
+    '---', 'apiVersion: v1', 'kind: ConfigMap', 'metadata:', '  name: tcp-services', '  namespace: haproxy-controller',
+    'data:', '  "5432": "shop/db:5432"'
+].join('\n');
+
+const cli = (args, input, env) => require('node:child_process').spawnSync(process.execPath, [path.join(TOOL, 'nic-migrate.js'), ...args],
+    { input, encoding: 'utf8', env: Object.assign({}, process.env, env || {}) });
+
+test('haproxy convert: Service and ConfigMap settings reach the migrated resources', () => {
+    const r = cli(['convert', '--source', 'haproxy', '--class', 'nginx-nic'], HAP_RUN);
+    assert.equal(r.status, 0, r.stderr);
+    const docs = Y.parseAll(r.stdout).filter(Boolean);
+    const vs = docs.find((d) => d.kind === 'VirtualServer');
+    // The Service's load-balance wins over the Ingress's; its timeout applies.
+    assert.equal(vs.spec.upstreams[0]['lb-method'], 'ip_hash');
+    assert.equal(vs.spec.upstreams[0]['read-timeout'], '30s');
+    assert.equal(vs.spec.ingressClassName, 'nginx-nic', '--class, and the HAProxy class is never kept');
+    // The ConfigMap key is global: in the merge document, not on the upstream.
+    const cm = docs.find((d) => d.kind === 'ConfigMap');
+    assert.equal(cm.data['proxy-connect-timeout'], '3s');
+    // tcp-services: one GlobalConfiguration and a TransportServer, once.
+    assert.equal(docs.filter((d) => d.kind === 'GlobalConfiguration').length, 1);
+    const ts = docs.filter((d) => d.kind === 'TransportServer');
+    assert.equal(ts.length, 1);
+    assert.equal(ts[0].spec.ingressClassName, 'nginx-nic');
+    assert.equal(docs.filter((d) => d.kind === 'Policy').length, 1, 'the rateLimit Policy');
+});
+
+test('haproxy convert --target ingress keeps the Ingress and moves the Service settings onto it', () => {
+    const r = cli(['convert', '--source', 'haproxy', '--target', 'ingress'], HAP_RUN);
+    assert.equal(r.status, 0, r.stderr);
+    const ing = Y.parseAll(r.stdout).filter(Boolean).find((d) => d.kind === 'Ingress');
+    assert.equal(ing.metadata.annotations['nginx.org/lb-method'], 'ip_hash');
+    assert.equal(ing.metadata.annotations['nginx.org/limit-req-rate'], '20r/s');
+    assert.equal(ing.spec.ingressClassName, undefined, 'a class naming HAProxy is left off');
+});
+
+test('haproxy report: each Ingress sees its own Services, and Annotation swaps shows only the Ingress', () => {
+    const r = cli(['report', '--source', 'haproxy', '--no-color', '-s', 'annotation'], HAP_RUN);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /nginx\.org\/lb-method: "ip_hash"/);
+    const swaps = r.stdout.slice(r.stdout.indexOf('Annotation swaps'), r.stdout.indexOf('Resources'));
+    assert.doesNotMatch(swaps, /kind: ConfigMap/, 'the ConfigMap has its own section');
+});
+
+test('--kubectl reads every kind the source reads, and skips a CRD that is not installed', () => {
+    /* One kubectl get per resource, from a stub that serves HAP_RUN and has no
+       HAProxy CRDs installed. */
+    const fs2 = require('node:fs'), os = require('node:os');
+    const dir = fs2.mkdtempSync(path.join(os.tmpdir(), 'nic-migrate-kubectl-'));
+    const log = path.join(dir, 'calls');
+    const data = path.join(dir, 'run.yaml');
+    fs2.writeFileSync(data, HAP_RUN);
+    fs2.writeFileSync(path.join(dir, 'kubectl'), [
+        '#!/bin/sh', 'echo "$*" >> "' + log + '"',
+        'case "$2" in',
+        '  ingress|service|configmap) "' + process.execPath + '" -e "const Y=require(\'' + path.join(TOOL, 'lib', 'yaml.js') + '\');const k={ingress:\'Ingress\',service:\'Service\',configmap:\'ConfigMap\'}[process.argv[1]];process.stdout.write(Y.stringify({apiVersion:\'v1\',kind:\'List\',items:Y.parseAll(require(\'fs\').readFileSync(\'' + data + '\',\'utf8\')).filter((d)=>d&&d.kind===k)}))" "$2" ;;',
+        '  *) echo "error: the server doesn\'t have a resource type \\"$2\\"" >&2; exit 1 ;;',
+        'esac'].join('\n'), { mode: 0o755 });
+    const r = cli(['convert', '--source', 'haproxy', '--kubectl'], '', { PATH: dir + path.delimiter + process.env.PATH });
+    assert.equal(r.status, 0, r.stderr);
+    const calls = fs2.readFileSync(log, 'utf8').trim().split('\n').map((l) => l.split(' ')[1]);
+    for (const k of ['ingress', 'service', 'configmap', 'backends.ingress.v3.haproxy.org', 'tcps.ingress.v3.haproxy.org']) assert.ok(calls.includes(k), 'read ' + k);
+    assert.match(r.stderr, /no backends\.ingress\.v3\.haproxy\.org in this cluster; skipped/);
+    assert.equal(Y.parseAll(r.stdout).filter(Boolean).find((d) => d.kind === 'VirtualServer').spec.upstreams[0]['lb-method'], 'ip_hash');
+    // ingress-nginx reads Ingresses only.
+    fs2.writeFileSync(log, '');
+    cli(['report', '--kubectl'], '', { PATH: dir + path.delimiter + process.env.PATH });
+    assert.deepEqual(fs2.readFileSync(log, 'utf8').trim().split('\n').map((l) => l.split(' ')[1]), ['ingress']);
+});
+
+test('checklist reads the chosen source\'s page, with its entities decoded', () => {
+    const hap = loadChecklist('haproxy-migration.html');
+    assert.ok(hap.length > 10);
+    assert.ok(hap.some((i) => /haproxy\.org\//.test(i)), 'the HAProxy page\'s own items');
+    assert.ok(!hap.some((i) => /&[a-z#0-9]+;/i.test(i)), 'no raw HTML entity: ' + hap.find((i) => /&[a-z#0-9]+;/i.test(i)));
+    assert.notDeepEqual(hap, loadChecklist());
+    // And `checklist --source haproxy` is the one that reads it.
+    const r = cli(['checklist', '--source', 'haproxy'], '');
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /Inventory haproxy\.org\/ annotations/);
 });
 
 test('the e2e runner passes its own self-test, which needs no cluster', () => {

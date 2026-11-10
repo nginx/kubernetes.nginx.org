@@ -119,7 +119,14 @@ def read(path):
 
 
 def html_files():
-    return [f for f in sorted(os.listdir(ROOT)) if f.endswith('.html')]
+    # Dot-prefixed files are not pages: Jekyll skips them, which is the same
+    # reason .github/ never reaches the site, so requiring them in sitemap.xml
+    # asserts something about a file that cannot be published. shot.sh writes
+    # .shot-tmp.html into the repo root while it renders and removes it on exit,
+    # so any check run that overlapped a render — or followed one that was
+    # killed — failed on "sitemap.xml does not list: .shot-tmp.html".
+    return [f for f in sorted(os.listdir(ROOT))
+            if f.endswith('.html') and not f.startswith('.')]
 
 
 def css_files():

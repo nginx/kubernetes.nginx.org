@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""End-to-end migration test: deploy a real ingress-nginx Ingress, convert it
-with nic-migrate, and prove the NGINX Ingress Controller serves it the same.
+"""End-to-end migration test: deploy a real ingress-nginx (or, with --source
+haproxy, HAProxy Kubernetes Ingress Controller) configuration, convert it with
+nic-migrate, and prove the NGINX Ingress Controller serves it the same.
 
 =============================================================================
 The assertion is EQUIVALENCE, not a hardcoded expectation. Each case is sent to
@@ -25,6 +26,7 @@ Usage:
     python3 tools/nic-migrate/e2e/run-e2e.py --keep          # leave the cluster up
     python3 tools/nic-migrate/e2e/run-e2e.py --skip-cluster  # use the current kube context
     python3 tools/nic-migrate/e2e/run-e2e.py --target ingress
+    python3 tools/nic-migrate/e2e/run-e2e.py --source haproxy
 
 Exit: 0 every case agreed and every absolute expectation held, 1 otherwise,
       2 a prerequisite is missing.
@@ -58,6 +60,18 @@ NAME_SUFFIX = '-nic'
 NIC_CHART = 'oci://ghcr.io/nginx/charts/nginx-ingress'
 NIC_CHART_VERSION = '2.8.0'
 COMMUNITY_REPO = 'https://kubernetes.github.io/ingress-nginx'
+# HAProxy Kubernetes Ingress Controller v3.2.19, the version the HAProxy guide
+# is written against (HAPROXY_VERSION in assets/js/migration-haproxy.js).
+HAPROXY_NS = 'haproxy-controller'
+HAPROXY_CLASS = 'haproxy'
+HAPROXY_REPO = 'https://haproxytech.github.io/helm-charts'
+HAPROXY_CHART_VERSION = '1.54.4'
+# The controller release that chart ships, which check-versions.py compares
+# with HAPROXY_VERSION and install_haproxy() with the running image.
+HAPROXY_APP_VERSION = '3.2.19'
+# The controller ConfigMap keys haproxy-source.yaml declares. Helm owns that
+# ConfigMap, so they are set through the chart; --self-test checks they agree.
+HAPROXY_CONFIG = {'timeout-server': '120s'}
 
 
 # --------------------------------------------------------------- plumbing
@@ -224,12 +238,21 @@ def self_test():
     check('empty response', parse_response('')['status'], 0)
 
     # A case with no explicit compare falls back to the strict triple.
-    names = [c['name'] for c in CASES]
-    check('case names unique', len(set(names)), len(names))
-    check('every case has a host', all(c.get('host') for c in CASES), True)
-    check('every case has a path', all(c.get('path') for c in CASES), True)
-    # A known difference must name a target the runner can run.
-    check('known differences name a target', all(set(c.get('known_difference') or {}) <= {'virtualserver', 'ingress'} for c in CASES), True)
+    for source, prof in sorted(SOURCES.items()):
+        names = [c['name'] for c in prof['cases']]
+        check(source + ': case names unique', len(set(names)), len(names))
+        check(source + ': every case has a host', all(c.get('host') for c in prof['cases']), True)
+        check(source + ': every case has a path', all(c.get('path') for c in prof['cases']), True)
+        check(source + ': fixture exists', os.path.exists(os.path.join(MANIFESTS, prof['fixture'])), True)
+        # A known difference must name a target the runner can run.
+        check(source + ': known differences name a target', all(set(c.get('known_difference') or {}) <= {'virtualserver', 'ingress'} for c in prof['cases']), True)
+    # The HAProxy fixture's ConfigMap is what nic-migrate reads; the chart sets
+    # the controller's from HAPROXY_CONFIG. They must say the same.
+    fixture = open(os.path.join(MANIFESTS, SOURCES['haproxy']['fixture'])).read()
+    data = fixture[fixture.index('kind: ConfigMap'):].split('\ndata:\n', 1)[1]
+    declared = dict((k.strip(), v.strip().strip('"')) for k, v in
+                    (l.split(':', 1) for l in data.splitlines() if ':' in l and l.startswith('  ')))
+    check('haproxy: chart config matches the fixture ConfigMap', declared, HAPROXY_CONFIG)
     check('converted Ingresses listed one per line', converted_ingress_names('shop-example-com\nshop-b-nic\n\n'), ['shop-example-com', 'shop-b-nic'])
     check('VirtualServer states keep the reason',
           virtualserver_states('shop\tValid\tok\nshop-b\tWarning\thost taken\n\t\t\n'),
@@ -339,6 +362,7 @@ def create_cluster(args):
 
 
 COMMUNITY_SELECTOR = 'app.kubernetes.io/name=ingress-nginx'
+HAPROXY_SELECTOR = 'app.kubernetes.io/instance=hap'
 NIC_SELECTOR = 'app.kubernetes.io/instance=nic'
 
 
@@ -364,6 +388,38 @@ def install_community(args):
         cmd += ['--version', args.community_chart]
     helm(*cmd, timeout=900)
     return running_image(COMMUNITY_NS, COMMUNITY_SELECTOR)
+
+
+def install_haproxy(args):
+    say('  installing HAProxy Kubernetes Ingress Controller (class %s)' % HAPROXY_CLASS)
+    helm('repo', 'add', 'haproxytech', HAPROXY_REPO, check=False, quiet=True)
+    helm('repo', 'update', 'haproxytech', quiet=True)
+    cmd = ['upgrade', '--install', 'hap', 'haproxytech/kubernetes-ingress',
+           '--version', args.source_chart or HAPROXY_CHART_VERSION,
+           '-n', HAPROXY_NS, '--create-namespace', '--wait', '--timeout', '10m',
+           '--set', 'controller.service.type=ClusterIP',
+           '--set', 'controller.replicaCount=1',
+           '--set', 'controller.ingressClass=' + HAPROXY_CLASS,
+           '--set', 'controller.ingressClassResource.name=' + HAPROXY_CLASS]
+    for key, value in HAPROXY_CONFIG.items():
+        cmd += ['--set-string', 'controller.config.%s=%s' % (key, value)]
+    helm(*cmd, timeout=900)
+    image = running_image(HAPROXY_NS, HAPROXY_SELECTOR)
+    # The guide documents one release; a chart pin that drifted from it would
+    # test a controller the page does not describe.
+    if not args.source_chart and not image.endswith(':' + HAPROXY_APP_VERSION):
+        raise Fail('chart %s runs %s, not HAProxy Kubernetes Ingress Controller %s'
+                   % (HAPROXY_CHART_VERSION, image, HAPROXY_APP_VERSION))
+    return image
+
+
+def uninstall_haproxy():
+    kubectl('delete', 'ingress', 'shop', '-n', NS, '--ignore-not-found', check=False)
+    helm('uninstall', 'hap', '-n', HAPROXY_NS, '--wait', '--timeout', '5m', check=False, timeout=600)
+    wait_for('the HAProxy controller pods to disappear',
+             lambda: kubectl('get', 'pods', '-n', HAPROXY_NS, '-l', HAPROXY_SELECTOR,
+                             '-o', 'name', check=False).stdout.strip() == '' or None,
+             timeout=180)
 
 
 def install_nic(args):
@@ -449,8 +505,17 @@ def make_tls_secret():
 
 
 def apply_source(args):
-    phase('Source Ingress (community)')
-    kubectl('apply', '-f', os.path.join(MANIFESTS, 'source-ingress.yaml'))
+    src = SOURCES[args.source]
+    phase('Source resources (%s)' % src['label'])
+    path = os.path.join(MANIFESTS, src['fixture'])
+    if args.source == 'haproxy':
+        # Helm owns the controller ConfigMap (HAPROXY_CONFIG sets its keys);
+        # apply the Ingress and the annotated Services only.
+        docs = [d for d in open(path).read().split('\n---\n') if 'kind: ConfigMap' not in d]
+        kubectl('apply', '-f', '-', input_='\n---\n'.join(docs))
+        say('  applied ingress/shop and the annotated Services on class %s' % HAPROXY_CLASS)
+        return
+    kubectl('apply', '-f', path)
     # No wait here: a ClusterIP controller never populates status.loadBalancer,
     # so a wait on it could only ever pass at once (it did, with `or True`).
     # Stage 1 settles by polling the controller until it serves the Ingress.
@@ -460,9 +525,9 @@ def apply_source(args):
 def convert(args):
     phase('Convert')
     cli = os.path.join(ROOT, 'tools', 'nic-migrate', 'nic-migrate.js')
-    src = os.path.join(MANIFESTS, 'source-ingress.yaml')
-    cmd = ['node', cli, 'convert', '-f', src, '--target', args.target,
-           '--class', NIC_CLASS, '--name-suffix', NAME_SUFFIX, '--no-color']
+    src = os.path.join(MANIFESTS, SOURCES[getattr(args, 'source', 'ingress-nginx')]['fixture'])
+    cmd = ['node', cli, 'convert', '--source', getattr(args, 'source', 'ingress-nginx'), '-f', src,
+           '--target', args.target, '--class', NIC_CLASS, '--name-suffix', NAME_SUFFIX, '--no-color']
     proc = run(cmd, check=False)
     for line in proc.stderr.strip().splitlines():
         say('  ' + line)
@@ -627,7 +692,85 @@ CASES = [
     dict(name='shared-host-keeps-other-ingress-uri', host='shop.example.com', path='/admin/users',
          compare=('status', 'app', 'uri'), expect_status=200, expect_app='web2', expect_uri='/admin/users',
          known_difference={'ingress': 'one Ingress per host: shop\'s rewrite-target /$2 applies to /admin too'}),
+    # docs: a plain Prefix /api, split by the community controller into /api/
+    # and = /api, so /apix is "/"'s (web) and /api itself is api's.
+    dict(name='prefix-stops-at-segment', host='c.example.com', path='/apix',
+         compare=('status', 'app'), expect_status=200, expect_app='web'),
+    dict(name='prefix-matches-its-own-path', host='c.example.com', path='/api',
+         compare=('status', 'app'), expect_status=200, expect_app='api'),
 ]
+
+
+COMMUNITY_CASES = CASES
+
+# The HAProxy fixture (haproxy-source.yaml). Each case pins what HAProxy
+# v3.2.19 does, so stage 1 proves the fixture before anything is compared.
+HAPROXY_CASES = [
+    dict(name='root-routes-to-web', host='shop.example.com', path='/',
+         expect_status=200, expect_app='web'),
+    # Only the backend is compared: the rewrite is its own case.
+    dict(name='api-path-routes-to-api', host='shop.example.com', path='/api/things/42',
+         compare=('status', 'app'), expect_status=200, expect_app='api'),
+    # path-rewrite "/api/(.*) /\1": replace-path replaces the whole path where
+    # its regex matches, after the path map chose the backend.
+    dict(name='api-rewrite-strips-prefix', host='shop.example.com', path='/api/things/42',
+         compare=('status', 'uri', 'app'),
+         expect_status=200, expect_app='api', expect_uri='/things/42',
+         skip_targets=('ingress',), skip_reason='a two-field path-rewrite keeps captures from its own regex, which nginx.org/rewrite-target cannot; the analyzer says to use CRD-first'),
+    dict(name='api-bare-prefix-not-rewritten', host='shop.example.com', path='/api',
+         compare=('status', 'uri', 'app'), expect_status=200, expect_app='api', expect_uri='/api'),
+    # pathType Prefix stops at a path segment (route.go: /api exactly, /api/
+    # as a prefix), so /apix is web's. A plain /api location took it to api.
+    dict(name='prefix-stops-at-segment', host='shop.example.com', path='/apix',
+         compare=('status', 'app'), expect_status=200, expect_app='web'),
+    # The regex is unanchored: under "/" it still matches, on web's path.
+    dict(name='unanchored-rewrite-on-root', host='shop.example.com', path='/x/api/y',
+         compare=('status', 'uri', 'app'), expect_status=200, expect_app='web', expect_uri='/y',
+         skip_targets=('ingress',), skip_reason='a two-field path-rewrite keeps captures from its own regex, which nginx.org/rewrite-target cannot; the analyzer says to use CRD-first'),
+    dict(name='second-host-routes-to-web', host='b.example.com', path='/',
+         expect_status=200, expect_app='web'),
+    dict(name='unknown-host-is-refused', host='nope.example.com', path='/',
+         compare=('status',), expect_status=404),
+    # route-acl hdr(X-Canary) -m str yes on web2-svc: a custom use_backend
+    # ahead of the path map.
+    dict(name='canary-header-routes-to-web2', host='shop.example.com', path='/',
+         headers={'X-Canary': 'yes'}, expect_status=200, expect_app='web2',
+         skip_targets=('ingress',), skip_reason='an Ingress has no split or match annotation; the analyzer says to use CRD-first'),
+    dict(name='canary-header-other-value-stays', host='shop.example.com', path='/',
+         headers={'X-Canary': 'no'}, expect_status=200, expect_app='web'),
+    dict(name='cors-header-present', host='shop.example.com', path='/',
+         headers={'Origin': 'https://shop.example.com'},
+         compare=('status',), expect_status=200, header_present='access-control-allow-origin'),
+    # cookie-persistence on the api-svc Service: HAProxy inserts the cookie.
+    dict(name='affinity-cookie-present', host='shop.example.com', path='/api/x',
+         compare=('status',), expect_status=200, header_present='set-cookie'),
+    dict(name='tls-terminates', host='shop.example.com', path='/', scheme='https',
+         expect_status=200, expect_app='web'),
+    dict(name='plain-http-not-redirected', host='shop.example.com', path='/',
+         compare=('status',), expect_status=200),
+]
+
+# What differs between the two sources the runner can migrate from. The
+# stages, probes and comparisons are the same; the incumbent, its fixture and
+# its cases are not.
+SOURCES = {
+    'ingress-nginx': dict(label='ingress-nginx', ns=COMMUNITY_NS, selector=COMMUNITY_SELECTOR,
+                          fixture='source-ingress.yaml', cases=COMMUNITY_CASES,
+                          install=lambda args: install_community(args),
+                          uninstall=lambda: uninstall_community()),
+    'haproxy': dict(label='HAProxy', ns=HAPROXY_NS, selector=HAPROXY_SELECTOR,
+                    fixture='haproxy-source.yaml', cases=HAPROXY_CASES,
+                    install=lambda args: install_haproxy(args),
+                    uninstall=lambda: uninstall_haproxy()),
+}
+
+
+def use_source(name):
+    """Point the stages at one source: its cases become CASES."""
+    global CASES, WIDTH
+    CASES = SOURCES[name]['cases']
+    WIDTH = max(len(c['name']) for c in CASES)
+    return SOURCES[name]
 
 
 def curl_argv(target, case):
@@ -851,7 +994,10 @@ def main():
     ap.add_argument('--skip-cluster', action='store_true',
                     help='use the current kube context instead of creating a kind cluster')
     ap.add_argument('--target', default='virtualserver', choices=['virtualserver', 'ingress'])
+    ap.add_argument('--source', default='ingress-nginx', choices=sorted(SOURCES),
+                    help='the controller migrated from (default ingress-nginx)')
     ap.add_argument('--community-chart', default='', help='pin the ingress-nginx chart version')
+    ap.add_argument('--source-chart', default='', help='pin the HAProxy chart version (default %s)' % HAPROXY_CHART_VERSION)
     ap.add_argument('--workdir', default=os.path.join(E2E, '.work'))
     ap.add_argument('--self-test', action='store_true',
                     help='check the runner\'s own logic; needs no cluster and no Docker')
@@ -862,6 +1008,8 @@ def main():
     if args.self_test:
         phase('Self-test')
         return self_test()
+    src = use_source(args.source)
+    label = src['label']
     if args.until != STAGES[-1]:
         args.keep = True
 
@@ -873,19 +1021,19 @@ def main():
         create_cluster(args)
         deploy_workload(args)
 
-        # ---- Stage 1: ingress-nginx, alone, works -------------------------
-        phase('Stage 1 — ingress-nginx serves the original')
-        versions['ingress-nginx'] = install_community(args)
+        # ---- Stage 1: the source controller, alone, works ------------------
+        phase('Stage 1 — %s serves the original' % label)
+        versions[label] = src['install'](args)
         apply_source(args)
-        community_target = controller_service(COMMUNITY_NS, COMMUNITY_SELECTOR)
-        wait_for('the community controller to serve the Ingress, five times running',
+        community_target = controller_service(src['ns'], src['selector'])
+        wait_for('the %s controller to serve the Ingress, five times running' % label,
                  steady(lambda: http(community_target, CASES[0])['status'] == 200), timeout=180, interval=1)
-        baseline, failures = probe_absolute(args, community_target, 'ingress-nginx')
+        baseline, failures = probe_absolute(args, community_target, label)
         stages_run.append('baseline')
         if failures:
             raise Fail('the baseline itself does not work (%s). Nothing downstream is meaningful '
-                       '— this is the fixture or ingress-nginx, not the migration.'
-                       % ', '.join(failures))
+                       '— this is the fixture or %s, not the migration.'
+                       % (', '.join(failures), label))
         if args.until == 'baseline':
             return finish(args, started, stages_run, versions, [])
 
@@ -905,8 +1053,8 @@ def main():
         wait_for('NIC to serve the converted resources, five times running',
                  steady(lambda: http(nic_target, CASES[0])['status'] in (200, 301, 308)), timeout=180, interval=1)
 
-        say('\n  ingress-nginx, still serving the original:')
-        _, regressions = probe_absolute(args, community_target, 'ingress-nginx')
+        say('\n  %s, still serving the original:' % label)
+        _, regressions = probe_absolute(args, community_target, label)
         if regressions:
             raise Fail('applying the converted resources disturbed the incumbent controller (%s). '
                        'A migration must not affect what is still live.' % ', '.join(regressions))
@@ -919,15 +1067,15 @@ def main():
         if args.until == 'converted':
             return finish(args, started, stages_run, versions, [])
 
-        # ---- Stage 4: ingress-nginx gone, NIC alone -----------------------
-        phase('Stage 4 — ingress-nginx removed, NIC alone')
-        uninstall_community()
+        # ---- Stage 4: the source controller gone, NIC alone ---------------
+        phase('Stage 4 — %s removed, NIC alone' % label)
+        src['uninstall']()
         # Prove the old side is really gone, or "NIC serves this" proves nothing.
         gone = http(community_target, CASES[0])
         if gone['status'] != 0:
-            raise Fail('the community controller still answered with HTTP %s after uninstall, so '
-                       'nothing below would prove NIC is serving.' % gone['status'])
-        say('  ok    ingress-nginx no longer answers')
+            raise Fail('the %s controller still answered with HTTP %s after uninstall, so '
+                       'nothing below would prove NIC is serving.' % (label, gone['status']))
+        say('  ok    %s no longer answers' % label)
         say('\n  NIC alone (vs the stage 1 baseline):')
         failures = probe_against(args, nic_target, baseline, 'nic')
         stages_run.append('cutover')
@@ -989,7 +1137,8 @@ def finish(args, started, stages_run, versions, failures):
         teardown(args)
         return 1
     if 'cutover' in stages_run:
-        say('\n  ingress-nginx removed; NIC alone serves every case exactly as ingress-nginx did.')
+        say('\n  %s removed; NIC alone serves every case exactly as %s did.'
+            % (SOURCES[args.source]['label'], SOURCES[args.source]['label']))
     else:
         say('\n  stopped after "%s" as requested; cluster left running.' % args.until)
     teardown(args)

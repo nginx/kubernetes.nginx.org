@@ -171,6 +171,18 @@ def check_migration_target(config):
         failures.append(f'{e2e}: NIC_CHART_VERSION is {chart.group(1)}, '
                         f'VERSION_CONFIG.nic.helm is {want_helm}')
 
+    # The HAProxy e2e installs the controller release the HAProxy guide is
+    # written against (preview branches that ship the HAProxy tool only).
+    if os.path.exists(os.path.join(ROOT, 'assets/js/migration-haproxy.js')):
+        hap = read('assets/js/migration-haproxy.js')
+        hap_version = re.search(r"const HAPROXY_VERSION = 'v([^']+)'", hap)
+        hap_app = re.search(r"^HAPROXY_APP_VERSION = '([^']+)'", read(e2e), re.M)
+        if not hap_version or not hap_app:
+            failures.append(f'{e2e}: could not find HAPROXY_APP_VERSION, or HAPROXY_VERSION in migration-haproxy.js')
+        elif hap_version.group(1) != hap_app.group(1):
+            failures.append(f'{e2e}: HAPROXY_APP_VERSION is {hap_app.group(1)}, '
+                            f'migration-haproxy.js HAPROXY_VERSION is v{hap_version.group(1)}')
+
     if version.group(1) != want_release:
         failures.append(f'assets/js/migration-core.js: NIC.VERSION is {version.group(1)}, '
                         f'VERSION_CONFIG.nic.release is {want_release}')
