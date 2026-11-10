@@ -160,6 +160,13 @@
                             <span class="sidebar-link-desc">HAProxy &rarr; NGINX Ingress Controller</span>
                         </span>
                     </a></li>
+                    <li><a class="sidebar-link" href="#traefik-migration-tool" data-product="traefik-migration-tool">
+                        <span class="dot" data-color="blue"></span>
+                        <span class="sidebar-link-text">
+                            <span class="sidebar-link-name">Traefik Migration</span>
+                            <span class="sidebar-link-desc">Beta &middot; Traefik &rarr; NGINX Ingress</span>
+                        </span>
+                    </a></li>
                     <li><a class="sidebar-link" href="#ingress2gateway" data-product="ingress2gateway">
                         <span class="dot" data-color="blue"></span>
                         <span class="sidebar-link-text">
@@ -231,6 +238,10 @@
                                 Coming from HAProxy?
                                 <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/></svg>
                             </a>
+                            <a class="cta cta-secondary" href="traefik-migration.html">
+                                Coming from Traefik?
+                                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/></svg>
+                            </a>
                         </div>
                         <p class="hero-status">The community <code>kubernetes/ingress-nginx</code> controller has <a href="https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/" target="_blank" rel="noopener">reached end of maintenance</a>. v1.15.1, released March 19, 2026, is its final release.</p>
                     </div>
@@ -262,6 +273,12 @@
                             <span class="project-card-badge blue">Tool</span>
                             <h3>HAProxy to NGINX Ingress Controller Migration Tool</h3>
                             <p>Interactive guide for migrating from the HAProxy Kubernetes Ingress Controller: 80+ annotation mappings across all three config scopes, plus a config analyzer for annotated resources, the HAProxy ConfigMap, and CRDs.</p>
+                            <span class="card-link blue" aria-hidden="true">Learn more &rsaquo;</span>
+                        </a>
+                        <a class="project-card" href="#traefik-migration-tool" data-navigate="traefik-migration-tool">
+                            <span class="project-card-badge blue">Tool &middot; Beta</span>
+                            <h3>Traefik to NGINX Ingress Controller Migration Tool</h3>
+                            <p>Interactive guide for migrating from Traefik Proxy — middleware and annotation mappings for all 24 HTTP middlewares, plus a config analyzer for IngressRoute and Middleware resources.</p>
                             <span class="card-link blue" aria-hidden="true">Learn more &rsaquo;</span>
                         </a>
                         <a class="project-card" href="#ingress2gateway" data-navigate="ingress2gateway">
@@ -747,6 +764,79 @@
                 </div>
             </div>
 
+
+            <!-- ═══ TRAEFIK MIGRATION TOOL PAGE ═══ -->
+            <div class="product-page" id="page-traefik-migration-tool" hidden>
+                <div class="page-hero migration">
+                    <div class="page-hero-content">
+                        <span class="page-hero-badge migration">
+                            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                            Migration tool &middot; Beta
+                        </span>
+                        <h1>Traefik to NGINX Ingress Controller Migration Tool</h1>
+                        <p>Migrate from Traefik Proxy to the NGINX Ingress Controller. Interactive analysis of IngressRoute, Middleware, and TraefikService resources, with mappings for all 24 HTTP middlewares and CRD migration examples.</p>
+                    </div>
+                </div>
+                <div class="page-body">
+                    <div class="cta-row">
+                        <a class="cta cta-primary migration" href="traefik-migration.html">
+                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/></svg>
+                            Open the Traefik migration tool
+                        </a>
+                    </div>
+
+                    <div class="feature-grid">
+                        <div class="feature-card">
+                            <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8m8 4H8m2-8H8"/></svg> Traefik-native analyzer</h3>
+                            <p>Paste IngressRoute, Middleware, TraefikService, or annotated Ingress YAML — the analyzer parses Traefik's match rules and generates ready-to-use NGINX Ingress Controller resources.</p>
+                        </div>
+                        <div class="feature-card">
+                            <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg> Full middleware coverage</h3>
+                            <p>Every one of the 24 HTTP middlewares in Traefik's open source edition mapped to its NGINX equivalent — Policy CRDs, VirtualServer fields, annotations, or ConfigMap keys — with side-by-side examples.</p>
+                        </div>
+                        <div class="feature-card">
+                            <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg> Match-rule translation</h3>
+                            <p>Traefik's Host, PathPrefix, Header, and ClientIP matchers translated to VirtualServer routes, matches, and conditions — including what cannot be expressed and why.</p>
+                        </div>
+                        <div class="feature-card">
+                            <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg> TLS &amp; cert-manager guidance</h3>
+                            <p>Replace Traefik's built-in Let's Encrypt client with cert-manager, and TLSOptions with NGINX TLS settings — the biggest operational shift, covered step by step.</p>
+                        </div>
+                        <div class="feature-card">
+                            <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> TCP, UDP &amp; passthrough</h3>
+                            <p>IngressRouteTCP and IngressRouteUDP resources convert to TransportServer and GlobalConfiguration listeners, including SNI-based TLS passthrough.</p>
+                        </div>
+                        <div class="feature-card">
+                            <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> Copy-ready output</h3>
+                            <p>Every code block and generated YAML snippet includes a one-click copy button for immediate use in your workflow.</p>
+                        </div>
+                    </div>
+
+                    <div class="preview-card">
+                        <p>The Traefik migration tool is in <strong>beta</strong>: its mappings and generated resources may still change, so review its output before applying it to a cluster. It is a static HTML application with first-party CSS/JS and no third-party runtime dependencies, documented against Traefik v3.7 and NGINX Ingress Controller v5.7.</p>
+                        <p>A companion command line tool, <code>nic-migrate</code>, runs the same analysis across a whole directory of manifests or a live cluster with <code>--source traefik</code>. It is in <strong>beta</strong> and lives in <a href="https://github.com/nginx/kubernetes.nginx.org/tree/main/tools/nic-migrate" target="_blank" rel="noopener noreferrer">this site's repository</a>.</p>
+                        <div class="preview-stats">
+                            <div class="preview-stat">
+                                <span class="num migration">24</span>
+                                <span class="label">HTTP middlewares</span>
+                            </div>
+                            <div class="preview-stat">
+                                <span class="num migration">10</span>
+                                <span class="label">Traefik CRDs covered</span>
+                            </div>
+                            <div class="preview-stat">
+                                <span class="num migration">5</span>
+                                <span class="label">CRD types</span>
+                            </div>
+                            <div class="preview-stat">
+                                <span class="num migration">20+</span>
+                                <span class="label">Ingress annotations</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
             <!-- ════════════════════════════════════════════ -->
             <!-- ingress2gateway Page                         -->
             <!-- ════════════════════════════════════════════ -->

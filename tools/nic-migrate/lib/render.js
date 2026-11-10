@@ -60,7 +60,19 @@ function renderOne(item, style, opts) {
     lines.push('  ' + style.dim(summary.join(' · ') ||
         'no ' + ((opts && opts.annotationLabel) || 'community annotations') + ' found'));
 
-    if (!desc.annotations.length) return lines.join('\n');
+    /* ingress-nginx keeps every setting in annotations, so "no annotations"
+       once meant "nothing to report" and returning here was right. For a
+       CR-based source it is wrong: a Traefik IngressRoute or Middleware, and a
+       HAProxy Global/Defaults/Backend CR or controller ConfigMap, carry no
+       annotations at all and all of their content in the spec. This early
+       return hid their resources, notes and gaps — the JSON output was
+       reporting them the whole time, so the two disagreed. Gate on what the
+       analyzer actually produced. */
+    const producedNotes = (result.plan && result.plan.infoNotes) || [];
+    if (!desc.annotations.length && !(result.parts || []).length &&
+        !producedNotes.length && !gaps.length) {
+        return lines.join('\n');
+    }
 
     const swaps = swapYaml(result.plan);
     if (swaps) {

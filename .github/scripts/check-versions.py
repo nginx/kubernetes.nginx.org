@@ -183,6 +183,17 @@ def check_migration_target(config):
             failures.append(f'{e2e}: HAPROXY_APP_VERSION is {hap_app.group(1)}, '
                             f'migration-haproxy.js HAPROXY_VERSION is v{hap_version.group(1)}')
 
+    # Likewise the Traefik e2e and the release the Traefik guide is written
+    # against: it installs the image tag, not the chart's default.
+    if os.path.exists(os.path.join(ROOT, 'assets/js/migration-traefik.js')):
+        tfk_version = re.search(r"const TRAEFIK_VERSION = '(v[^']+)'", read('assets/js/migration-traefik.js'))
+        tfk_app = re.search(r"^TRAEFIK_APP_VERSION = '([^']+)'", read(e2e), re.M)
+        if not tfk_version or not tfk_app:
+            failures.append(f'{e2e}: could not find TRAEFIK_APP_VERSION, or TRAEFIK_VERSION in migration-traefik.js')
+        elif tfk_version.group(1) != tfk_app.group(1):
+            failures.append(f'{e2e}: TRAEFIK_APP_VERSION is {tfk_app.group(1)}, '
+                            f'migration-traefik.js TRAEFIK_VERSION is {tfk_version.group(1)}')
+
     if version.group(1) != want_release:
         failures.append(f'assets/js/migration-core.js: NIC.VERSION is {version.group(1)}, '
                         f'VERSION_CONFIG.nic.release is {want_release}')

@@ -42,11 +42,15 @@ Input (choose one; defaults to stdin)
 
 Common
   -s, --strategy <name>    crd | annotation            (default: crd)
-      --source <name>      ingress-nginx | haproxy     (default: ingress-nginx)
+      --source <name>      ingress-nginx | haproxy | traefik  (default: ingress-nginx)
                            Which migration tool's analyzer to run. HAProxy also
                            reads the Services an Ingress routes to, the
                            controller ConfigMap and its CRs, and applies them
                            as HAProxy does (Service > Ingress > ConfigMap).
+                           convert supports ingress-nginx and haproxy.
+      --whole-input        Analyze all input as one unit instead of per
+                           document, so cross-document references resolve
+                           (Traefik IngressRoute -> Middleware). report only.
   -o, --out <dir>          Write per-Ingress YAML files instead of stdout.
       --json               Emit JSON instead of the text report.
       --no-color           Disable ANSI colour (also honours NO_COLOR).
@@ -78,7 +82,7 @@ Beta: flags and generated output may still change. Review before you apply.`;
 function parseArgs(argv) {
     const opts = {
         command: null, files: [], kubectl: false, namespace: null, strategy: null,
-        source: DEFAULT_SOURCE,
+        source: DEFAULT_SOURCE, wholeInput: false,
         out: null, json: false, colour: null, strict: false, help: false,
         target: 'virtualserver', ingressClass: null, validate: false, nameSuffix: ''
     };
@@ -96,6 +100,7 @@ function parseArgs(argv) {
         else if (a === '-n' || a === '--namespace') opts.namespace = need(a);
         else if (a === '-s' || a === '--strategy') opts.strategy = need(a);
         else if (a === '--source') opts.source = need(a);
+        else if (a === '--whole-input') opts.wholeInput = true;
         else if (a === '-o' || a === '--out') opts.out = need(a);
         else if (a === '--json') opts.json = true;
         else if (a === '--no-color' || a === '--no-colour') opts.colour = false;
@@ -496,40 +501,71 @@ function main() {
     if (opts.command === 'convert') return runConvert(sources, engine, strategy, opts, srcInfo);
 
     const { ingresses, run, skipped } = collectIngresses(sources, srcInfo.kinds, srcInfo.units);
-    // The run's other documents, analyzed with each unit: HAProxy reads an
-    // Ingress's settings from the Services it routes to and the controller
-    // ConfigMap and CRs too. ingress-nginx reads the Ingress alone.
-    const context = run.filter((d) => (srcInfo.units || ['Ingress']).indexOf(d.kind) === -1);
-    // Per Ingress: the Services it routes to and the controller ConfigMap /
-    // CRs, so its entry shows what HAProxy applied to it and not the rest of
-    // the run. The global part is reported once, after the Ingresses.
-    const servicesOf = (doc) => {
-        const names = new Set();
-        const spec = (doc && doc.spec) || {};
-        const add = (b) => { const n = b && ((b.service && b.service.name) || b.serviceName); if (n) names.add(String(n)); };
-        add(spec.defaultBackend || spec.backend);
-        for (const r of spec.rules || []) for (const p of ((r && r.http && r.http.paths) || [])) add(p && p.backend);
-        return names;
-    };
-    const ns = (d) => (d.metadata && d.metadata.namespace) || null;
-    const items = ingresses.map(({ doc, sourceFile }) => {
-        const desc = describe(doc, srcInfo.prefixes);
-        const svcs = servicesOf(doc);
-        const own = context.filter((d) => d.kind !== 'Service' || (svcs.has(String(d.metadata && d.metadata.name)) && (ns(d) === ns(doc) || !ns(d) || !ns(doc))));
-        // The engine analyzes the parsed object, re-emitted: what it reads is
-        // exactly what was parsed, whatever the input's form.
-        const result = engine.analyze(yaml.stringifyAll([doc].concat(own)), strategy);
-        return { desc, result, sourceFile, gaps: detect(desc, result, srcInfo) };
-    });
-    // Across the run: a host several Ingresses route (report reads each alone).
-    sharedHosts(items);
-    for (const item of items) item.gaps = sortGaps(item.gaps);
-    // A run with no unit but global settings (a ConfigMap or CRs alone) is
-    // still reported, as the page reports it.
-    if (!items.length && context.length) {
-        const result = engine.analyze(yaml.stringifyAll(context), strategy);
-        const desc = { kind: 'controller', name: 'controller settings', namespace: null, ingressClassName: null, classAnnotation: null, hosts: [], paths: 0, services: [], hasTls: false, tlsSecrets: [], annotations: context.map((d) => d.kind) };
-        items.push({ desc, result, sourceFile: null, gaps: sortGaps(detect(desc, result, srcInfo)) });
+    let items;
+    if (opts.wholeInput) {
+        /* One analysis over everything, the way the web tool treats a paste.
+           A Traefik IngressRoute references Middlewares that are separate
+           documents by design; analyzed alone, every one of those references
+           reports as unresolved. HAProxy needs no flag: each Ingress is
+           already analyzed with the Services, ConfigMap and CRs of the run. */
+        items = [];
+        if (ingresses.length) {
+            // A synthesised description: the union of what every document carries.
+            const descs = ingresses.map(({ doc }) => describe(doc, srcInfo.prefixes));
+            const union = (key) => [...new Set(descs.flatMap((d) => d[key] || []))];
+            const desc = {
+                kind: 'Input',
+                name: '(whole input, ' + ingresses.length + ' document' + (ingresses.length !== 1 ? 's' : '') + ')',
+                namespace: null,
+                ingressClassName: descs.map((d) => d.ingressClassName).find(Boolean) || null,
+                classAnnotation: null,
+                hosts: union('hosts'),
+                paths: descs.reduce((n, d) => n + (d.paths || 0), 0),
+                services: union('services'),
+                hasTls: descs.some((d) => d.hasTls),
+                tlsSecrets: union('tlsSecrets'),
+                annotations: union('annotations')
+            };
+            const result = engine.analyze(yaml.stringifyAll(run), strategy);
+            items.push({ desc, result, sourceFile: sources.map((src) => src.file).join(', '),
+                         gaps: sortGaps(detect(desc, result, srcInfo)) });
+        }
+    } else {
+        // The run's other documents, analyzed with each unit: HAProxy reads an
+        // Ingress's settings from the Services it routes to and the controller
+        // ConfigMap and CRs too. ingress-nginx reads the Ingress alone.
+        const context = run.filter((d) => (srcInfo.units || ['Ingress']).indexOf(d.kind) === -1);
+        // Per Ingress: the Services it routes to and the controller ConfigMap /
+        // CRs, so its entry shows what HAProxy applied to it and not the rest of
+        // the run. The global part is reported once, after the Ingresses.
+        const servicesOf = (doc) => {
+            const names = new Set();
+            const spec = (doc && doc.spec) || {};
+            const add = (b) => { const n = b && ((b.service && b.service.name) || b.serviceName); if (n) names.add(String(n)); };
+            add(spec.defaultBackend || spec.backend);
+            for (const r of spec.rules || []) for (const p of ((r && r.http && r.http.paths) || [])) add(p && p.backend);
+            return names;
+        };
+        const ns = (d) => (d.metadata && d.metadata.namespace) || null;
+        items = ingresses.map(({ doc, sourceFile }) => {
+            const desc = describe(doc, srcInfo.prefixes);
+            const svcs = servicesOf(doc);
+            const own = context.filter((d) => d.kind !== 'Service' || (svcs.has(String(d.metadata && d.metadata.name)) && (ns(d) === ns(doc) || !ns(d) || !ns(doc))));
+            // The engine analyzes the parsed object, re-emitted: what it reads is
+            // exactly what was parsed, whatever the input's form.
+            const result = engine.analyze(yaml.stringifyAll([doc].concat(own)), strategy);
+            return { desc, result, sourceFile, gaps: detect(desc, result, srcInfo) };
+        });
+        // Across the run: a host several Ingresses route (report reads each alone).
+        sharedHosts(items);
+        for (const item of items) item.gaps = sortGaps(item.gaps);
+        // A run with no unit but global settings (a ConfigMap or CRs alone) is
+        // still reported, as the page reports it.
+        if (!items.length && context.length) {
+            const result = engine.analyze(yaml.stringifyAll(context), strategy);
+            const desc = { kind: 'controller', name: 'controller settings', namespace: null, ingressClassName: null, classAnnotation: null, hosts: [], paths: 0, services: [], hasTls: false, tlsSecrets: [], annotations: context.map((d) => d.kind) };
+            items.push({ desc, result, sourceFile: null, gaps: sortGaps(detect(desc, result, srcInfo)) });
+        }
     }
 
     if (!items.length) {

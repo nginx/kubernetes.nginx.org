@@ -15,6 +15,8 @@
   <url>
     <loc>https://kubernetes.nginx.org/haproxy-migration.html</loc>
     <lastmod>2026-08-14</lastmod>
+    <loc>https://kubernetes.nginx.org/traefik-migration.html</loc>
+    <lastmod>2026-08-15</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
