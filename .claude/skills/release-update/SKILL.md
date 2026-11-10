@@ -61,12 +61,13 @@ For `<nic|ngf>`, whichever shipped:
 
 ## ingress2gateway only
 
-It has no Helm chart and no compatibility table, which is exactly why it is the product that goes stale: nothing about it looks like the NIC/NGF checklist above, so following that checklist skips it entirely. Four places:
+It has no Helm chart and no compatibility table, which is exactly why it is the product that goes stale: nothing about it looks like the NIC/NGF checklist above, so following that checklist skips it entirely. Three places:
 
 - `VERSION_CONFIG.i2g.fallback.release` in `assets/js/index.js`.
 - The sidebar `data-version="i2g.release"` span.
 - The hero badge: both its text and its `releases/tag/` href.
-- The `go install` line, which is `data-version-format="atv"` and so renders `@v1.2.0`.
+
+The pane installs the `nginx/ingress2gateway` fork from source, for its NGINX emitter, so it has no versioned `go install` line; the upstream `go install` and `brew` lines were removed until the emitter is merged upstream (kubernetes-sigs/ingress2gateway pull request 422). When they return, a `go install` line takes `data-version-format="atv"`, which renders `@v1.2.0`.
 
 ## Gateway Lens only
 
