@@ -12,12 +12,14 @@ on:
       - "tools/nic-migrate/**"
       - "assets/js/migration-core.js"
       - "assets/js/migration-ingress-nginx.js"
+      - "assets/js/migration-haproxy.js"
       - ".github/workflows/e2e.yml"
   pull_request:
     paths:
       - "tools/nic-migrate/**"
       - "assets/js/migration-core.js"
       - "assets/js/migration-ingress-nginx.js"
+      - "assets/js/migration-haproxy.js"
       - ".github/workflows/e2e.yml"
   workflow_dispatch:
     inputs:
@@ -40,8 +42,14 @@ concurrency:
 
 jobs:
   e2e:
-    name: ingress-nginx -> NIC, on a real cluster
+    name: ${{ matrix.source }} -> NIC, on a real cluster
     runs-on: ubuntu-latest
+    # One job per source the converter migrates from; each builds its own
+    # cluster, so a failure says which source broke.
+    strategy:
+      fail-fast: false
+      matrix:
+        source: [ingress-nginx, haproxy]
     # A hung wait_for should not burn an hour of runner time.
     timeout-minutes: 30
     steps:
@@ -87,8 +95,9 @@ jobs:
       - name: Run the migration e2e
         env:
           E2E_TARGET: ${{ github.event.inputs.target || 'virtualserver' }}
+          E2E_SOURCE: ${{ matrix.source }}
         run: |
-          python3 tools/nic-migrate/e2e/run-e2e.py --target "$E2E_TARGET"
+          python3 tools/nic-migrate/e2e/run-e2e.py --source "$E2E_SOURCE" --target "$E2E_TARGET"
 
       # The converted manifests and controller logs are the only things worth
       # having when a case mismatches — the run itself is gone.
@@ -97,12 +106,14 @@ jobs:
         run: |
           mkdir -p /tmp/e2e-diag
           cp -r tools/nic-migrate/e2e/.work /tmp/e2e-diag/ 2>/dev/null || true
-          for ns in e2e-shop ingress-nginx nginx-ingress; do
+          for ns in e2e-shop ingress-nginx haproxy-controller nginx-ingress; do
             kubectl get all,ingress,virtualserver,policy -n "$ns" -o wide > "/tmp/e2e-diag/$ns.txt" 2>&1 || true
             kubectl describe ingress,virtualserver -n "$ns" >> "/tmp/e2e-diag/$ns.txt" 2>&1 || true
           done
           kubectl logs -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx --tail=300 \
             > /tmp/e2e-diag/ingress-nginx.log 2>&1 || true
+          kubectl logs -n haproxy-controller -l app.kubernetes.io/instance=hap --tail=300 \
+            > /tmp/e2e-diag/haproxy.log 2>&1 || true
           kubectl logs -n nginx-ingress -l app.kubernetes.io/instance=nic --tail=300 \
             > /tmp/e2e-diag/nic.log 2>&1 || true
 
@@ -110,6 +121,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: e2e-diagnostics
+          name: e2e-diagnostics-${{ matrix.source }}
           path: /tmp/e2e-diag
           retention-days: 7

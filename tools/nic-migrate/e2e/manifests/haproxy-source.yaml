@@ -1,0 +1,109 @@
+# The HAProxy Kubernetes Ingress Controller resources under migration, chosen
+# so each way the HAProxy assembler resolves a setting is exercised once:
+#
+#   path-rewrite        a frontend setting from the Ingress, two-field form:
+#                       replace-path searches the path and replaces all of it,
+#                       observable only from the backend
+#   cors-*              frontend settings, a Policy that must be referenced
+#   timeout-server,     backend settings read from the ConfigMap (global key)
+#   load-balance        and from a Service, which wins over the Ingress
+#   cookie-persistence  a backend setting on the Service only: Set-Cookie
+#   route-acl           on the canary Service only, a header match: HAProxy
+#                       sends X-Canary: yes on host shop to web2
+#   ssl-redirect false  keeps plain HTTP assertable; HAProxy redirects by
+#                       default once the Ingress has TLS
+#
+# Two hosts and three backends, as source-ingress.yaml has, on the same
+# workload (workload.yaml).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: shop
+  namespace: e2e-shop
+  annotations:
+    haproxy.org/path-rewrite: "/api/(.*) /\\1"
+    haproxy.org/ssl-redirect: "false"
+    haproxy.org/load-balance: leastconn
+    haproxy.org/cors-enable: "true"
+    haproxy.org/cors-allow-origin: "https://shop.example.com"
+spec:
+  ingressClassName: haproxy
+  tls:
+    - hosts:
+        - shop.example.com
+      secretName: shop-tls
+  rules:
+    - host: shop.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-svc
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web-svc
+                port:
+                  number: 8080
+          # The canary leg: HAProxy routes here only by the route-acl on
+          # web2-svc (route.go AddCustomRoute), ahead of the path map.
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web2-svc
+                port:
+                  number: 8080
+    # web2-svc carries a route-acl, which HAProxy applies to every host it
+    # backs, so this host uses web-svc.
+    - host: b.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web-svc
+                port:
+                  number: 8080
+---
+# Backend annotations HAProxy reads from the Service first. The spec is the
+# workload's, so applying this adds the annotations and changes nothing else.
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-svc
+  namespace: e2e-shop
+  annotations:
+    haproxy.org/cookie-persistence: E2ESESSION
+    haproxy.org/load-balance: roundrobin
+spec:
+  selector: {app: api}
+  ports: [{port: 8080, targetPort: 8080}]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web2-svc
+  namespace: e2e-shop
+  annotations:
+    haproxy.org/route-acl: "hdr(X-Canary) -m str yes"
+spec:
+  selector: {app: web2}
+  ports: [{port: 8080, targetPort: 8080}]
+---
+# The controller ConfigMap, for nic-migrate to read. The runner does not apply
+# it: Helm owns the controller's ConfigMap, so run-e2e.py sets the same key
+# through the chart's controller.config (HAPROXY_CONFIG), and the two must agree.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: haproxy-kubernetes-ingress
+  namespace: haproxy-controller
+data:
+  timeout-server: "120s"

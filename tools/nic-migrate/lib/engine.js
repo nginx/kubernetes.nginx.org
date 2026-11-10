@@ -22,10 +22,15 @@
 
 const path = require('node:path');
 
-const ROOT = path.join(__dirname, '..', '..', '..');
-const SOURCE_MODULE = 'assets/js/migration-ingress-nginx.js';
+const { resolveSource, DEFAULT_SOURCE } = require('./sources');
 
-function createEngine() {
+const ROOT = path.join(__dirname, '..', '..', '..');
+// Kept for the callers and tests that predate --source; the table in
+// sources.js is what actually decides which module boots.
+const SOURCE_MODULE = resolveSource(DEFAULT_SOURCE).module;
+
+function createEngine(sourceId) {
+    const src = resolveSource(sourceId);
     let loaded;
     try {
         // eslint-disable-next-line global-require
@@ -38,12 +43,15 @@ function createEngine() {
         );
     }
 
-    const { source, tool, warnings } = loaded.loadAnalyzer(SOURCE_MODULE);
-    if (!source || !source.analyzer) throw new Error(SOURCE_MODULE + ' exposed no analyzer');
+    const { source, tool, warnings } = loaded.loadAnalyzer(src.module);
+    if (!source || !source.analyzer) throw new Error(src.module + ' exposed no analyzer');
 
     return {
         source,
         tool,
+        // The descriptor, so callers do not re-resolve it: the scanner needs
+        // its prefixes and the report loop needs its kinds.
+        sourceInfo: src,
         strategies: Object.keys((source.analyzer.strategies && source.analyzer.strategies.descriptions) || {}),
         defaultStrategy: (source.analyzer.strategies && source.analyzer.strategies.initial) || 'crd',
 
@@ -60,9 +68,12 @@ function createEngine() {
         /* Several Ingresses at once, so a canary Ingress folds into its stable
            one's VirtualServer as on the page. A translator warning cannot be
            traced to one Ingress here, so every result carries the run's. */
-        migrateMany(docs, strategy, options) {
+        migrateMany(docs, strategy, options, runDocs) {
             const before = warnings.length;
-            const outs = source.analyzer.migrateMany(docs, strategy, options);
+            // `runDocs` is every document the source reads (sources.js kinds):
+            // HAProxy resolves an Ingress against its Services, the controller
+            // ConfigMap and its CRs. ingress-nginx reads the Ingresses alone.
+            const outs = source.analyzer.migrateMany(docs, strategy, options, runDocs);
             const run = warnings.slice(before);
             for (const o of outs) o.out.warnings = run;
             return outs;

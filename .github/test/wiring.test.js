@@ -14,6 +14,7 @@ const { ROOT, loadAnalyzer, idsQueriedBy } = require('./lib/load.js');
    source module add a row here; nothing else in this file is source-specific. */
 const PAGES = [
     { name: 'ingress-nginx', page: 'ingress-nginx-migration.html', module: 'assets/js/migration-ingress-nginx.js' },
+    { name: 'haproxy', page: 'haproxy-migration.html', module: 'assets/js/migration-haproxy.js' },
 ];
 
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
@@ -58,6 +59,23 @@ test('no view is revealed by find-in-page: no hidden="until-found", no beforemat
         const js = read(f);
         if (/(setAttribute\(\s*['"]hidden['"]\s*,|\.hidden\s*=)\s*['"]until-found/.test(js)) found.push(f + ': sets until-found');
         if (/['"]beforematch['"]|onbeforematch/.test(js)) found.push(f + ': beforematch handler');
+    }
+    assert.deepEqual(found, []);
+});
+
+// NGINX is a name, so it is written in capitals wherever a reader meets it as
+// a word (AGENTS.md). Lowercase nginx is right only as code: a directive, a
+// path, `ingressClassName: nginx`. Seven "verified on nginx 1.31.7" and
+// "nginx has no ..." sentences sat on the pages until a reader spotted one.
+test('page prose writes NGINX in capitals; lowercase nginx is only code', () => {
+    const found = [];
+    for (const f of allPages) {
+        const prose = read(f)
+            .replace(/<!--[\s\S]*?-->|<script\b[\s\S]*?<\/script>|<style\b[\s\S]*?<\/style>|<pre\b[\s\S]*?<\/pre>|<code>[\s\S]*?<\/code>/g, ' ')
+            .replace(/<[^>]+>/g, ' ');
+        for (const m of prose.matchAll(/(?<![\w./`'"-])nginx(?![\w./`'"-])/g)) {
+            found.push(f + ': ' + prose.slice(Math.max(0, m.index - 40), m.index + 30).replace(/\s+/g, ' ').trim());
+        }
     }
     assert.deepEqual(found, []);
 });
@@ -133,7 +151,7 @@ for (const p of PAGES) {
     // tabs. Naming an alternative and then showing one form is the drift this
     // catches: ingress-nginx has 42 such cells and 42 tabbed panels.
     test(`${p.name}: every alternative offered in a cell has an example`, () => {
-        const rows = [...page.matchAll(/<tr class="expandable">\s*([\s\S]*?)\s*<\/tr>\s*<tr class="example-row">([\s\S]*?)<\/tr>/g)];
+        const rows = [...page.matchAll(/<tr class="expandable"(?: id="[\w-]+")?>\s*([\s\S]*?)\s*<\/tr>\s*<tr class="example-row">([\s\S]*?)<\/tr>/g)];
         const unbacked = [];
         for (const [, head, panel] of rows) {
             const cells = [...head.matchAll(/<td>([\s\S]*?)<\/td>/g)].map((m) => m[1]);
@@ -221,6 +239,14 @@ for (const p of PAGES) {
     // recorded it only in its commit body, so the target side kept its 61
     // fragments; hence an assertion rather than a convention. Comment-only
     // blocks ("# No direct equivalent") declare nothing and are exempt.
+    //
+    // So is a block whose first line is `args:`. A controller flag is not a
+    // resource to author — the reader is editing the Deployment they already
+    // run — and #flag-mappings says once, in a banner above the tables, which
+    // Deployment and which field (`spec.template.spec.containers[].args`) every
+    // args block below belongs to. Wrapping each of them in nine lines of
+    // Deployment scaffolding would add over a thousand lines to the page to
+    // repeat that one sentence, against a stated size budget.
     test(`${p.name}: every comparison example is a complete manifest`, () => {
         const fragments = [];
         const blocks = page.matchAll(
@@ -231,6 +257,7 @@ for (const p of PAGES) {
                 const content = doc.split('\n')
                     .filter((l) => l.trim() && !l.trimStart().startsWith('#'));
                 if (!content.length) continue;
+                if (content[0].trim() === 'args:') continue;
                 if (!/^\s*kind:\s/m.test(doc)) {
                     fragments.push(`${p.page}:${line} ${content[0].trim().slice(0, 40)}`);
                 }
@@ -250,7 +277,7 @@ for (const p of PAGES) {
         const LINE = /^\s*(?:-\s*)?([\w.\-/]+):(\s*)(\S.*?)(?:\s\s#\s*(.*))?$/;
         const drift = [];
         const rows = page.matchAll(
-            /<tr class="expandable">\s*[\s\S]*?\s*<\/tr>\s*<tr class="example-row">([\s\S]*?)<\/tr>/g);
+            /<tr class="expandable"(?: id="[\w-]+")?>\s*[\s\S]*?\s*<\/tr>\s*<tr class="example-row">([\s\S]*?)<\/tr>/g);
         for (const row of rows) {
             const blocks = [...row[1].matchAll(
                 /<div class="comparison-block new"><h4>[\s\S]*?<\/h4><pre><code>([\s\S]*?)<\/code><\/pre><\/div>/g)];
@@ -276,18 +303,18 @@ for (const p of PAGES) {
     });
 
     // A reference row belongs to exactly one section, and which one is not a
-    // judgement call: NIC tier first (a Plus-only target goes to #plus-mappings
-    // whatever surface it came from), then the source surface — annotations to
+    // judgement call: NIC tier first (a Plus-only target goes to #plus-mappings,
+    // unless it is a ConfigMap key), then the source surface — annotations to
     // #mappings, ConfigMap keys to #configmap-mappings, CR fields to
     // #crd-mappings, controller flags to #flag-mappings. A row may still be
     // cross-listed outside its surface's section, but only if its left cell NAMES
-    // the surface ("timeout-queue ConfigMap key", "ConfigMap hsts"), because the
+    // the surface (a ConfigMap badge before hsts), because the
     // section heading is otherwise the reader's only clue about what a bare key is.
     // Drift here is invisible: the page renders perfectly and quietly tells the
     // reader an Ingress annotation exists where only a ConfigMap key does.
     test(`${p.name}: every mapping row sits in the section its surface implies`, () => {
         const rows = [...page.matchAll(
-            /<section id="([\w-]+)"|<tr class="expandable">\s*([\s\S]*?)\s*<\/tr>\s*<tr class="example-row">([\s\S]*?)<\/tr>/g)];
+            /<section id="([\w-]+)"|<tr class="expandable"(?: id="[\w-]+")?>\s*([\s\S]*?)\s*<\/tr>\s*<tr class="example-row">([\s\S]*?)<\/tr>/g)];
         const strip = (s) => s.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
         const REFERENCE = new Set(['mappings', 'plus-mappings', 'configmap-mappings',
             'crd-mappings', 'flag-mappings']);
@@ -307,14 +334,29 @@ for (const p of PAGES) {
             // kinds a ConfigMap-key or annotation example ships alongside.
             const vendorCr = kind && !/^(ConfigMap|Secret|Service|Ingress|Deployment|DaemonSet)$/.test(kind)
                 && /\./.test(apiVersion) && !/^networking\.k8s\.io\//.test(apiVersion);
+            // A ConfigMap is not always a ConfigMap *setting*. HAProxy Enterprise's
+            // platform modules have no key of their own: their configuration travels
+            // in a `*-config-snippet` value or in the `haproxy-aux.cfg` file mounted
+            // beside the generated config, so the ConfigMap is the vehicle, not the
+            // construct, and those rows belong with their feature rather than in
+            // #configmap-mappings. A row that documents the snippet key itself names
+            // it in the left cell, and stays subject to the rule.
+            const vehicleOnly = /(-config-snippet|haproxy-aux\.cfg):/.test(old)
+                && !/config-snippet|aux/.test(strip(src));
 
             let want;
-            if (/badge-plus/.test(nic)) want = 'plus-mappings';
+            // A ConfigMap key stays with the ConfigMap keys whatever its tier;
+            // the NGINX Plus badge in its cell carries the tier. timeout-queue
+            // and the modsecurity key sat in #plus-mappings until the
+            // maintainer asked for them with their siblings.
+            const configMapKey = /badge-configmap/.test(src) || (kind === 'ConfigMap' && !vehicleOnly && !/annotations:/.test(old));
+            if (/badge-plus/.test(nic) && configMapKey) want = 'configmap-mappings';
+            else if (/badge-plus/.test(nic)) want = 'plus-mappings';
             else if (/ConfigMap|CRD?\b|controller flag|\bflag\b/.test(strip(src))) want = section;
             else if (/annotations:/.test(old)) want = 'mappings';
             else if (strip(src).startsWith('--')) want = 'flag-mappings';
             else if (vendorCr) want = 'crd-mappings';
-            else if (kind === 'ConfigMap') want = 'configmap-mappings';
+            else if (kind === 'ConfigMap' && !vehicleOnly) want = 'configmap-mappings';
             else want = section;              // spec fields, gap rows: no surface to key off
             // Only hold a page to a section it actually ships.
             if (want !== section && page.includes(`<section id="${want}"`)) {
@@ -322,6 +364,59 @@ for (const p of PAGES) {
             }
         }
         assert.deepEqual(misplaced, [], 'rows in the wrong reference section');
+    });
+
+    // "Not needed" says the reader drops a setting and keeps its behavior,
+    // and it takes one of two forms: NGINX Ingress Controller already does it,
+    // or a construct the reader migrates to covers it. Five cells had grown
+    // five phrasings ("Not needed, sent automatically", "Not needed: the
+    // Policy CRD cors answers preflights itself"); the reason is in the panel.
+    test(`${p.name}: every "Not needed" cell uses one of the two forms`, () => {
+        const bad = [];
+        for (const m of page.matchAll(/<tr class="expandable"[^>]*>\s*<td>[\s\S]*?<\/td>\s*<td>(Not needed[\s\S]*?)<\/td>/g)) {
+            if (!/^Not needed \((?:default behavior|built into <code>[^<]+<\/code>[^)<]*)\)$/.test(m[1])) bad.push(m[1].slice(0, 60));
+        }
+        assert.deepEqual(bad, []);
+    });
+
+    // A row with no configuration to show answers in the NGINX Ingress
+    // Controller column itself: the note sits there, in place of a code block.
+    // 32 rows held a block of comments with a note below repeating it, and the
+    // Copy button copied the comments.
+    test(`${p.name}: no NGINX Ingress Controller example is comments only`, () => {
+        const only = [];
+        for (const m of page.matchAll(/<div class="comparison-block new"><h4>[\s\S]*?<\/h4><pre><code>([\s\S]*?)<\/code><\/pre><\/div>/g)) {
+            const lines = m[1].split('\n').filter((l) => l.trim());
+            if (lines.length && lines.every((l) => l.trim().startsWith('#'))) {
+                only.push(page.slice(0, m.index).split('\n').length + ': ' + lines[0].trim().slice(0, 40));
+            }
+        }
+        assert.deepEqual(only, []);
+    });
+
+    // In the NGINX Ingress Controller column the verdict is in the collapsed
+    // cell straight above, so a note there starts with its content. A bold
+    // lead-in stays only when it says what the cell does not ("Different
+    // mechanism:", "Partial:").
+    test(`${p.name}: a note in the NGINX Ingress Controller column does not repeat the cell's verdict`, () => {
+        const repeats = [];
+        for (const m of page.matchAll(/<div class="comparison-block new answer-only">[\s\S]*?(?=<\/div>\s*<\/div>\s*(?:<div class="info-box|<\/div>))/g)) {
+            for (const b of m[0].matchAll(/<div class="info-box[^"]*"><strong>([^<]*)<\/strong>/g)) {
+                if (/^(Note|Not applicable|Not needed|Not planned|Not supported|No direct equivalent|No NGINX Open Source equivalent):?$/.test(b[1])) repeats.push(b[1]);
+            }
+        }
+        assert.deepEqual(repeats, []);
+    });
+
+    // A panel opens on its code: tabs or the comparison first, then the notes.
+    // Ten panels opened on a paragraph, eight of them in a CRD overview table
+    // that had no code at all; a reader expanding a row expects the example.
+    test(`${p.name}: every expanded panel opens on its code`, () => {
+        const prose = [];
+        for (const m of page.matchAll(/<div class="example-content">\s*<div class="info-box/g)) {
+            prose.push(page.slice(0, m.index).split('\n').length);
+        }
+        assert.deepEqual(prose, [], 'lines where a panel opens on a note');
     });
 
     test(`${p.name}: page loads the three scripts in source-before-core order`, () => {
@@ -336,15 +431,18 @@ for (const p of PAGES) {
     // the order was a rule. A mapping marked preferAnnotation is the deliberate
     // exception, and the analyzer keeps it as an annotation under CRD-first too:
     // its row must lead with the annotation, and must exist.
+    // ingress-nginx names the annotation in community:, on the line before;
+    // other modules name the row's left cell in source:, on the same line.
     const ANNOTATION_FIRST = [...mod.matchAll(/\{ community: \["([\w-]+)"[^\n]*\n\s*preferAnnotation:/g)]
-        .map((m) => `nginx.ingress.kubernetes.io/${m[1]}`);
+        .map((m) => `nginx.ingress.kubernetes.io/${m[1]}`)
+        .concat([...mod.matchAll(/\{ keys: [^\n]*?source: '([^']+)'[^\n]*?preferAnnotation:/g)].map((m) => m[1]));
     test(`${p.name}: rows with a CRD and an annotation approach lead with the CRD`, () => {
         const CRD_BADGE = /badge-(?:virtualserver|virtualserverroute|policy|transportserver|globalconfiguration)\b/;
         const strip = (s) => s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
         const wrong = [];
         const seen = new Set();
         for (const m of page.matchAll(
-                /<tr class="expandable">\s*([\s\S]*?)\s*<\/tr>\s*<tr class="example-row">([\s\S]*?)<\/tr>/g)) {
+                /<tr class="expandable"(?: id="[\w-]+")?>\s*([\s\S]*?)\s*<\/tr>\s*<tr class="example-row">([\s\S]*?)<\/tr>/g)) {
             const tabs = [...m[2].matchAll(
                 /class="approach-tab( active)?" data-action="switchApproach" data-approach="([\w-]+)"/g)];
             const kinds = tabs.map((t) => t[2]);

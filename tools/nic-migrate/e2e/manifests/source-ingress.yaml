@@ -93,3 +93,33 @@ spec:
                 name: web2-svc
                 port:
                   number: 8080
+---
+# docs is on a host of its own with no use-regex or rewrite-target, so the
+# community controller splits its Prefix /api into /api/ and = /api
+# (updateServerLocations): /apix goes to "/", not to /api. A plain /api
+# location in NGINX Ingress Controller took it to /api's backend.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: docs
+  namespace: e2e-shop
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: c.example.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-svc
+                port:
+                  number: 8080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web-svc
+                port:
+                  number: 8080

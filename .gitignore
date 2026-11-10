@@ -41,6 +41,15 @@ Thumbs.db
 __pycache__/
 *.py[cod]
 
+###########################################
+# Render artefact from .github/scripts/   #
+###########################################
+# shot.sh copies the page it is about to render to .shot-tmp.html in the repo
+# root and removes it on exit. A killed render leaves it behind, and the same
+# reasoning as the byte-code above applies: a stray file dirties `git status`,
+# which is the signal used to prove a temporary edit was reverted.
+.shot-tmp.html
+
 #################################
 # Agent harness, machine-local  #
 #################################

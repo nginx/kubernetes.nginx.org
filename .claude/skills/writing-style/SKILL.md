@@ -57,4 +57,4 @@ Read the result once for meaning: every fact, name, number, path, commit SHA and
 grep -n '—\|–' <file>        # dashes, outside the exceptions above
 ```
 
-For a commit message, write it to a file, run the pass on that file, and commit with `git commit -F <file>`. Fold the change into the unpushed commit of the same type when there is one (`AGENTS.md`).
+For a commit message, write it to a file, run the pass on that file, and commit with `git commit -F <file>`. Before committing, run `git log -1 --format=%s @{u}..HEAD`; if the last unpushed commit has the same type, fold into it (`AGENTS.md`).

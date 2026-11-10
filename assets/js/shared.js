@@ -1,4 +1,4 @@
-/* shared.js — behavior shared by index.html and ingress-nginx-migration.html:
+/* shared.js — behavior shared by index.html and the migration pages:
    dark-mode toggle, sidebar drawer, copy-to-clipboard, copyright year.
    Loaded before the per-page scripts (index.js / migration-*.js), which call these
    as globals. Classic script (not a module) so the functions stay global and

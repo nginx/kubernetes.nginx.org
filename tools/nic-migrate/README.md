@@ -1,13 +1,15 @@
 # nic-migrate
 
-Run the migration tool's analyzer over real Ingress manifests, from a terminal.
+Run the migration tool's analyzer over real Ingress manifests, from a terminal:
+ingress-nginx by default, or HAProxy with `--source haproxy`.
 
 > **Beta.** Review the output before you apply anything to a cluster. Command
 > names, flags, and the manifests it generates may still change.
 
-The web tool at
+The web tools at
 [kubernetes.nginx.org/ingress-nginx-migration.html](https://kubernetes.nginx.org/ingress-nginx-migration.html)
-analyzes one paste at a time. `nic-migrate` runs the same engine over a
+and [haproxy-migration.html](https://kubernetes.nginx.org/haproxy-migration.html)
+analyze one paste at a time. `nic-migrate` runs the same engine over a
 directory of manifests or a live cluster: the same YAML parser, mappings,
 value transforms and assembly, read out of `assets/js/` instead of vendored,
 so it cannot drift from the published page. Run it from a checkout.
@@ -20,19 +22,55 @@ and `--validate`.
 ```bash
 # What would change, and what the analyzer cannot work out on its own
 node tools/nic-migrate/nic-migrate.js report -f ./manifests
+node tools/nic-migrate/nic-migrate.js report --source haproxy -f ./manifests
 node tools/nic-migrate/nic-migrate.js report --kubectl -n prod
 
 # Manifests you can apply
 node tools/nic-migrate/nic-migrate.js convert -f ./manifests --validate
 node tools/nic-migrate/nic-migrate.js convert -f ./in --target ingress -o ./out
+node tools/nic-migrate/nic-migrate.js convert --source haproxy --kubectl --class nginx-nic
 
-# The migration checklist, read live from the published page
+# The migration checklist, read live from the source's page
 node tools/nic-migrate/nic-migrate.js checklist
+node tools/nic-migrate/nic-migrate.js checklist --source haproxy
 ```
 
 `report` summarises what each Ingress becomes and what still needs a person.
 Use it to understand a workload. `convert` writes the same resources as
 manifests. Use it to migrate one.
+
+## Sources
+
+`--source` picks which of the site's analyzers to run. The mapping data, value
+transforms and generators all come from `assets/js/`, so the CLI reports exactly
+what the matching page reports.
+
+| | ingress-nginx | haproxy |
+|---|---|---|
+| module | `assets/js/migration-ingress-nginx.js` | `assets/js/migration-haproxy.js` |
+| page (`checklist`) | `ingress-nginx-migration.html` | `haproxy-migration.html` |
+| annotation prefixes | `nginx.ingress.kubernetes.io/` | `haproxy.org/`, `haproxy.com/`, `ingress.kubernetes.io/` |
+| kinds read | Ingress | Ingress, Service, ConfigMap, and the Global / Defaults / Backend / Frontend / TCP / ValidationRules CRs |
+| `--kubectl` reads | `ingress` | `ingress`, `service`, `configmap` and each HAProxy CRD, v3 and v1; a CRD not installed is skipped with a note |
+
+The kinds column is the substantive difference. ingress-nginx keeps every
+setting on the Ingress, so an Ingress-only scan sees all of it. HAProxy spreads
+the same job across annotated Ingress **and Service** objects, its controller
+ConfigMap and five CRs, so a scan that only looked at Ingresses would report
+"nothing found" on a real HAProxy deployment.
+
+Both commands migrate one Ingress at a time, and for HAProxy resolve it the
+way the controller does: a backend setting from the Service the path routes
+to, then the Ingress, then the ConfigMap; a `cr-backend` Backend replaces the
+backend annotations of the Service it is named on; a Global or Defaults CR
+applies only when the ConfigMap names it in `cr-global` / `cr-defaults`. What
+HAProxy applies to the whole controller (ConfigMap-only keys, the CRs,
+`tcp-services`) is written once: its keys join the `nginx-config` merge
+document, and its GlobalConfiguration and TransportServers are one more
+output, `controller`.
+
+Adding a source is one entry in `lib/sources.js` plus a module in `assets/js/`;
+`convert` also needs the module to export `migrate` and `migrateMany`.
 
 ## Reading a report
 
@@ -157,6 +195,7 @@ source's name. Applying it replaces the Ingress you are migrating. Pass
 
 ```
 nic-migrate.js      CLI: argument parsing, input gathering, output, validation
+lib/sources.js      One entry per source: module path, kinds read, CLI strings
 lib/engine.js       Boots the site's analyzer headless through .github/test/lib/load.js
 lib/ingress.js      Reads Ingresses (List and IngressList items too) and describes them
 lib/gaps.js         The gap checks (report only)
@@ -219,11 +258,22 @@ python3 tools/nic-migrate/e2e/run-e2e.py --until baseline
 
 # Use a cluster you already have
 python3 tools/nic-migrate/e2e/run-e2e.py --skip-cluster
+
+# The HAProxy Kubernetes Ingress Controller as the source, either target
+python3 tools/nic-migrate/e2e/run-e2e.py --source haproxy
+python3 tools/nic-migrate/e2e/run-e2e.py --source haproxy --target ingress
 ```
 
 Needs `kubectl`, `helm`, `node`, and `openssl`, plus `kind` and `docker` unless
 you pass `--skip-cluster`. Preflight names anything missing before doing any
 work.
+
+With `--source haproxy` the stages are the same, with HAProxy in ingress-nginx's
+place. The fixture is `manifests/haproxy-source.yaml`: the Ingress, the
+annotated Services HAProxy reads backend settings from, and the controller
+ConfigMap, which the runner sets through the chart (`HAPROXY_CONFIG`) instead
+of applying it. The chart's image tag must match `HAPROXY_APP_VERSION` unless
+you pass `--source-chart`. CI runs both sources.
 
 Every stage after the first compares against the recorded stage-1 baseline
 rather than against literals. The assertion is equivalence: each case goes to
@@ -266,3 +316,22 @@ All of these are now handled by `convert` and by the page.
 The pipeline also answered the question it was built for: `rewritePath` handles
 `$2` captures the same way the community `rewrite-target` does. Both
 controllers return `/things/42` for `/api/things/42`.
+
+The HAProxy runs found three more, each now a unit test in
+`.github/test/conversions.test.js`:
+
+- **A `path-rewrite` regex route on `/` took longer prefixes.** HAProxy picks
+  the longest matching path first, then rewrites; the converted `/` route
+  matched `/api/...` too. Each such route now excludes the host's longer
+  prefixes with a lookahead.
+- **A path whose only backend carries a `route-acl` was dropped.** HAProxy adds
+  no path-map entry for it, so requests the ACL does not match get its default
+  backend, a 404. The converted route now answers 404 unless the match holds.
+- **A canary leg applied to every route on the host.** HAProxy tests the
+  canary's own path (`{ path -m beg }`), so a leg is now scoped to routes
+  under it.
+
+With `--target ingress`, three cases skip with their reason: the two that test
+a two-field `path-rewrite`, whose captures `nginx.org/rewrite-target` cannot
+keep, and the header canary, since an Ingress has no match annotation. The
+analyzer says to use CRD-first for both.

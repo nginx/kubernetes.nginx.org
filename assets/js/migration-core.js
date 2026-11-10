@@ -3,7 +3,7 @@
        page navigation, checklist persistence, and the shared MigrationTool.NIC
        target-version constants. Everything source-specific (mapping data,
        parsers, generators, strings) lives in the page's SOURCE module
-       (e.g. migration-ingress-nginx.js), which defines
+       (migration-ingress-nginx.js / migration-haproxy.js), which defines
        window.MIGRATION_SOURCE and must load BEFORE this file:
        shared.js → migration-<source>.js → migration-core.js.
        Shared behavior (dark mode, sidebar drawer, copy-to-clipboard, copyright
@@ -949,11 +949,13 @@
                     // the trigger row (anchors, copy buttons via approach-tabs, etc.).
                     if (e.target.closest('button, a, input, select, textarea, .approach-tab')) return;
                     toggleRow(this);
+                    revealRow(this);
                 });
                 row.addEventListener('keydown', function(e) {
                     if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         toggleRow(this);
+                        revealRow(this);
                     }
                 });
             });
@@ -1373,6 +1375,27 @@
                 offset += controls.offsetHeight + 4;
             }
             return offset;
+        }
+
+        // A row the reader just opened stays where they can read it. Chrome's
+        // scroll anchoring kept the visible content still when the row sat
+        // above the viewport, so the panel opened out of sight and the page
+        // seemed to grow upwards; a row near the bottom of the window opened
+        // its panel below the fold. Bring the row below the fixed header if it
+        // is under it, otherwise scroll up only as far as the panel needs.
+        function revealRow(row) {
+            if (!row.classList.contains('expanded')) return;
+            let panel = row.nextElementSibling;
+            let top = row.getBoundingClientRect().top;
+            let offset = scrollOffsetFor(row);
+            let delta = 0;
+            if (top < offset) {
+                delta = top - offset;
+            } else if (panel) {
+                let overflow = panel.getBoundingClientRect().bottom - window.innerHeight + 16;
+                if (overflow > 0) delta = Math.min(overflow, top - offset);
+            }
+            if (delta) window.scrollBy({ top: delta, behavior: scrollBehavior() });
         }
 
         // Scroll an element to just below the fixed header. `smooth` is opt-in:
@@ -2842,6 +2865,9 @@
                         if (!owner.classList.contains('active')) {
                             showPage(owner.id.replace('page-', ''), { updateHash: false, skipScroll: true });
                         }
+                        // A reference row reached by its id opens, so a cell that
+                        // points at another row ("use basicAuth") shows its answer.
+                        if (target.classList.contains('expandable') && !target.classList.contains('expanded')) toggleRow(target);
                         requestAnimationFrame(function() { scrollToAnchor(target, false); });
                     }
                 }

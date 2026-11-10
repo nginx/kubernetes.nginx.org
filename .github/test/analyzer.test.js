@@ -1271,7 +1271,9 @@ test('community Ingresses on one host merge into one VirtualServer with every pa
     assert.equal(up('api')['client-max-body-size'], undefined, 'shop\'s body size stays on shop\'s upstream');
     const route = (p) => vs.spec.routes.find((x) => x.path === p);
     assert.deepEqual(route('/').policies, [{ name: 'shop-cors' }]);
-    assert.deepEqual(route('/api').policies, [{ name: 'api-rate-limit' }]);
+    // pathType Prefix /api is /api/ plus = /api, as the community controller split it.
+    assert.deepEqual(route('/api/').policies, [{ name: 'api-rate-limit' }]);
+    assert.deepEqual(route('=/api').policies, [{ name: 'api-rate-limit' }]);
     // Every route passes to an upstream of the VirtualServer.
     const names = new Set(vs.spec.upstreams.map((u) => u.name));
     for (const x of vs.spec.routes) assert.ok(names.has(x.action.pass || x.action.proxy.upstream), x.path);
@@ -1312,7 +1314,9 @@ test('community Ingresses on one host merge into one NGINX Ingress Controller In
     assert.deepEqual(owners(r), { 'a.example.com': ['Ingress/a-example-com'] });
     const [ing] = kinds(r, 'Ingress');
     assert.equal(ing.spec.rules.length, 1);
-    assert.deepEqual(ing.spec.rules[0].http.paths.map((p) => [p.path, p.backend.service.name]), [['/', 'web'], ['/api', 'api']], 'every path, in paste order');
+    // pathType Prefix /api is /api/ plus an Exact /api, as the community controller split it.
+    assert.deepEqual(ing.spec.rules[0].http.paths.map((p) => [p.path, p.pathType, p.backend.service.name]),
+        [['/', 'Prefix', 'web'], ['/api/', 'Prefix', 'api'], ['/api', 'Exact', 'api']], 'every path, in paste order');
     assert.equal(ing.spec.tls[0].secretName, 'a-tls');
     assert.equal(ing.metadata.annotations['nginx.org/mergeable-ingress-type'], undefined, 'no master or minion');
     // Per-Service lists keep each Service's own value.
@@ -1572,9 +1576,38 @@ test('a community server-alias naming a host an Ingress routes is dropped, as th
         assert.equal(byHost('b.example.com').length, 1, strategy + ': one resource for b.example.com');
         const b = byHost('b.example.com')[0];
         const paths = b.spec.routes ? b.spec.routes.map((x) => x.path) : b.spec.rules[0].http.paths.map((x) => x.path);
-        assert.deepEqual(paths, ['/b'], strategy + ': b.example.com keeps its own paths');
+        assert.deepEqual(paths, strategy === 'crd' ? ['/b/', '=/b'] : ['/b/', '/b'], strategy + ': b.example.com keeps its own paths');
         assert.match(notes(r), /b\.example\.com is a host an Ingress already routes, so the community controller dropped it as an alias/);
     }
     // The alias that is not a host still gets its VirtualServer under CRD-first.
     assert.ok(kinds(run(doc), 'VirtualServer').some((v) => v.spec.host === 'c.example.com'));
+});
+
+test('a plain Prefix path becomes /foo/ plus = /foo, as the community controller split it, and the reference row shows each pathType', () => {
+    /* updateServerLocations (location.go, v1.15.1) writes /foo/ as a prefix
+       and = /foo beside it, so /foobar is not matched; NGINX Ingress Controller
+       renders Prefix as one plain prefix, which matches /foobar. Not split:
+       "/", an ImplementationSpecific path, any path on a regex host, and the
+       exact copy where an Exact /foo is already there. */
+    const paths = (r) => r.docs.filter((d) => d.kind === 'VirtualServer' || d.kind === 'Ingress')
+        .flatMap((d) => d.spec.routes ? d.spec.routes.map((x) => x.path) : d.spec.rules[0].http.paths.map((x) => x.pathType[0] + ':' + x.path));
+    const one = (p, ann) => host('app', 'a.example.com', p, ann);
+    assert.deepEqual(paths(run(one([['/foo', 'web']]))), ['/foo/', '=/foo']);
+    assert.deepEqual(paths(run(one([['/foo', 'web']]), 'annotation')), ['P:/foo/', 'E:/foo']);
+    assert.deepEqual(paths(run(one([['/foo/', 'web']]))), ['/foo/', '=/foo/'], 'a trailing slash is kept in both');
+    assert.deepEqual(paths(run(one([['/', 'web']]))), ['/']);
+    assert.deepEqual(paths(run(one([['/foo', 'web', 'ImplementationSpecific']]))), ['/foo']);
+    assert.deepEqual(paths(run(one([['/foo', 'web']], { 'use-regex': 'true' }))), ['~ (?i)^/foo']);
+    assert.deepEqual(paths(run(one([['/foo', 'p'], ['/foo', 'e', 'Exact']]))), ['/foo/', '=/foo']);
+    // Annotation-first on a host another Ingress puts in regex mode: no split.
+    const shared = paste(host('shop', 'a.example.com', [['/api(/|$)(.*)', 'api', 'ImplementationSpecific']], { 'rewrite-target': '/$2' }), host('admin', 'a.example.com', [['/admin', 'admin']]));
+    assert.deepEqual(paths(run(shared, 'annotation')), ['I:/api(/|$)(.*)', 'P:/admin']);
+    // The row: each tab is the analyzer's output for its source.
+    const page = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', '..', 'ingress-nginx-migration.html'), 'utf8');
+    const at = page.indexOf('<td><code>pathType</code>');
+    const row = page.slice(at, page.indexOf('</div></td></tr>', at));
+    const unescape = (t) => t.replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+    const tabs = [...row.matchAll(/data-approach="([\w-]+)">\s*<div class="comparison">\s*<div class="comparison-block old"><h4>[^<]*<\/h4><pre><code>([\s\S]*?)<\/code>[\s\S]*?comparison-block new"><h4>[^<]*<\/h4><pre><code>([\s\S]*?)<\/code>/g)];
+    assert.deepEqual(tabs.map((t) => t[1]), ['exact', 'prefix', 'implementation-specific']);
+    for (const [, tab, src, want] of tabs) assert.equal(unescape(want), run(unescape(src)).text.replace(/^# .*\n/, ''), tab);
 });

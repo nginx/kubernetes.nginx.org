@@ -57,7 +57,8 @@ function renderOne(item, style, opts) {
     const banner = result.plan && result.plan.banner;
     const summary = (result.plan && result.plan.pills ? result.plan.pills.map((p) => p.text) : []);
     if (banner && banner.complexity) summary.push('complexity ' + banner.complexity);
-    lines.push('  ' + style.dim(summary.join(' · ') || 'no community annotations found'));
+    lines.push('  ' + style.dim(summary.join(' · ') ||
+        'no ' + ((opts && opts.annotationLabel) || 'community annotations') + ' found'));
 
     if (!desc.annotations.length) return lines.join('\n');
 
@@ -129,10 +130,17 @@ function renderReport(items, opts) {
     for (const item of items) for (const g of item.gaps) totals[g.severity] = (totals[g.severity] || 0) + 1;
     const withAnn = items.filter((i) => i.desc.annotations.length > 0).length;
 
+    /* The unit is the source's, not always "Ingress": a HAProxy run counts
+       annotated Ingress AND Service objects, the controller ConfigMap and CRs,
+       so calling all of them Ingresses misreports what was read. */
+    const unit = (opts && opts.unit) || 'Ingress';
+    const plural = unit === 'Ingress' ? 'Ingresses' : unit + 's';
+    const annLabel = (opts && opts.annotationLabel) || 'community annotations';
+
     chunks.push(style.dim('─'.repeat(60)));
     chunks.push(
-        items.length + ' Ingress' + (items.length !== 1 ? 'es' : '') + ' · ' +
-        withAnn + ' with community annotations · ' +
+        items.length + ' ' + (items.length !== 1 ? plural : unit) + ' · ' +
+        withAnn + ' with ' + annLabel + ' · ' +
         style.sev('blocking', totals.blocking + ' blocking') + ' · ' +
         style.sev('review', totals.review + ' review') + ' · ' +
         style.dim(totals.note + ' note')

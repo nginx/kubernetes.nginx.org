@@ -36,7 +36,9 @@ function generatedResources(parts) {
     return out;
 }
 
-function detect(desc, result) {
+/* `source` is the --source entry (sources.js): it names the source's own
+   annotation prefixes and how its snippets go wrong. */
+function detect(desc, result, source) {
     const gaps = [];
     const add = (id, severity, message) => gaps.push({ id, severity, message });
     const parts = result.parts || [];
@@ -120,17 +122,23 @@ function detect(desc, result) {
         for (const c of plan.unsupported.cards) add('unsupported', 'review', c.code + ' — ' + c.title + ': ' + c.desc);
     }
     if (plan.unrecognized && plan.unrecognized.items) {
+        /* Each item is one annotation or ConfigMap key, as YAML; the key is
+           named whatever the source's prefix. */
+        const prefixes = (source && source.prefixes) || ['nginx.ingress.kubernetes.io/'];
         const names = plan.unrecognized.items
-            .map((i) => (i.yaml.match(/nginx\.ingress\.kubernetes\.io\/([^:"]+)/) || [])[1])
-            .filter(Boolean);
+            .map((i) => (i.yaml.match(/^\s+"?([^\s:"]+)"?:/m) || i.yaml.match(/^#\s*(.+)$/m) || [])[1])
+            .filter(Boolean)
+            .map((k) => { const p = prefixes.find((x) => k.startsWith(x)); return p ? k.slice(p.length) : k; });
         if (names.length) add('unrecognized', 'note', 'Not in the mapping database (custom, deprecated, or not yet mapped): ' + names.join(', ') + '.');
     }
 
     /* 9. Snippets: NIC rejects the resource unless snippets are enabled. */
-    if (/location-snippets|server-snippets/.test(yaml)) {
+    if (/location-snippets|server-snippets|main-snippets|http-snippets/.test(yaml)) {
         add('snippet-passthrough', 'blocking', 'Output uses snippets. NGINX Ingress Controller ships with snippets DISABLED and rejects the resource ' +
             '("snippet specified but snippets feature is not enabled") — install with helm --set controller.enableSnippets=true. ' +
-            'Directives from community-only modules (more_set_headers, Lua) fail the reload.');
+            (source && source.id === 'haproxy'
+                ? 'HAProxy directives are not NGINX directives: every line marked TODO must be rewritten, or the reload fails.'
+                : 'Directives from community-only modules (more_set_headers, Lua) fail the reload.'));
     }
     return gaps;
 }
