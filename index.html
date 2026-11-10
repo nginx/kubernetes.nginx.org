@@ -267,7 +267,7 @@
                         <a class="project-card" href="#ingress2gateway" data-navigate="ingress2gateway">
                             <span class="project-card-badge blue">Tool</span>
                             <h3>ingress2gateway</h3>
-                            <p>CLI tool to convert Ingress resources to Gateway API resources using the NGINX provider.</p>
+                            <p>CLI tool to convert NGINX Ingress Controller resources to Gateway API, with an NGINX emitter that outputs NGINX Gateway Fabric policies.</p>
                             <span class="card-link blue" aria-hidden="true">Learn more &rsaquo;</span>
                         </a>
                         <a class="project-card" href="#gateway-lens" data-navigate="gateway-lens">
@@ -759,16 +759,17 @@
                             <a class="hero-version" data-version="i2g.release" href="https://github.com/kubernetes-sigs/ingress2gateway/releases/tag/v1.2.0" target="_blank" rel="noopener">v1.2.0</a>
                         </span>
                         <h1>ingress2gateway</h1>
-                        <p>Convert Ingress resources to Gateway API resources using the NGINX provider. Automate your migration from Ingress to the Kubernetes Gateway API.</p>
+                        <p>Convert NGINX Ingress Controller resources to Gateway API resources. The NGINX emitter adds the NGINX Gateway Fabric policies that standard Gateway API has no field for.</p>
                     </div>
                 </div>
                 <div class="page-body">
                     <div class="cta-row">
-                        <a class="cta cta-primary i2g" href="https://github.com/kubernetes-sigs/ingress2gateway" target="_blank" rel="noopener">
+                        <a class="cta cta-primary i2g" href="https://github.com/nginx/ingress2gateway" target="_blank" rel="noopener">
                             <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><use href="#icon-github"/></svg>
                             GitHub repository
                         </a>
-                        <a class="cta cta-secondary" href="https://github.com/kubernetes-sigs/ingress2gateway/blob/main/pkg/i2gw/providers/nginx/README.md" target="_blank" rel="noopener">ingress2gateway NGINX provider</a>
+                        <a class="cta cta-secondary" href="https://github.com/nginx/ingress2gateway/blob/main/pkg/i2gw/emitters/nginx/README.md" target="_blank" rel="noopener">NGINX emitter</a>
+                        <a class="cta cta-secondary" href="https://github.com/nginx/ingress2gateway/blob/main/pkg/i2gw/providers/nginx/README.md" target="_blank" rel="noopener">NGINX provider</a>
                     </div>
 
                     <h2 class="sr-only">ingress2gateway features</h2>
@@ -779,11 +780,11 @@
                         </div>
                         <div class="feature-card">
                             <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> NGINX provider</h3>
-                            <p>Dedicated NGINX provider that understands 14 NGINX-specific annotations and converts them to their Gateway API equivalents.</p>
+                            <p>Dedicated NGINX provider that understands 15 NGINX Ingress Controller annotations, <code class="code-accent">nginx.org/client-max-body-size</code> among them, and converts them to their Gateway API equivalents.</p>
                         </div>
                         <div class="feature-card">
-                            <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg> Gateway &amp; HTTPRoute output</h3>
-                            <p>Produces Gateway and HTTPRoute resources ready for direct application to your cluster.</p>
+                            <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg> NGINX emitter</h3>
+                            <p>With <code class="code-accent">--emitter=nginx</code>, Gateways use the <code class="code-accent">nginx</code> GatewayClass and <code class="code-accent">client-max-body-size</code> becomes an NGINX Gateway Fabric ClientSettingsPolicy.</p>
                         </div>
                         <div class="feature-card">
                             <h3 class="feature-title"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg> CLI tool</h3>
@@ -799,6 +800,10 @@
                         </div>
                     </div>
 
+                    <div class="info-box note">
+                        <strong>Where the NGINX emitter lives:</strong> the emitter is in the <a href="https://github.com/nginx/ingress2gateway" target="_blank" rel="noopener">nginx/ingress2gateway</a> fork while we work on getting it merged upstream in <a href="https://github.com/kubernetes-sigs/ingress2gateway/pull/422" target="_blank" rel="noopener">pull request 422 in kubernetes-sigs/ingress2gateway</a>. Until then, build it from source as shown below.
+                    </div>
+
                     <div class="info-box warning">
                         <strong>Limitations:</strong> ingress2gateway converts core Ingress resources only; it does not convert CRDs (VirtualServer, etc.) and only translates a subset of NGINX-specific annotations. Review generated output before applying to production.
                     </div>
@@ -809,10 +814,10 @@
 
                     <h2 class="section-heading">Installation</h2>
                     <div class="code-section code-section-flush">
-                        <div class="code-block"><button class="copy-btn" aria-label="Copy Go install command">Copy</button><code><span class="comment"># Install with Go</span>
-<span class="cmd">go</span> install github.com/kubernetes-sigs/ingress2gateway<span data-version="i2g.release" data-version-format="atv">@v1.2.0</span></code></div>
-                        <div class="code-block"><button class="copy-btn" aria-label="Copy Homebrew install command">Copy</button><code><span class="comment"># Or install with Homebrew (macOS / Linux)</span>
-<span class="cmd">brew</span> install ingress2gateway</code></div>
+                        <div class="code-block"><button class="copy-btn" aria-label="Copy build-from-source commands">Copy</button><code><span class="comment"># Build from source</span>
+<span class="cmd">git</span> clone https://github.com/nginx/ingress2gateway.git &amp;&amp; <span class="cmd">cd</span> ingress2gateway
+<span class="cmd">make</span> build
+<span class="cmd">go</span> install .</code></div>
                     </div>
 
                     <h2 class="section-heading">Usage</h2>
@@ -828,6 +833,11 @@
 <span class="cmd">ingress2gateway</span> print \
   <span class="flag">--providers</span>=nginx \
   <span class="flag">--input-file</span>=<span class="str">my-ingress.yaml</span> &gt; gateway-resources.yaml</code></div>
+                        <div class="code-block"><button class="copy-btn" aria-label="Copy NGINX emitter command">Copy</button><code><span class="comment"># Add NGINX Gateway Fabric policies</span>
+<span class="cmd">ingress2gateway</span> print \
+  <span class="flag">--providers</span>=nginx \
+  <span class="flag">--emitter</span>=nginx \
+  <span class="flag">--input-file</span>=<span class="str">my-ingress.yaml</span></code></div>
                     </div>
 
                 </div>

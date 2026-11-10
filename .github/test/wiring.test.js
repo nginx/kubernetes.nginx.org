@@ -71,7 +71,7 @@ test('page prose writes NGINX in capitals; lowercase nginx is only code', () => 
     const found = [];
     for (const f of allPages) {
         const prose = read(f)
-            .replace(/<!--[\s\S]*?-->|<script\b[\s\S]*?<\/script>|<style\b[\s\S]*?<\/style>|<pre\b[\s\S]*?<\/pre>|<code>[\s\S]*?<\/code>/g, ' ')
+            .replace(/<!--[\s\S]*?-->|<script\b[\s\S]*?<\/script>|<style\b[\s\S]*?<\/style>|<pre\b[\s\S]*?<\/pre>|<code\b[^>]*>[\s\S]*?<\/code>/g, ' ')
             .replace(/<[^>]+>/g, ' ');
         for (const m of prose.matchAll(/(?<![\w./`'"-])nginx(?![\w./`'"-])/g)) {
             found.push(f + ': ' + prose.slice(Math.max(0, m.index - 40), m.index + 30).replace(/\s+/g, ' ').trim());
