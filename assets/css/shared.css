@@ -384,7 +384,7 @@ body {
    Shown only for a conference: KubeCon EU 2026-03/04, and KubeCon North
    America (Salt Lake City, 9-12 November 2026, booth 100). To show it, add the
    <p class="event-banner" id="eventBanner"> after #page-announce and
-   class="has-banner" on <body>, on both pages; to retire it, remove both. The
+   class="has-banner" on <body>, on every page; to retire it, remove both. The
    classes stay on check-classes.py's DORMANT list for the weeks in between. */
 .event-banner {
     position: fixed;
@@ -831,10 +831,22 @@ code {
     cursor: pointer;
     transition: background var(--dur-colour) linear, color var(--dur-colour) linear;
 }
-.copy-btn {
+/* The in-code buttons (.copy-btn here, .analyzer-copy-btn in migration.css)
+   sit in a band of their own at the top of the code: 8px above, 24px of
+   button, 8px below, which is --space-5x of top padding. Before, the code
+   started 20px down and the button covered whatever ran under it. Code never
+   wraps (white-space: pre), so a long first line ran straight under the
+   button: a one-line comment in a Traefik ConfigMap panel, the long install
+   command in the ingress-nginx Advanced sample. A float does not help for
+   the same reason, since an unwrapped line runs past it. The analyzer's own
+   padding-top is in migration.css, which loads after this file. */
+.code-block:has(> .copy-btn) { padding-top: var(--space-5x); }
+.copy-btn, .analyzer-copy-btn {
     position: absolute;
     top: var(--space-base);
     right: var(--space-base);
+}
+.copy-btn {
     z-index: 2;
     background: var(--on-code);
     border-color: var(--on-code-strong);

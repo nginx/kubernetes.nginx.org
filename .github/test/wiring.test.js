@@ -37,10 +37,21 @@ test('shared.js: it queries at least the ids AGENTS.md names', () => {
     }
 });
 
+// The event banner is shown only around a conference, so #eventBanner is
+// absent most of the year and shared.js expects that. What does break is half
+// a banner: class="has-banner" reserves --banner-h above the top bar, so
+// without the <p> it leaves an empty band, and the <p> without the class sits
+// over the top bar.
+const OPTIONAL_IDS = ['eventBanner'];
+
 for (const f of allPages) {
     test(`${f}: every element id shared.js queries exists`, () => {
         const html = read(f);
-        assert.deepEqual(sharedIds.filter((id) => !html.includes(`id="${id}"`)), []);
+        assert.deepEqual(sharedIds.filter((id) => !OPTIONAL_IDS.includes(id) && !html.includes(`id="${id}"`)), []);
+    });
+    test(`${f}: the event banner and body.has-banner come together or not at all`, () => {
+        const html = read(f);
+        assert.equal(/<body[^>]*\bclass="[^"]*\bhas-banner\b/.test(html), html.includes('id="eventBanner"'));
     });
 }
 

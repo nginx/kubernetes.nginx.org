@@ -980,7 +980,8 @@ button.analyzer-pill { font-family: var(--font); }
 .analyzer-yaml-output {
     position: relative;
     margin: var(--space-base) 0;
-    padding: var(--space-2hx);
+    /* The top band is the Copy button's (see .copy-btn in shared.css). */
+    padding: var(--space-5x) var(--space-2hx) var(--space-2hx);
     background: var(--code-bg);
     color: var(--code-fg);
     border: 1px solid var(--code-border);
@@ -1019,9 +1020,6 @@ button.analyzer-pill { font-family: var(--font); }
 .analyzer-yaml-expand:hover { background: var(--surface-sunken); }
 
 .analyzer-copy-btn {
-    position: absolute;
-    top: var(--space-base);
-    right: var(--space-base);
     z-index: 1;
     background: var(--on-code);
     border-color: var(--on-code-strong);
