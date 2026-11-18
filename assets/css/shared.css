@@ -785,6 +785,13 @@ body {
 code {
     font-family: var(--mono);
     font-size: 0.9em;   /* relative to its context, not a scale step */
+    /* A long dotted name has no space to break at: at 320px
+       `controller.globalConfiguration.create` in the HAProxy phased-migration
+       list ran 26px past the screen and widened the whole page. `anywhere`
+       breaks a name only when it would otherwise overflow, so short ones stay
+       whole. Code blocks are white-space: pre and never wrap; the mapping
+       table already did this for its own cells (migration.css). */
+    overflow-wrap: anywhere;
 }
 
 .code-block {
