@@ -58,7 +58,7 @@ NAME_SUFFIX = '-nic'
 # Pinned so a run is reproducible. The NIC chart matches what the site
 # documents; see .github/scripts/check-versions.py for the three formats.
 NIC_CHART = 'oci://ghcr.io/nginx/charts/nginx-ingress'
-NIC_CHART_VERSION = '2.8.0'
+NIC_CHART_VERSION = '2.9.0'
 COMMUNITY_REPO = 'https://kubernetes.github.io/ingress-nginx'
 # HAProxy Kubernetes Ingress Controller v3.2.19, the version the HAProxy guide
 # is written against (HAPROXY_VERSION in assets/js/migration-haproxy.js).
@@ -655,7 +655,7 @@ def apply_converted(args, path):
     clear_previous()
     kubectl('apply', '-f', path)
 
-    if 'kind: VirtualServer' in text:
+    def all_valid(kind):
         def valid():
             # {end} is not optional: without it kubectl still exits 0 but emits
             # a trailing bare "=", which parses into an empty-named resource
@@ -663,7 +663,7 @@ def apply_converted(args, path):
             # the wait times out against two perfectly Valid VirtualServers.
             # Cost an entire e2e run to find. virtualserver_states dropping a
             # nameless line is the belt to those braces.
-            out = kubectl('get', 'virtualserver', '-n', NS,
+            out = kubectl('get', kind, '-n', NS,
                           '-o', 'jsonpath={range .items[*]}{.metadata.name}{"\\t"}{.status.state}'
                                 '{"\\t"}{.status.message}{"\\n"}{end}',
                           check=False).stdout
@@ -671,14 +671,21 @@ def apply_converted(args, path):
             if states and all(s == 'Valid' for s, _ in states.values()):
                 return ' '.join('%s=Valid' % name for name in sorted(states))
             # Raised, not returned: wait_for keeps a Fail's text as `last`, so a
-            # timeout names each VirtualServer's state and NIC's reason for it.
+            # timeout names each resource's state and NIC's reason for it.
             # Returning None reported "last: None" and threw both away.
             raise Fail('; '.join('%s=%s %s' % (name, s or '(no state)', m)
                                  for name, (s, m) in sorted(states.items()))
-                       or 'no VirtualServer listed')
-        say('  ' + wait_for('every VirtualServer to reach state Valid', valid, timeout=180))
+                       or 'no %s listed' % kind)
+        return valid
+
+    if 'kind: VirtualServer' in text:
+        say('  ' + wait_for('every VirtualServer to reach state Valid', all_valid('virtualserver'), timeout=180))
     else:
         say('  applied the converted Ingress on class %s' % NIC_CLASS)
+    # A Policy NIC refuses still applies, and an Ingress referencing it answers
+    # 500 on every path (generatePolicies ErrorReturn); its own state says why.
+    if 'kind: Policy' in text:
+        say('  ' + wait_for('every Policy to reach state Valid', all_valid('policy'), timeout=120))
     # Give the controller a moment to reload after the resource is accepted.
     time.sleep(5)
 

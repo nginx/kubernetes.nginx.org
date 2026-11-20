@@ -190,7 +190,7 @@
 
         <div class="tool-page active" id="page-getting-started">
         <div class="info-box note" style="margin: 0 0 var(--space-2x);"><strong>Migrating from HAProxy?</strong> The HAProxy Kubernetes Ingress Controller is actively maintained; this guide is for teams standardizing on the NGINX data plane. It translates HAProxy's annotations, ConfigMap, and Global/Defaults/Backend/TCP CRDs into the NGINX Ingress Controller's ConfigMap + annotation + VirtualServer/Policy model, resource by resource.</div>
-        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-haproxy-release-link href="https://github.com/haproxytech/kubernetes-ingress/releases/tag/v3.2.19" target="_blank" rel="noopener">HAProxy Kubernetes Ingress Controller <span data-haproxy-version>v3.2.19</span></a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.7.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.7.0</span></a>.</div>
+        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-haproxy-release-link href="https://github.com/haproxytech/kubernetes-ingress/releases/tag/v3.2.19" target="_blank" rel="noopener">HAProxy Kubernetes Ingress Controller <span data-haproxy-version>v3.2.19</span></a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.8.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.8.0</span></a>.</div>
 
         <section id="overview">
             <h2 id="migration-overview">Overview</h2>
@@ -346,15 +346,15 @@
         <!-- Installation -->
         <section id="installation">
             <h2 id="installing-crds">Installing CRDs</h2>
-            <p>CRDs can be installed via Helm or manually using manifests, depending on your deployment method. See the <a href="https://docs.nginx.com/nginx-ingress-controller/installation/" target="_blank" rel="noopener">NGINX Ingress Controller installation docs</a> for full instructions.</p>
+            <p>CRDs can be installed via Helm or manually using manifests, depending on your deployment method. See the <a href="https://docs.nginx.com/nginx-ingress-controller/install/" target="_blank" rel="noopener">NGINX Ingress Controller installation docs</a> for full instructions.</p>
             <div class="install-box"><h3>Helm (example)</h3>
                 <p style="margin: 0 0 var(--space-2x); font-size: var(--fs-body); line-height: var(--lh-body);">If you install NGINX Ingress Controller via Helm, CRDs are included automatically. To ensure they are enabled:</p>
-                <pre><code data-nic-helm-install>helm install nginx-ingress oci://ghcr.io/nginx/charts/nginx-ingress --version 2.8.0 --set controller.enableCustomResources=true</code></pre>
+                <pre><code data-nic-helm-install>helm install nginx-ingress oci://ghcr.io/nginx/charts/nginx-ingress --version 2.9.0 --set controller.enableCustomResources=true</code></pre>
                 <p style="margin: var(--space-2x) 0 0; font-size: var(--fs-caption); line-height: var(--lh-caption); opacity: 0.8;">The <code>controller.enableCustomResources</code> flag is <code>true</code> by default. If you previously disabled it, re-enable it to use CRD resources. See the <a href="https://docs.nginx.com/nginx-ingress-controller/install/helm/" target="_blank" rel="noopener">Helm installation guide</a> for details.</p>
             </div>
             <div class="install-box"><h3>Manifests (example)</h3>
                 <p style="margin: 0 0 var(--space-2x); font-size: var(--fs-body); line-height: var(--lh-body);">If you deploy using manifests, install CRDs manually before deploying the controller:</p>
-                <pre><code data-nic-crd-install>kubectl apply -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/v5.7.0/deploy/crds.yaml</code></pre>
+                <pre><code data-nic-crd-install>kubectl apply -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/v5.8.0/deploy/crds.yaml</code></pre>
                 <p style="margin: var(--space-2x) 0 0; font-size: var(--fs-caption); line-height: var(--lh-caption); opacity: 0.8;">Replace the version number with your target controller version. See the <a href="https://docs.nginx.com/nginx-ingress-controller/install/manifests/" target="_blank" rel="noopener">manifest installation guide</a> for the full step-by-step process.</p>
             </div>
             <div class="info-box note"><strong>Note:</strong> The <code>crds.yaml</code> file contains all CRDs (VirtualServer, VirtualServerRoute, Policy, TransportServer, GlobalConfiguration) in a single manifest.</div>
@@ -430,7 +430,7 @@
         </div><!-- /.tool-page #page-getting-started -->
 
         <div class="tool-page" id="page-analyzer" hidden>
-        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-haproxy-release-link href="https://github.com/haproxytech/kubernetes-ingress/releases/tag/v3.2.19" target="_blank" rel="noopener">HAProxy Kubernetes Ingress Controller <span data-haproxy-version>v3.2.19</span></a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.7.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.7.0</span></a>.</div>
+        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-haproxy-release-link href="https://github.com/haproxytech/kubernetes-ingress/releases/tag/v3.2.19" target="_blank" rel="noopener">HAProxy Kubernetes Ingress Controller <span data-haproxy-version>v3.2.19</span></a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.8.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.8.0</span></a>.</div>
         <!-- YAML Migration Analyzer -->
         <section id="analyzer">
             <h2 id="yaml-analyzer">HAProxy config analyzer</h2>
@@ -496,7 +496,7 @@ spec:
         </div><!-- /.tool-page #page-analyzer -->
 
         <div class="tool-page" id="page-reference" hidden>
-        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-haproxy-release-link href="https://github.com/haproxytech/kubernetes-ingress/releases/tag/v3.2.19" target="_blank" rel="noopener">HAProxy Kubernetes Ingress Controller <span data-haproxy-version>v3.2.19</span></a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.7.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.7.0</span></a>.</div>
+        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-haproxy-release-link href="https://github.com/haproxytech/kubernetes-ingress/releases/tag/v3.2.19" target="_blank" rel="noopener">HAProxy Kubernetes Ingress Controller <span data-haproxy-version>v3.2.19</span></a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.8.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.8.0</span></a>.</div>
         <!-- Key Differences -->
         <section id="differences">
             <h2 id="key-differences">Key differences</h2>
@@ -516,12 +516,17 @@ spec:
             <div class="info-box warning" style="margin: var(--space-2hx) 0 0;"><strong>Snippets are not portable:</strong> HAProxy <code>*-config-snippet</code> keys and the NGINX Ingress Controller snippet keys (<code>main-</code>/<code>http-</code>/<code>server-</code>/<code>location-</code>/<code>stream-snippets</code>) are escape hatches in <em>different configuration languages</em>. Snippet <em>content</em> is never copyable: every directive must be re-authored as NGINX configuration (the analyzer wraps originals in <code># TODO rewrite as NGINX:</code> comments). Resource-level snippets require the <code>-enable-snippets</code> flag.</div>
             <div class="info-box note release-notes" style="margin: var(--space-2x) 0 0;"><strong>New in NGINX Ingress Controller</strong>
                 <div class="approach-tabs" aria-label="NGINX Ingress Controller release">
-                    <button class="approach-tab active" data-action="switchApproach" data-approach="v5-7-0">v5.7.0</button>
+                    <button class="approach-tab active" data-action="switchApproach" data-approach="v5-8-0">v5.8.0</button>
+                    <button class="approach-tab" data-action="switchApproach" data-approach="v5-7-0">v5.7.0</button>
                     <button class="approach-tab" data-action="switchApproach" data-approach="v5-6-0">v5.6.0</button>
                     <button class="approach-tab" data-action="switchApproach" data-approach="v5-5-0">v5.5.0</button>
                     <button class="approach-tab" data-action="switchApproach" data-approach="v5-4-0">v5.4.0</button>
                 </div>
-                <div class="approach-content active" data-approach="v5-7-0">
+                <div class="approach-content active" data-approach="v5-8-0">
+                    <p><strong>In NGINX Ingress Controller:</strong> A new <code>connectionLimit</code> Policy CRD limits how many requests each client, or each value of another key, has open at once. It attaches to a VirtualServer, one of its routes, or an Ingress (through <code>nginx.org/policies</code>), where a snippet was needed before. The <code>externalAuth</code> Policy's <code>authResponseHeaders</code> copies headers from the auth service's response into the request sent to the backend, and <code>nginx.org/proxy-set-headers</code> takes NGINX variables, as a VirtualServer header already did. With NGINX Plus, the <code>jwt</code> Policy's <code>authorization</code> checks the token's claims.</p>
+                    <p><strong>For HAProxy users:</strong> <code>haproxy.org/request-set-header</code> keeps an NGINX variable on the annotation path, through <code>nginx.org/proxy-set-headers</code>; a <code>%[...]</code> sample fetch still needs rewriting as one.</p>
+                </div>
+                <div class="approach-content" data-approach="v5-7-0">
                     <p><strong>In NGINX Ingress Controller:</strong> <code>nginx.org/proxy-http-version</code> and a VirtualServer upstream's <code>proxy-http-version</code> set the HTTP version spoken to the backend, HTTP/2 included, where a snippet was needed before. <code>nginx.org/http2</code> or <code>spec.http2</code> turns HTTP/2 on per host. An <code>Opaque</code> Secret works wherever a CA, TLS, or htpasswd Secret did. The <code>otel-trace-context</code> ConfigMap key can continue an incoming trace, and the <code>use-forwarded-headers</code> key keeps the forwarded headers a proxy in front has set. <code>least_time last_byte</code> load balancing is now on NGINX Open Source. cert-manager HTTP-01 challenges pass the HTTPS redirect and authentication, and <code>-enable-topology-aware-routing</code> sends traffic to the endpoints in the controller pod's own zone when the Service asks for it.</p>
                     <p><strong>For HAProxy users:</strong> <code>haproxy.org/server-proto: h2</code> maps to <code>nginx.org/proxy-http-version: "2"</code>, or the same field on a VirtualServer upstream. A Frontend CR's <code>disable_h2_upgrade</code> maps to <code>nginx.org/http2</code> on each TLS host.</p>
                 </div>
@@ -1862,7 +1867,7 @@ metadata:
     # request-set-header — comma-separated "Name: value" pairs
     nginx.org/proxy-set-headers: "X-Client: web"</code></pre></div>
                                 </div>
-                                <div class="info-box note"><strong>Note:</strong> <code>nginx.org/proxy-set-headers</code> takes literal values only: NGINX Ingress Controller rejects the Ingress for a value containing <code>$</code>, and a HAProxy <code>%[...]</code> sample fetch is not NGINX syntax. A header given with no value forwards its <code>$http_</code> default (e.g. <code>X-Forwarded-ABC</code> → <code>$http_x_forwarded_abc</code>). A value containing a comma also needs it, since the annotation splits entries on commas. For a value built from a variable, use the VirtualServer approach, whose values take NGINX variables in braces (<code>%[src]</code> becomes <code>${remote_addr}</code>). To remove a request header, give it an empty value (<code>X-Foo:</code>): NGINX does not pass a header set to an empty string. For <code>Host</code>, use the <code>set-host</code> row.</div>
+                                <div class="info-box note"><strong>Note:</strong> Since v5.8.0, <code>nginx.org/proxy-set-headers</code> takes NGINX variables in braces, from the list a VirtualServer header accepts (<code>%[src]</code> becomes <code>${remote_addr}</code>); NGINX Ingress Controller rejects the Ingress for any other variable, and a HAProxy <code>%[...]</code> sample fetch is not NGINX syntax, so rewrite each one as a variable. A header given with no value forwards its <code>$http_</code> default (e.g. <code>X-Forwarded-ABC</code> → <code>$http_x_forwarded_abc</code>). A value containing a comma needs the VirtualServer approach, since the annotation splits entries on commas. To remove a request header, give it an empty value (<code>X-Foo:</code>): NGINX does not pass a header set to an empty string. For <code>Host</code>, use the <code>set-host</code> row.</div>
                             </div>
                         </div></td></tr>
                         <tr class="expandable">

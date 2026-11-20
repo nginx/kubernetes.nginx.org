@@ -667,10 +667,10 @@ test('convert folds a canary Ingress into its stable one, as the page does', () 
 test('convert emits the ConfigMap keys a run needs, as one merge document', () => {
     const { convertAll, configMapDoc } = require(path.join(TOOL, 'lib', 'convert.js'));
     const doc = JSON.parse(JSON.stringify(INGRESS));
-    doc.metadata.annotations = { 'nginx.ingress.kubernetes.io/limit-connections': '5', 'nginx.ingress.kubernetes.io/enable-access-log': 'false' };
+    doc.metadata.annotations = { 'nginx.ingress.kubernetes.io/enable-opentelemetry': 'true', 'nginx.ingress.kubernetes.io/enable-access-log': 'false' };
     const cm = configMapDoc(convertAll([toModel(doc)], engine, { target: 'virtualserver' }));
     assert.equal(cm.doc.data['access-log-off'], 'true');
-    assert.match(cm.doc.data['http-snippets'], /^limit_conn_zone \$binary_remote_addr zone=prod_shop_conn:5m;$/m);
+    assert.equal(cm.doc.data['otel-trace-in-http'], 'true');
 });
 
 test('--class overrides the source ingressClassName on every output', () => {

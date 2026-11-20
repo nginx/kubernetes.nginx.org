@@ -75,7 +75,7 @@
             { community: ["custom-headers"], nic: "VirtualServer CRD responseHeaders.add", type: "virtualserver", category: "Headers", anchor: "headers", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { crdKind: "VirtualServer", crdInstall: true, templateFn: "generateCustomHeadersVS" } },
             // proxy-hide-headers & proxy-pass-headers: NGINX Ingress Controller-only annotations (nginx.org/) — no community equivalent
-            { community: ["upstream-vhost", "x-forwarded-prefix"], nic: "nginx.org/upstream-vhost, nginx.org/proxy-set-headers — or — VirtualServer CRD requestHeaders.set", type: "virtualserver", category: "Headers", anchor: "headers", section: "oss", dualApproach: true, plusRequired: false, verified: "v5.7.0",
+            { community: ["upstream-vhost", "x-forwarded-prefix"], nic: "nginx.org/upstream-vhost, nginx.org/proxy-set-headers — or — VirtualServer CRD requestHeaders.set", type: "virtualserver", category: "Headers", anchor: "headers", section: "oss", dualApproach: true, plusRequired: false, verified: "v5.8.0",
               nicMapping: { annotations: { "upstream-vhost": { key: "nginx.org/upstream-vhost", transform: "upstreamVhost" }, "x-forwarded-prefix": { key: "nginx.org/proxy-set-headers", transform: "proxySetHeader", template: "X-Forwarded-Prefix: ${value}" } }, crdKind: "VirtualServer", crdInstall: true, templateFn: "generateRequestHeadersVS" } },
             // Load Balancing
             { community: ["load-balance"], nic: "nginx.org/lb-method — or — VirtualServer CRD upstreams[].lb-method", type: "annotation", category: "Load balancing", anchor: "load-balancing", section: "oss", dualApproach: true, plusRequired: false, verified: "v5.7.0",
@@ -119,7 +119,7 @@
             { community: ["proxy-next-upstream", "proxy-next-upstream-timeout", "proxy-next-upstream-tries"], nic: "Annotations nginx.org/proxy-next-upstream* — or — VirtualServer CRD upstreams[].next-upstream*", type: "annotation", category: "Proxy settings", anchor: "proxy-settings", section: "oss", dualApproach: true, plusRequired: false,
               nicMapping: { annotations: { "proxy-next-upstream": { key: "nginx.org/proxy-next-upstream", transform: "direct" }, "proxy-next-upstream-timeout": { key: "nginx.org/proxy-next-upstream-timeout", transform: "direct" }, "proxy-next-upstream-tries": { key: "nginx.org/proxy-next-upstream-tries", transform: "direct" } }, crdKind: "VirtualServer", crdInstall: true, templateFn: "generateProxyNextUpstreamVS" } },
             // Rate Limiting
-            { community: ["limit-burst-multiplier", "limit-connections", "limit-rate", "limit-rate-after", "limit-rpm", "limit-rps", "limit-whitelist"], nic: "nginx.org/limit-req-* annotations — or — Policy CRD rateLimit", type: "policy", category: "Rate limiting", anchor: "rate-limiting", section: "oss", dualApproach: true, plusRequired: false,
+            { community: ["limit-burst-multiplier", "limit-connections", "limit-rate", "limit-rate-after", "limit-rpm", "limit-rps", "limit-whitelist"], nic: "Policy CRD rateLimit + connectionLimit — or — nginx.org/limit-req-* annotations + Policy CRD connectionLimit", type: "policy", category: "Rate limiting", anchor: "rate-limiting", section: "oss", dualApproach: true, plusRequired: false, verified: "v5.8.0",
               nicMapping: { annotations: { "limit-rps": { key: "nginx.org/limit-req-rate", transform: "appendRateUnit" }, "limit-burst-multiplier": { key: "nginx.org/limit-req-burst" } }, crdKind: "Policy", crdInstall: true, templateFn: "generateRateLimitPolicy" } },
             // Redirects
             { community: ["from-to-www-redirect", "permanent-redirect", "permanent-redirect-code", "temporal-redirect", "temporal-redirect-code"], nic: "VirtualServer CRD action.redirect", type: "virtualserver", category: "Redirects", anchor: "redirects", section: "oss", dualApproach: false, plusRequired: false,
@@ -155,7 +155,7 @@
               nicMapping: { annotations: { "proxy-send-timeout": { key: "nginx.org/proxy-send-timeout", transform: "appendTimeUnit", vsField: "send-timeout" } }, crdKind: "VirtualServer", crdInstall: true, templateFn: "generateUpstreamSettingsVS" } },
             // Authentication (External): generic auth_request → externalAuth Policy (OSS, recommended).
             // OIDC itself (Plus: oidcNative or oidc Policy) is documented as an alternative in the OIDC authentication section.
-            { community: ["auth-cache-duration", "auth-cache-key", "auth-method", "auth-proxy-set-headers", "auth-request-redirect", "auth-response-headers", "auth-signin", "auth-signin-redirect-param", "auth-snippet", "auth-url"], nic: "Policy CRD externalAuth (+ nginx.org/policies annotation)", type: "policy", category: "Authentication (external)", anchor: "authentication-external", section: "oss", dualApproach: false, plusRequired: false,
+            { community: ["auth-cache-duration", "auth-cache-key", "auth-method", "auth-proxy-set-headers", "auth-request-redirect", "auth-response-headers", "auth-signin", "auth-signin-redirect-param", "auth-snippet", "auth-url"], nic: "Policy CRD externalAuth (+ nginx.org/policies annotation)", type: "policy", category: "Authentication (external)", anchor: "authentication-external", section: "oss", dualApproach: false, plusRequired: false, verified: "v5.8.0",
               nicMapping: { crdKind: "Policy", crdInstall: true, templateFn: "generateExternalAuthPolicy" } },
             { community: ["auth-keepalive", "auth-keepalive-requests", "auth-keepalive-share-vars", "auth-keepalive-timeout"], nic: "No direct equivalent — NGINX Ingress Controller has no keepalive setting for the external-auth Service alone", type: "annotation", category: "Authentication (external)", anchor: "authentication-external", section: "oss", dualApproach: false, plusRequired: false,
               nicMapping: { templateFn: "generateAuthKeepaliveNote" } },
@@ -276,12 +276,18 @@
                     return { value: null, note: 'nginx.org/upstream-vhost takes only a literal lowercase hostname, with no port or variables, and NGINX Ingress Controller rejects the Ingress otherwise. Switch the migration strategy to CRD-first: VirtualServer requestHeaders.set accepts it.' };
                 }
                 case 'proxySetHeader': {
-                    // nginx.org/proxy-set-headers is a comma-separated list of
-                    // literal values: NIC rejects $, and a comma splits the entry.
-                    if (/[$,"\\\r\n]/.test(value)) {
-                        return { value: null, note: 'nginx.org/proxy-set-headers takes only literal values, and NGINX Ingress Controller rejects $ in them, so capture groups such as $1 have no annotation equivalent. Switch the migration strategy to CRD-first.' };
+                    // nginx.org/proxy-set-headers is a comma-separated list, so a
+                    // comma splits the entry. Since v5.8.0 a value takes NGINX
+                    // variables as ${name}, from the same list as a VirtualServer
+                    // (validateProxySetHeaderAnnotation); the community $name
+                    // form is braced, and a capture group such as $1 is none.
+                    let braced = braceVariables(String(value).trim());
+                    if (/[,"\\\r\n]/.test(value) || !MigrationTool.NIC.headerVariablesOk(braced)) {
+                        return { value: null, note: /\$\d/.test(value)
+                            ? 'nginx.org/proxy-set-headers has no capture groups such as $1. Switch the migration strategy to CRD-first.'
+                            : 'nginx.org/proxy-set-headers takes NGINX variables only from the list a VirtualServer header accepts, and no comma or quote, so NGINX Ingress Controller would reject this value. Switch the migration strategy to CRD-first.' };
                     }
-                    return template ? template.replace('${value}', String(value).trim()) : value;
+                    return template ? template.replace('${value}', braced) : braced;
                 }
                 case 'customHttpErrors': {
                     // NIC rejects 499 in error_page, and so the whole Ingress.
@@ -895,27 +901,42 @@
                         let spec = { rate: r.n + r.unit, burst: burst(r), noDelay: true, key: '${binary_remote_addr}', zoneSize: '10M', rejectCode: 503 };
                         if (!spec.burst) delete spec.burst;
                         f.policies.push({ name: ctx.name('rate-limit' + (rates.length > 1 ? '-' + r.unit.replace('r/', 'r') : '')), onIngress: false,
+                            sources: [r.src, 'limit-burst-multiplier', 'limit-whitelist'],
                             spec: { rateLimit: spec },
-                            comments: { 'spec.rateLimit.rate': r.src, 'spec.rateLimit.burst': r.src + ' × limit-burst-multiplier (' + mult + ')', 'spec.rateLimit.noDelay': 'the community controller always used nodelay', 'spec.rateLimit.rejectCode': 'the community limit-req-status-code default' } });
+                            comments: { 'spec.rateLimit.rate': r.src, 'spec.rateLimit.burst': r.src + ' × limit-burst-multiplier (' + mult + ')', 'spec.rateLimit.noDelay': 'the community controller always used nodelay', 'spec.rateLimit.key': 'the community limit-conn-zone-variable default', 'spec.rateLimit.rejectCode': 'the community limit-req-status-code default' } });
                     });
                 }
-                if (allow.length && rates.length) ctx.note('limit-whitelist', 'NGINX Ingress Controller has no rate-limit exemption list. To keep ' + allow.join(', ') + ' unlimited, set the rateLimit key from a geo map (ConfigMap http-snippets) that yields an empty key for them — NGINX does not count an empty key.', 'warning');
-                else if (allow.length) ctx.note('limit-whitelist', 'limit-whitelist only exempts addresses from limit-rps / limit-rpm / limit-connections, and none is set; nothing to migrate.', 'unchanged');
                 if (a['limit-burst-multiplier'] && !rateSet && !a['limit-connections']) ctx.note('limit-burst-multiplier', 'limit-burst-multiplier only scales limit-rps / limit-rpm / limit-connections, and none is set; nothing to migrate.', 'unchanged');
-                // limit_conn needs a zone defined in the http context, which only
-                // the ConfigMap can add; without it NGINX refuses the config.
-                if (a['limit-connections']) {
-                    let conn = communityInt(a, 'limit-connections', ctx);
-                    if (conn !== null && conn <= 0) ctx.note('limit-connections', 'limit-connections ' + conn + ' is not above 0, so the community controller set no limit; nothing is migrated.', 'invalid');
-                    if (conn !== null && conn > 0) {
-                        f.http.push('limit_conn_zone $binary_remote_addr zone=' + ctx.zone('conn') + ':5m;');
-                        f.location.push('limit_conn ' + ctx.zone('conn') + ' ' + conn + ';');
-                        f.location.push('limit_conn_status 503;');
-                        ctx.snippetSource('limit_conn ', 'limit-connections');
-                        ctx.snippetSource('limit_conn_status', 'the community limit-conn-status-code default');
-                        ctx.snippetSource('limit_conn_zone', 'limit-connections (zone for the location snippet)');
-                    }
+                // The community controller keyed limit_conn on $binary_remote_addr
+                // (limit-conn-zone-variable's default) in a 5m zone per Ingress
+                // and answered 503 (ratelimit/main.go, template.go). The
+                // connectionLimit Policy, new in v5.8.0, writes the same
+                // limit_conn on a VirtualServer or an Ingress (policy.go).
+                let conn = a['limit-connections'] ? communityInt(a, 'limit-connections', ctx) : null;
+                if (conn !== null && conn <= 0) { ctx.note('limit-connections', 'limit-connections ' + conn + ' is not above 0, so the community controller set no limit; nothing is migrated.', 'invalid'); conn = null; }
+                // NGINX refuses a limit_conn above 65535 ("connection limit must
+                // be less 65536"), so that configuration never loaded.
+                if (conn !== null && conn > 65535) { ctx.note('limit-connections', 'limit-connections ' + conn + ' is above 65535, which NGINX refuses, so the community controller could not load this configuration. Lower it to migrate the limit.', 'warning'); conn = null; }
+                if (conn !== null) {
+                    f.policies.push({ name: ctx.name('connection-limit'), onIngress: true, sources: ['limit-connections'],
+                        spec: { connectionLimit: { connections: conn, key: '${binary_remote_addr}', zoneSize: '5m', rejectCode: 503 } },
+                        comments: { 'spec.connectionLimit.connections': 'limit-connections', 'spec.connectionLimit.key': 'the community limit-conn-zone-variable default', 'spec.connectionLimit.zoneSize': 'the community zone size', 'spec.connectionLimit.rejectCode': 'the community limit-conn-status-code default' } });
                 }
+                // limit-whitelist blanked the key of every limit it applied to.
+                // A rateLimit or connectionLimit Policy key takes only
+                // $binary_remote_addr, $request_uri, $uri, $args, $request_method
+                // and $arg_/$http_/$cookie_ variables (validation/policy.go), so
+                // it cannot read a geo map; nginx.org/limit-req-key takes any
+                // variable (validateLimitReqKeyAnnotation).
+                let limited = rates.map(function(r) { return r.src; }).concat(conn !== null ? ['limit-connections'] : []);
+                if (allow.length && limited.length) {
+                    let viaAnn = rates.length && ctx.strategy === 'annotation';
+                    let policyLimited = viaAnn ? (conn !== null ? ['limit-connections'] : []) : limited;
+                    ctx.note('limit-whitelist', 'NGINX Ingress Controller has no exemption list for ' + allow.join(', ') + '. NGINX does not count an empty key, so a geo map in the ConfigMap\'s http-snippets that yields an empty key for those addresses exempts them from any limit keyed on it.' + (viaAnn
+                        ? ' Set nginx.org/limit-req-key from that map for the request rate.' : '')
+                        + (policyLimited.length ? ' A Policy key cannot read a geo map, so ' + policyLimited.join(' and ') + ' still ' + (policyLimited.length > 1 ? 'limit' : 'limits') + ' them; to exempt them, use ' + policyLimited.map(function(k) { return k === 'limit-connections' ? 'limit_conn' : 'limit_req'; }).filter(function(v, i, l) { return l.indexOf(v) === i; }).join(' and ') + ' in a location snippet instead, with the zone keyed on the map.' : ''), 'warning');
+                }
+                else if (allow.length) ctx.note('limit-whitelist', 'limit-whitelist only exempts addresses from limit-rps / limit-rpm / limit-connections, and none is set; nothing to migrate.', 'unchanged');
                 let rate = a['limit-rate'] ? communityInt(a, 'limit-rate', ctx) : null;
                 let rateAfter = a['limit-rate-after'] ? communityInt(a, 'limit-rate-after', ctx) : null;
                 if (rate !== null) { f.location.push('limit_rate ' + rate + 'k;'); ctx.snippetSource('limit_rate ', 'limit-rate (KB/s)'); }
@@ -1160,17 +1181,32 @@
                     });
                 }
                 if (a['auth-response-headers']) {
-                    // auth_request_set lives in the PROTECTED location: authSnippets
-                    // land in the internal auth location, where they cannot reach it.
+                    // The community controller wrote auth_request_set and
+                    // proxy_set_header for each name (buildAuthResponseHeaders):
+                    // the auth server's value replaced the client's, and a header
+                    // it did not return went out empty, which NGINX drops. v5.8.0's
+                    // authResponseHeaders does the same (auth_response_headers.go),
+                    // for names of letters, digits and hyphens up to 46 characters,
+                    // 32 at most, never one NGINX manages (types.go).
+                    let managed = /^(host|connection|proxy-connection|content-length|transfer-encoding|te|keep-alive|expect|upgrade|x-real-ip|x-forwarded-(for|host|port|proto))$/i;
+                    let seen = {}, names = [], kept = [];
                     commaList(a['auth-response-headers']).forEach(function(h) {
+                        if (seen[h.toLowerCase()]) return;
+                        seen[h.toLowerCase()] = true;
+                        if (/^[A-Za-z0-9-]{1,46}$/.test(h) && !managed.test(h) && names.length < 32) names.push(h); else kept.push(h);
+                    });
+                    if (names.length) { spec.authResponseHeaders = names; comments['spec.externalAuth.authResponseHeaders'] = 'auth-response-headers'; }
+                    // The rest stay snippets. auth_request_set lives in the
+                    // protected location: authSnippets land in the internal auth
+                    // location, where they cannot reach it.
+                    kept.forEach(function(h) {
                         let v = 'auth_' + h.toLowerCase().replace(/[^a-z0-9]/g, '_');
                         f.location.push('auth_request_set $' + v + ' $upstream_http_' + h.toLowerCase().replace(/-/g, '_') + ';');
                         f.location.push('proxy_set_header ' + h + ' $' + v + ';');
-                    });
-                    commaList(a['auth-response-headers']).forEach(function(h) {
-                        ctx.snippetSource('auth_request_set $auth_' + h.toLowerCase().replace(/[^a-z0-9]/g, '_') + ' ', 'auth-response-headers');
+                        ctx.snippetSource('auth_request_set $' + v + ' ', 'auth-response-headers');
                         ctx.snippetSource('proxy_set_header ' + h + ' ', 'auth-response-headers');
                     });
+                    if (kept.length) ctx.note('auth-response-headers', 'externalAuth.authResponseHeaders takes up to 32 names of letters, digits and hyphens, at most 46 characters each, and none that NGINX manages itself (Host, Connection, the X-Forwarded-* headers and the like). ' + kept.join(', ') + (kept.length > 1 ? ' are' : ' is') + ' copied with auth_request_set and proxy_set_header in a location snippet instead.', 'warning');
                 }
                 // The community controller passed the auth server's Set-Cookie on
                 // to the client, with `always` (every status, not just 2xx/3xx)
@@ -1374,17 +1410,31 @@
             generateRequestHeadersVS: function(a, f, ctx) {
                 ctx.use('upstream-vhost', 'x-forwarded-prefix');
                 let set = [];
+                // A VirtualServer header value takes only the variables in
+                // actionProxyHeaderVariables (v5.7.0, v5.8.0); $uri, $1 and the
+                // like make NGINX Ingress Controller reject the VirtualServer.
+                let refused = function(v) { return (String(v).match(/\$(\d+|[A-Za-z_][A-Za-z0-9_]*)/g) || []).filter(function(x) { return !MigrationTool.NIC.headerVariablesOk(braceVariables(x)); }); };
+                let todos = [];
+                let todo = function(name, bad) {
+                    let capture = bad.every(function(x) { return /^\$\d/.test(x); });
+                    todos.push(capture ? 'set a literal ' + name + '; capture groups such as $1 have no VirtualServer equivalent' : 'set ' + name + ' without ' + bad.join(', ') + ', which a VirtualServer header does not take');
+                    f.requestHeaderTodo = ' — TODO: ' + todos.join('; ');
+                    if (ctx.strategy === 'crd') ctx.todo('proxy.requestHeaders', capture ? name + ' — capture groups such as $1 have no VirtualServer equivalent; set a literal ' + (name === 'Host' ? 'host' : 'prefix')
+                        : name + ' — a VirtualServer header takes only the NGINX variables NGINX Ingress Controller lists for it, not ' + bad.join(', ') + '; set a value without ' + (bad.length > 1 ? 'them' : 'it'));
+                };
                 if (a['upstream-vhost']) {
-                    set.push({ name: 'Host', value: braceVariables(a['upstream-vhost']) });
+                    let bad = refused(a['upstream-vhost']);
+                    set.push({ name: 'Host', value: bad.length ? '${host}' : braceVariables(a['upstream-vhost']) });
+                    if (bad.length) todo('Host', bad);
                     let t = unwrapTranslated(translateValue(a['upstream-vhost'], 'upstreamVhost'));
                     if (t.value !== null) { f.ann['nginx.org/upstream-vhost'] = t.value; ctx.annComment('nginx.org/upstream-vhost', 'upstream-vhost' + (t.note ? ' — ' + t.note : '')); ctx.annCovered('nginx.org/upstream-vhost'); }
                     else ctx.annotationOnlyNote('upstream-vhost', t.note);
                 }
                 if (a['x-forwarded-prefix']) {
-                    if (/\$\d/.test(a['x-forwarded-prefix'])) {
+                    let bad = refused(a['x-forwarded-prefix']);
+                    if (bad.length) {
                         set.push({ name: 'X-Forwarded-Prefix', value: '/prefix' });
-                        f.requestHeaderTodo = ' — TODO: set a literal X-Forwarded-Prefix; capture groups such as $1 have no VirtualServer equivalent';
-                        if (ctx.strategy === 'crd') ctx.todo('proxy.requestHeaders', 'X-Forwarded-Prefix — capture groups such as $1 have no VirtualServer equivalent; set a literal prefix');
+                        todo('X-Forwarded-Prefix', bad);
                     } else {
                         set.push({ name: 'X-Forwarded-Prefix', value: braceVariables(a['x-forwarded-prefix']) });
                     }
@@ -1740,6 +1790,10 @@
                 // names a rate-limit Policy's zone per resource (policy.go).
                 if (['limit-rps', 'limit-rpm'].some(function(k) { return model.community[k] !== undefined; }) && strategy === 'crd')
                     ctx.note('limit-rps', 'The community controller counted this rate limit once across ' + model.splitFrom.hosts.join(', ') + '. NGINX Ingress Controller keeps a rate-limit zone per VirtualServer, so after the split each host is limited on its own.', 'warning', false, ownCard);
+                // A connectionLimit zone is named after the resource that
+                // references the Policy (connectionLimitZoneName), on either target.
+                if (model.community['limit-connections'] !== undefined)
+                    ctx.note('limit-connections', 'The community controller counted limit-connections once across ' + model.splitFrom.hosts.join(', ') + '. NGINX Ingress Controller keeps a connection-limit zone per ' + (strategy === 'crd' ? 'VirtualServer' : 'Ingress') + ', so after the split each host is limited on its own.', 'warning', false, ownCard);
             }
             let a = model.community;
             let f = { upstream: {}, upstreamComments: {}, proxy: {}, location: [], server: [], http: [], policies: [], ann: {}, cm: {}, cmComments: {} };
@@ -1776,7 +1830,7 @@
                 run();
                 entry.toHost = hostState() !== h;
                 let own = entry.found.map(function(x) { return x.annotation; });
-                f.policies.slice(p).forEach(function(pol) { pol.sources = own; });
+                f.policies.slice(p).forEach(function(pol) { pol.sources = pol.sources ? pol.sources.filter(function(k) { return own.indexOf(k) !== -1; }) : own; });
                 entry.toPolicy = f.policies.length > p;
                 entry.toConfigMap = JSON.stringify(f.cm) !== cm;
             };

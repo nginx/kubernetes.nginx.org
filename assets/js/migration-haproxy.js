@@ -227,7 +227,7 @@
             { keys: ['annotation:cors-enable', 'annotation:cors-allow-origin', 'annotation:cors-allow-methods', 'annotation:cors-allow-headers', 'annotation:cors-allow-credentials', 'annotation:cors-max-age', 'annotation:cors-respond-to-options'], source: 'cors-*', nic: 'Policy CRD cors (+ nginx.org/policies on Ingress)', type: 'policy', category: 'CORS', anchor: 'cors', section: 'oss', grouped: true, generator: 'cors' },
 
             // Headers
-            { keys: ['annotation:request-set-header', 'annotation:response-set-header', 'annotation:set-host'], source: 'request-set-header / response-set-header / set-host', nic: 'VirtualServer requestHeaders.set / responseHeaders.add — or — nginx.org/proxy-set-headers + nginx.org/add-header + nginx.org/upstream-vhost (literal values only)', type: 'virtualserver', category: 'Headers', anchor: 'headers', section: 'oss', grouped: true, dualApproach: true, generator: 'headers' },
+            { keys: ['annotation:request-set-header', 'annotation:response-set-header', 'annotation:set-host'], source: 'request-set-header / response-set-header / set-host', nic: 'VirtualServer requestHeaders.set / responseHeaders.add — or — nginx.org/proxy-set-headers + nginx.org/add-header + nginx.org/upstream-vhost', type: 'virtualserver', category: 'Headers', anchor: 'headers', section: 'oss', grouped: true, dualApproach: true, generator: 'headers' },
 
             // Observability
             { keys: ['annotation:request-capture', 'annotation:request-capture-len'], source: 'request-capture / request-capture-len', nic: 'ConfigMap log-format with $http_* / $cookie_* variables (global)', type: 'configmap', category: 'Observability', anchor: 'observability', section: 'oss', grouped: true, generator: 'requestCapture' },
@@ -1064,10 +1064,17 @@
                 // period, so burst n − 1. A Policy takes a positive burst only.
                 let burst = n - 1;
                 let rateSrc = 'rate-limit-requests' + periodSrc + (rateNote ? ' — ' + rateNote : '');
+                // A rateLimit Policy key takes only $binary_remote_addr, $request_uri,
+                // $uri, $args, $request_method and $arg_/$http_/$cookie_ (and NGINX
+                // Plus $jwt_claim_/$apikey_) variables (validation/policy.go, v5.7.0
+                // and v5.8.0), so it cannot read a geo map; nginx.org/limit-req-key
+                // takes any variable.
                 if (a['rate-limit-whitelist']) {
                     let bad = splitCommaList(a['rate-limit-whitelist'].value).filter(function(s) { return !isPatternFileRef(s) && !isAddress(s); });
                     if (bad.length) ctx.note('rate-limit-whitelist', 'rate-limit-whitelist holds "' + bad.join('", "') + '", which is not an IP address or CIDR, so HAProxy logged an error and exempted nobody.', 'warning');
-                    else ctx.note('rate-limit-whitelist', 'NGINX Ingress Controller has no rate-limit exemption list. To keep ' + a['rate-limit-whitelist'].value + ' unlimited, key the limit on a geo map (ConfigMap http-snippets) that yields an empty key for them, because NGINX does not count an empty key.', 'warning');
+                    else ctx.note('rate-limit-whitelist', 'NGINX Ingress Controller has no rate-limit exemption list. NGINX does not count an empty key, so a geo map (ConfigMap http-snippets) that yields an empty key for ' + a['rate-limit-whitelist'].value + ' exempts them from a limit keyed on it. ' + (ctx.strategy === 'annotation'
+                        ? 'Set nginx.org/limit-req-key from that map.'
+                        : 'A rateLimit Policy key cannot read a geo map, so the Policy still limits them; to exempt them, use the annotation approach with nginx.org/limit-req-key set from the map.'), 'warning');
                 }
                 if (a['rate-limit-size']) ctx.note('rate-limit-size', 'rate-limit-size counts tracked clients; NGINX Ingress Controller sizes the zone in memory (about 16,000 clients per megabyte), so 10M holds roughly 160,000.');
                 ctx.note('rate-limit-requests', 'HAProxy counts requests over a sliding period; NGINX limit_req refills at a steady rate, so a client is admitted at the same average but spaced differently near the limit. Each NGINX Ingress Controller pod counts on its own (HAProxy counted per controller too).');
@@ -1195,7 +1202,13 @@
                     ['request-set-header', 'response-set-header', 'set-host'].forEach(function(k) { if (a[k] && str(a[k].value) === '') ctx.note(k, k + ' is empty, so HAProxy set no header; nothing is migrated.'); });
                     return;
                 }
+                // Since v5.8.0 nginx.org/proxy-set-headers takes NGINX variables
+                // as ${name}, from the list a VirtualServer header takes
+                // (validateProxySetHeaderAnnotation); add-header and
+                // upstream-vhost still take literals only.
+                let braced = function(v) { return str(v).replace(/\$([A-Za-z_][A-Za-z0-9_]*)/g, '${$1}'); };
                 let dynamic = function(h) { return SAMPLE_FETCH.test(h.value) || /\$/.test(h.value); };
+                let reqDynamic = function(h) { return SAMPLE_FETCH.test(h.value) || (/\$/.test(h.value) && !MigrationTool.NIC.headerVariablesOk(braced(h.value))); };
                 // The annotations split on "," into entries, and add-header on
                 // ":" into name, value and the always flag (header_parsing_helper,
                 // v5.7.0): a value with a comma becomes two headers, and one with
@@ -1204,12 +1217,11 @@
                 let unsplittable = req.some(function(h) { return splits(h, false); }) || res.some(function(h) { return splits(h, true); });
                 let fetches = req.concat(res).concat(host ? [{ name: 'Host', value: host }] : []).filter(function(h) { return SAMPLE_FETCH.test(h.value); });
                 if (fetches.length) ctx.todo('headers', 'rewrite each HAProxy sample fetch as an NGINX variable (' + fetches.map(function(h) { return h.name; }).join(', ') + '): %[src] is ${remote_addr}, %[req.hdr(x)] is ${http_x}');
-                // nginx.org/proxy-set-headers, add-header and upstream-vhost take
-                // literal values only; a "$" or a sample fetch needs the
-                // VirtualServer, whose header values take NGINX variables.
+                // A sample fetch, a variable not on that list, or any "$" in a
+                // response header or set-host needs the VirtualServer.
                 let vhostOk = host && host.length <= 253 && /^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$/.test(host.toLowerCase());
-                if (ctx.strategy === 'annotation' && !req.some(dynamic) && !res.some(dynamic) && !unsplittable && (!host || vhostOk)) {
-                    if (req.length) { f.ann['nginx.org/proxy-set-headers'] = req.map(function(h) { return h.name + (h.value ? ': ' + h.value : ''); }).join(','); ctx.annComment('nginx.org/proxy-set-headers', src(a['request-set-header'], 'request-set-header')); }
+                if (ctx.strategy === 'annotation' && !req.some(reqDynamic) && !res.some(dynamic) && !unsplittable && (!host || vhostOk)) {
+                    if (req.length) { f.ann['nginx.org/proxy-set-headers'] = req.map(function(h) { return h.name + (h.value ? ': ' + braced(h.value) : ''); }).join(','); ctx.annComment('nginx.org/proxy-set-headers', src(a['request-set-header'], 'request-set-header')); }
                     if (res.length) {
                         f.ann['nginx.org/proxy-hide-headers'] = res.map(function(h) { return h.name; }).join(','); ctx.annComment('nginx.org/proxy-hide-headers', 'response-set-header (a replace, not an append)');
                         f.ann['nginx.org/add-header'] = res.map(function(h) { return h.name + ': ' + h.value + ': always'; }).join(','); ctx.annComment('nginx.org/add-header', src(a['response-set-header'], 'response-set-header'));
@@ -1218,8 +1230,7 @@
                 } else {
                     if (ctx.strategy === 'annotation') ctx.note(a['set-host'] && !vhostOk ? 'set-host' : unsplittable && !req.some(function(h) { return splits(h, false); }) ? 'response-set-header' : 'request-set-header', unsplittable
                         ? 'A header value here holds a comma (or, in a response header, a colon): nginx.org/proxy-set-headers and add-header split on those, so the header would come out cut or the Ingress be rejected. Switch the strategy to CRD-first: VirtualServer requestHeaders and responseHeaders take any value.'
-                        : 'A header value here is not a literal (or set-host is not a plain hostname), which nginx.org/proxy-set-headers, add-header and upstream-vhost reject. Switch the strategy to CRD-first: VirtualServer requestHeaders and responseHeaders take NGINX variables.', 'warning');
-                    let braced = function(v) { return str(v).replace(/\$([A-Za-z_][A-Za-z0-9_]*)/g, '${$1}'); };
+                        : 'A header value here is a sample fetch, a variable nginx.org/proxy-set-headers does not take, or a variable in a response header or set-host, where nginx.org/add-header and upstream-vhost take literals only. Switch the strategy to CRD-first: VirtualServer requestHeaders and responseHeaders take NGINX variables.', 'warning');
                     if (req.length || host) {
                         f.proxy.requestHeaders = { set: req.map(function(h) { return { name: h.name, value: braced(h.value) }; }).concat(host ? [{ name: 'Host', value: braced(host) }] : []) };
                         f.requestHeaderSources = [req.length ? 'request-set-header' : null, host ? 'set-host' : null].filter(Boolean).join(' + ');

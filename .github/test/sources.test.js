@@ -173,8 +173,10 @@ test('haproxy: rate-limit-whitelist reaches the rate-limit translator, which say
         ...ann.map((a) => '    ' + a), 'spec:', '  rules:', '    - host: rl.example.com'].join('\n');
     for (const strategy of ['crd', 'annotation']) {
         const text = (y) => JSON.stringify(analyze(source, y, strategy).plan);
+        // A rateLimit Policy key cannot read a geo map (validation/policy.go);
+        // nginx.org/limit-req-key can, so each strategy says what works for it.
         assert.match(text(ing(['haproxy.org/rate-limit-requests: "10"', 'haproxy.org/rate-limit-whitelist: "10.0.0.0/8"'])),
-            /no rate-limit exemption list\. To keep 10\.0\.0\.0\/8 unlimited, key the limit on a geo map/, strategy);
+            strategy === 'crd' ? /A rateLimit Policy key cannot read a geo map, so the Policy still limits them/ : /Set nginx\.org\/limit-req-key from that map/, strategy);
         assert.match(text(ing(['haproxy.org/rate-limit-requests: "10"', 'haproxy.org/rate-limit-whitelist: "office"'])),
             /rate-limit-whitelist holds \\"office\\", which is not an IP address or CIDR/, strategy);
         assert.match(text(ing(['haproxy.org/rate-limit-whitelist: "10.0.0.0/8"'])),

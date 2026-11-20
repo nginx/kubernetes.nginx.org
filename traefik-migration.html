@@ -189,7 +189,7 @@
         <div class="tool-page active" id="page-getting-started">
 <div class="info-box warning" style="margin: 0 0 var(--space-2x);"><strong>Beta:</strong> The Traefik migration tool is new and under active development. Its mappings and the resources the analyzer generates may still change, so review the output before applying it to a cluster, and <a href="https://github.com/nginx/kubernetes.nginx.org/issues" target="_blank" rel="noopener">report anything it gets wrong</a>.</div>
         <div class="info-box note" style="margin: 0 0 var(--space-2x);"><strong>Migrating from Traefik?</strong> Traefik Proxy is an actively maintained project — this guide is for teams standardizing on the NGINX data plane. It translates Traefik's IngressRoute + Middleware model into the NGINX Ingress Controller's VirtualServer + Policy model, resource by resource.</div>
-        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-traefik-release-link href="https://github.com/traefik/traefik/releases/tag/v3.7.17" target="_blank" rel="noopener">Traefik Proxy <span data-traefik-version>v3.7.17</span></a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.7.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.7.0</span></a>.</div>
+        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-traefik-release-link href="https://github.com/traefik/traefik/releases/tag/v3.7.17" target="_blank" rel="noopener">Traefik Proxy <span data-traefik-version>v3.7.17</span></a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.8.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.8.0</span></a>.</div>
 
         <section id="overview">
             <h2 id="migration-overview">Overview</h2>
@@ -322,15 +322,15 @@
         <!-- Installation -->
         <section id="installation">
             <h2 id="installing-crds">Installing CRDs</h2>
-            <p>CRDs can be installed via Helm or manually using manifests, depending on your deployment method. See the <a href="https://docs.nginx.com/nginx-ingress-controller/installation/" target="_blank" rel="noopener">NGINX Ingress Controller installation docs</a> for full instructions.</p>
+            <p>CRDs can be installed via Helm or manually using manifests, depending on your deployment method. See the <a href="https://docs.nginx.com/nginx-ingress-controller/install/" target="_blank" rel="noopener">NGINX Ingress Controller installation docs</a> for full instructions.</p>
             <div class="install-box"><h3>Helm (example)</h3>
                 <p style="margin: 0 0 var(--space-2x); font-size: var(--fs-body); line-height: var(--lh-body);">If you install the NGINX Ingress Controller via Helm, CRDs are included automatically. To ensure they are enabled:</p>
-                <pre><code data-nic-helm-install>helm install nginx-ingress oci://ghcr.io/nginx/charts/nginx-ingress --version 2.8.0 --set controller.enableCustomResources=true</code></pre>
+                <pre><code data-nic-helm-install>helm install nginx-ingress oci://ghcr.io/nginx/charts/nginx-ingress --version 2.9.0 --set controller.enableCustomResources=true</code></pre>
                 <p style="margin: var(--space-2x) 0 0; font-size: var(--fs-caption); line-height: var(--lh-caption); opacity: 0.8;">The <code>controller.enableCustomResources</code> flag is <code>true</code> by default. If you previously disabled it, re-enable it to use CRD resources. See the <a href="https://docs.nginx.com/nginx-ingress-controller/install/helm/" target="_blank" rel="noopener">Helm installation guide</a> for details.</p>
             </div>
             <div class="install-box"><h3>Manifests (example)</h3>
                 <p style="margin: 0 0 var(--space-2x); font-size: var(--fs-body); line-height: var(--lh-body);">If you deploy using manifests, install CRDs manually before deploying the controller:</p>
-                <pre><code data-nic-crd-install>kubectl apply -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/v5.7.0/deploy/crds.yaml</code></pre>
+                <pre><code data-nic-crd-install>kubectl apply -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/v5.8.0/deploy/crds.yaml</code></pre>
                 <p style="margin: var(--space-2x) 0 0; font-size: var(--fs-caption); line-height: var(--lh-caption); opacity: 0.8;">Replace the version number with your target controller version. See the <a href="https://docs.nginx.com/nginx-ingress-controller/install/manifests/" target="_blank" rel="noopener">manifest installation guide</a> for the full step-by-step process.</p>
             </div>
             <div class="info-box note"><strong>Note:</strong> The <code>crds.yaml</code> file contains all CRDs (VirtualServer, VirtualServerRoute, Policy, TransportServer, GlobalConfiguration) in a single manifest.</div>
@@ -406,7 +406,7 @@
 
         <div class="tool-page" id="page-analyzer" hidden>
 <div class="info-box warning" style="margin: 0 0 var(--space-2x);"><strong>Beta:</strong> The Traefik migration tool is new and under active development. Its mappings and the resources the analyzer generates may still change, so review the output before applying it to a cluster, and <a href="https://github.com/nginx/kubernetes.nginx.org/issues" target="_blank" rel="noopener">report anything it gets wrong</a>.</div>
-        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-traefik-release-link href="https://github.com/traefik/traefik/releases/tag/v3.7.17" target="_blank" rel="noopener">Traefik Proxy <span data-traefik-version>v3.7.17</span></a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.7.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.7.0</span></a>.</div>
+        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-traefik-release-link href="https://github.com/traefik/traefik/releases/tag/v3.7.17" target="_blank" rel="noopener">Traefik Proxy <span data-traefik-version>v3.7.17</span></a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.8.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.8.0</span></a>.</div>
         <!-- YAML Migration Analyzer -->
         <section id="analyzer">
             <h2 id="yaml-analyzer">Traefik config analyzer</h2>
@@ -474,7 +474,7 @@ spec:
 
         <div class="tool-page" id="page-reference" hidden>
 <div class="info-box warning" style="margin: 0 0 var(--space-2x);"><strong>Beta:</strong> The Traefik migration tool is new and under active development. Its mappings and the resources the analyzer generates may still change, so review the output before applying it to a cluster, and <a href="https://github.com/nginx/kubernetes.nginx.org/issues" target="_blank" rel="noopener">report anything it gets wrong</a>.</div>
-        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-traefik-release-link href="https://github.com/traefik/traefik/releases/tag/v3.7.17" target="_blank" rel="noopener">Traefik Proxy <span data-traefik-version>v3.7.17</span></a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.7.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.7.0</span></a>.</div>
+        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-traefik-release-link href="https://github.com/traefik/traefik/releases/tag/v3.7.17" target="_blank" rel="noopener">Traefik Proxy <span data-traefik-version>v3.7.17</span></a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.8.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.8.0</span></a>.</div>
         <!-- Key Differences -->
         <section id="differences">
             <h2 id="key-differences">Key differences</h2>
@@ -497,12 +497,17 @@ spec:
             <div class="info-box note" style="margin: var(--space-2hx) 0 0;"><strong>Note:</strong> Many Traefik capabilities that do not have direct NGINX Ingress Controller annotations or CRDs can still be achieved through NGINX configuration snippets (via snippet annotations, ConfigMap snippet keys, or VirtualServer/TransportServer snippet fields). We recommend that users proceed with caution when using snippets, as they inject raw NGINX configuration and are intended for more advanced use cases.</div>
             <div class="info-box note release-notes" style="margin: var(--space-2x) 0 0;"><strong>New in NGINX Ingress Controller</strong>
                 <div class="approach-tabs" aria-label="NGINX Ingress Controller release">
-                    <button class="approach-tab active" data-action="switchApproach" data-approach="v5-7-0">v5.7.0</button>
+                    <button class="approach-tab active" data-action="switchApproach" data-approach="v5-8-0">v5.8.0</button>
+                    <button class="approach-tab" data-action="switchApproach" data-approach="v5-7-0">v5.7.0</button>
                     <button class="approach-tab" data-action="switchApproach" data-approach="v5-6-0">v5.6.0</button>
                     <button class="approach-tab" data-action="switchApproach" data-approach="v5-5-0">v5.5.0</button>
                     <button class="approach-tab" data-action="switchApproach" data-approach="v5-4-0">v5.4.0</button>
                 </div>
-                <div class="approach-content active" data-approach="v5-7-0">
+                <div class="approach-content active" data-approach="v5-8-0">
+                    <p><strong>In NGINX Ingress Controller:</strong> A new <code>connectionLimit</code> Policy CRD limits how many requests each client, or each value of another key, has open at once. It attaches to a VirtualServer, one of its routes, or an Ingress (through <code>nginx.org/policies</code>), where a snippet was needed before. The <code>externalAuth</code> Policy's <code>authResponseHeaders</code> copies headers from the auth service's response into the request sent to the backend, and <code>nginx.org/proxy-set-headers</code> takes NGINX variables, as a VirtualServer header already did. With NGINX Plus, the <code>jwt</code> Policy's <code>authorization</code> checks the token's claims.</p>
+                    <p><strong>For Traefik users:</strong> an <code>inFlightReq</code> middleware maps to the <code>connectionLimit</code> Policy, and a <code>forwardAuth</code> middleware's <code>authResponseHeaders</code> to the field of the same name. A <code>passTLSClientCert</code> middleware's <code>pem</code> header now stays on the migrated Ingress, through <code>nginx.org/proxy-set-headers</code>.</p>
+                </div>
+                <div class="approach-content" data-approach="v5-7-0">
                     <p><strong>In NGINX Ingress Controller:</strong> <code>nginx.org/proxy-http-version</code> and a VirtualServer upstream's <code>proxy-http-version</code> set the HTTP version spoken to the backend, HTTP/2 included, where a snippet was needed before. <code>nginx.org/http2</code> or <code>spec.http2</code> turns HTTP/2 on per host. An <code>Opaque</code> Secret works wherever a CA, TLS, or htpasswd Secret did. The <code>otel-trace-context</code> ConfigMap key can continue an incoming trace, and the <code>use-forwarded-headers</code> key keeps the forwarded headers a proxy in front has set. <code>least_time last_byte</code> load balancing is now on NGINX Open Source. cert-manager HTTP-01 challenges pass the HTTPS redirect and authentication, and <code>-enable-topology-aware-routing</code> sends traffic to the endpoints in the controller pod's own zone when the Service asks for it.</p>
                     <p><strong>For Traefik users:</strong> <code>traefik.ingress.kubernetes.io/service.serversscheme: h2c</code> maps to <code>nginx.org/proxy-http-version: "2"</code>, or the same field on a VirtualServer upstream. Set <code>otel-trace-context: propagate</code> to continue an incoming trace, as Traefik does.</p>
                 </div>
@@ -933,11 +938,8 @@ spec:
     authSigninURI: "/oauth2/sign_in"  # authSigninURL (path only — NGINX Ingress Controller signin URIs are relative, one per host)
     sslVerify: true  # tls.caSecret enables verification
     trustedCertSecret: auth-ca  # tls.caSecret (type nginx.org/ca, CA under key "ca.crt")
-    # authResponseHeaders: auth_request does not copy auth-server response
-    # headers to the backend request — replicate with authSnippets
-    # (auth_request_set + proxy_set_header):
-    # authSnippets: |
-    #   auth_request_set $auth_user $upstream_http_x_auth_user;
+    authResponseHeaders:  # authResponseHeaders (new in v5.8.0)
+      - X-Auth-User
 ---
 # Attach via VirtualServer spec.policies, or on Ingress via
 # nginx.org/policies (v5.5.0+)
@@ -959,7 +961,7 @@ spec:
         pass: backend</code></pre></div>
                             </div>
                             <div class="info-box warning"><strong>Service-only target:</strong> <code>authServiceName</code> must reference a Kubernetes Service (optionally <code>namespace/service</code>) — the NGINX Ingress Controller cannot send auth sub-requests to arbitrary external URLs. If your <code>address</code> points outside the cluster, front it with an in-cluster Service first. Related fields: <code>authServicePorts</code> defaults to the Service's first port, and <code>sniName</code> (default <code>service.namespace.svc</code>) can override the TLS server name when <code>sslVerify</code> is on.</div>
-                            <div class="info-box note"><strong>Behavior differences:</strong> All client request headers are always forwarded to the auth service — <code>authRequestHeaders</code> has no equivalent (restrict headers only via <code>authSnippets</code>). The request body is never forwarded — <code>forwardBody</code>/<code>maxBodySize</code> have no equivalent. Auth-server response headers are not copied to the backend request — replicate <code>authResponseHeaders</code>/<code>authResponseHeadersRegex</code> with <code>authSnippets</code> (<code>auth_request_set</code>). <code>addAuthCookiesToResponse</code> has no equivalent — the controller does not copy the auth server's <code>Set-Cookie</code> headers onto the client response; surface auth-server session cookies via <code>authSnippets</code> (<code>auth_request_set $sc $upstream_http_set_cookie; … add_header Set-Cookie $sc;</code>), or use NGINX Ingress Controller's oauth2-proxy sign-in flow via <code>authSigninURI</code>/<code>authSigninRedirectBasePath</code>. <code>tls.insecureSkipVerify</code> maps directly to <code>externalAuth.sslVerify: false</code>; <code>trustForwardHeader</code>, <code>headerField</code>, and <code>tls.certSecret</code> (the controller never presents a client certificate to the auth server) have no equivalent, and <code>preserveLocationHeader</code>, <code>preserveRequestMethod</code>, and <code>maxResponseBodySize</code> likewise have no direct equivalent. <code>authSnippets</code> requires the controller to run with <code>-enable-snippets</code>.</div>
+                            <div class="info-box note"><strong>Behavior differences:</strong> All client request headers are always forwarded to the auth service — <code>authRequestHeaders</code> has no equivalent (restrict headers only via <code>authSnippets</code>). The request body is never forwarded — <code>forwardBody</code>/<code>maxBodySize</code> have no equivalent. <code>authResponseHeaders</code> maps to the field of the same name, new in v5.8.0: up to 32 names of letters, digits and hyphens, none that NGINX sets itself; <code>authResponseHeadersRegex</code> has no equivalent, so list the headers instead. <code>addAuthCookiesToResponse</code> has no equivalent — the controller does not copy the auth server's <code>Set-Cookie</code> headers onto the client response; surface auth-server session cookies via <code>authSnippets</code> (<code>auth_request_set $sc $upstream_http_set_cookie; … add_header Set-Cookie $sc;</code>), or use NGINX Ingress Controller's oauth2-proxy sign-in flow via <code>authSigninURI</code>/<code>authSigninRedirectBasePath</code>. <code>tls.insecureSkipVerify</code> maps directly to <code>externalAuth.sslVerify: false</code>; <code>trustForwardHeader</code>, <code>headerField</code>, and <code>tls.certSecret</code> (the controller never presents a client certificate to the auth server) have no equivalent, and <code>preserveLocationHeader</code>, <code>preserveRequestMethod</code>, and <code>maxResponseBodySize</code> likewise have no direct equivalent. <code>authSnippets</code> requires the controller to run with <code>-enable-snippets</code>.</div>
                         </div></td></tr>
                         <tr class="expandable">
                             <td><code>Middleware digestAuth</code></td>
@@ -1523,7 +1525,7 @@ metadata:
     # customRequestHeaders — comma-separated "Name: value" pairs
     nginx.org/proxy-set-headers: "X-Client: web"</code></pre></div>
                                 </div>
-                                <div class="info-box note"><strong>Note:</strong> Explicit values in <code>nginx.org/proxy-set-headers</code> may not contain <code>$</code>. Use the VirtualServer approach for values that need variables, for header removal, or for <code>Host</code> overrides.</div>
+                                <div class="info-box note"><strong>Note:</strong> Traefik sends a <code>customRequestHeaders</code> value as written. <code>nginx.org/proxy-set-headers</code> reads <code>${name}</code> in it as an NGINX variable (since v5.8.0), as a VirtualServer header does, so a value with a <code>$</code> is left out of the annotation. Use the VirtualServer approach for header removal or for <code>Host</code> overrides.</div>
                             </div>
                         </div></td></tr>
                         <tr class="expandable">
@@ -3531,7 +3533,7 @@ metadata:
                     <tbody>
                         <tr class="expandable">
                             <td><code>Middleware inFlightReq</code><br>(<code>amount</code>, <code>sourceCriterion</code>)</td>
-                            <td><span class="badge badge-virtualserver">VirtualServer CRD</span> <code>routes[].location-snippets</code> (<code>limit_conn</code>) + <span class="badge badge-configmap">ConfigMap</span> <code>http-snippets</code> (<code>limit_conn_zone</code>)<span class="or-text">— or —</span><code>nginx.org/location-snippets</code></td>
+                            <td><span class="badge badge-policy">Policy CRD</span> <code>connectionLimit</code> + <span class="badge badge-virtualserver">VirtualServer CRD</span> <code>policies[]</code> <span class="badge badge-new">New v5.8.0</span><span class="or-text">— or —</span><span class="badge badge-policy">Policy CRD</span> <code>connectionLimit</code> + <code>nginx.org/policies</code> <span class="badge badge-new">New v5.8.0</span></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
@@ -3561,14 +3563,15 @@ spec:
       services:
         - name: backend-svc
           port: 80</code></pre></div>
-                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># Merge into the nginx-config ConfigMap (global)
-apiVersion: v1
-kind: ConfigMap
+                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code>apiVersion: k8s.nginx.org/v1
+kind: Policy
 metadata:
-  name: nginx-config
-data:
-  http-snippets: |
-    limit_conn_zone $host zone=limit_concurrent_conn:10m;
+  name: limit-concurrent-connection-limit
+spec:
+  connectionLimit:
+    connections: 10  # inFlightReq amount
+    key: ${http_host}  # Traefik groups by request host by default
+    rejectCode: 429  # Traefik answers 429
 ---
 apiVersion: k8s.nginx.org/v1
 kind: VirtualServer
@@ -3576,15 +3579,14 @@ metadata:
   name: my-app
 spec:
   host: app.example.com
+  policies:  # attaches the Policy above
+    - name: limit-concurrent-connection-limit
   upstreams:
     - name: backend-svc
       service: backend-svc
       port: 80
   routes:
     - path: /
-      location-snippets: |
-        limit_conn limit_concurrent_conn 10;
-        limit_conn_status 429;
       action:
         pass: backend-svc</code></pre></div>
                                 </div>
@@ -3622,9 +3624,7 @@ kind: Ingress
 metadata:
   name: my-app
   annotations:
-    nginx.org/location-snippets: |-
-      limit_conn limit_concurrent_conn 10;
-      limit_conn_status 429;
+    nginx.org/policies: "limit-concurrent-connection-limit"  # attaches the Policy below
 spec:
   rules:
     - host: app.example.com
@@ -3638,17 +3638,18 @@ spec:
                 port:
                   number: 80
 ---
-# Merge into the nginx-config ConfigMap (global)
-apiVersion: v1
-kind: ConfigMap
+apiVersion: k8s.nginx.org/v1
+kind: Policy
 metadata:
-  name: nginx-config
-data:
-  http-snippets: |
-    limit_conn_zone $host zone=limit_concurrent_conn:10m;</code></pre></div>
+  name: limit-concurrent-connection-limit
+spec:
+  connectionLimit:
+    connections: 10  # inFlightReq amount
+    key: ${http_host}  # Traefik groups by request host by default
+    rejectCode: 429  # Traefik answers 429</code></pre></div>
                                 </div>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> There is no Policy for concurrent-request limiting, so it is <code>limit_conn</code> in the route's location snippets (<code>-enable-snippets</code>) with its zone in the ConfigMap <code>http-snippets</code> key, which is always available. Traefik's <code>inFlightReq</code> counts per Host by default (its default <code>sourceCriterion</code> is <code>requestHost</code>, unlike <code>rateLimit</code>), so the zone is keyed on <code>$host</code>; <code>requestHeaderName</code> keys it on that header, and <code>ipStrategy</code> on the client address. Traefik answers 429 and <code>limit_conn</code> 503, hence <code>limit_conn_status 429</code>. With <code>amount</code> 0 or unset, Traefik refuses every request, and the route answers 429.</div>
+                            <div class="info-box note"><strong>New in v5.8.0:</strong> The <code>connectionLimit</code> Policy CRD limits the requests in progress per key, with no snippet and no ConfigMap zone; it attaches to a VirtualServer, a route, or an Ingress. Traefik's <code>inFlightReq</code> counts per request host by default (its default <code>sourceCriterion</code> is <code>requestHost</code>, unlike <code>rateLimit</code>), so the key is <code>${http_host}</code>, the <code>Host</code> header with its port as Traefik read it; <code>requestHeaderName</code> keys it on that header, and <code>ipStrategy</code> on the client address. Traefik answers 429 where NGINX answers 503, hence <code>rejectCode: 429</code>. With <code>amount</code> 0 or unset, Traefik refuses every request, and the route answers 429.</div>
                         </div></td></tr>
                         <tr class="expandable">
                             <td><code>Middleware rateLimit</code><br>(<code>average</code>, <code>burst</code>, <code>period</code>, <code>redis</code>, <code>sourceCriterion</code>)</td>
@@ -6316,6 +6317,13 @@ spec:
   jwt:
     realm: traefik  # required; Traefik sends none
     jwksURI: https://idp.example.com/.well-known/jwks.json  # jwksUrl
+    keyCache: 1h  # required with jwksURI; Traefik caches the key set itself
+    authorization:  # claims (NGINX Plus, new in v5.8.0)
+      rules:
+        - claims:
+            - name: grp
+              values:
+                - admin
 ---
 # jwt is not Ingress-attachable: reference it from a VirtualServer
 apiVersion: k8s.nginx.org/v1
@@ -6335,7 +6343,7 @@ spec:
       action:
         pass: backend</code></pre></div>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> the <code>jwt</code> Policy needs NGINX Plus, and attaches to a VirtualServer or VirtualServerRoute only. <code>signingSecret</code>, <code>publicKey</code> and <code>jwksFile</code> become a JWK set in a Secret of type <code>nginx.org/jwk</code> (key <code>jwk</code>) named in <code>secret</code>; <code>tokenKey</code> becomes <code>token: $arg_&lt;name&gt;</code>. <code>claims</code>, <code>forwardHeaders</code> and <code>usernameClaim</code> have no Policy field: NGINX Plus exposes claims as <code>$jwt_claim_*</code> variables, which snippets can check or forward. A <code>rateLimit</code> Policy <code>key</code> can use them for per-claim limits.</div>
+                            <div class="info-box note"><strong>Note:</strong> the <code>jwt</code> Policy needs NGINX Plus, and attaches to a VirtualServer or VirtualServerRoute only. <code>signingSecret</code>, <code>publicKey</code> and <code>jwksFile</code> become a JWK set in a Secret of type <code>nginx.org/jwk</code> (key <code>jwk</code>) named in <code>secret</code>; <code>tokenKey</code> becomes <code>token: $arg_&lt;name&gt;</code>. <code>claims</code> and <code>forwardHeaders</code> map to <code>authorization</code>, new in v5.8.0: rules of claim checks (<code>Exact</code>, the default, <code>Contains</code>, <code>Regex</code> or <code>Present</code>, each negatable), combined with <code>Any</code> or <code>All</code>, and a claim's <code>proxySetHeader</code> sends its value to the backend. The analyzer leaves the <code>claims</code> expression as a TODO to rewrite as rules, as above for <code>Equals(`grp`, `admin`)</code>; a request that fails them gets 403. <code>usernameClaim</code> has no Policy field. A <code>rateLimit</code> Policy <code>key</code> can use <code>$jwt_claim_*</code> variables for per-claim limits.</div>
                         </div></td></tr>
                     </tbody>
                 </table>

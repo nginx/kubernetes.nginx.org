@@ -353,8 +353,8 @@ const EXPECTED = {
     'simple/annotation':   { findings: 5,  steps: 1, blocks: 1, exported: 1 },
     'moderate/crd':        { findings: 12, steps: 2, blocks: 3, exported: 2 },
     'moderate/annotation': { findings: 12, steps: 2, blocks: 2, exported: 2 },
-    'advanced/crd':        { findings: 24, steps: 2, blocks: 4, exported: 5 },
-    'advanced/annotation': { findings: 24, steps: 3, blocks: 4, exported: 4 }
+    'advanced/crd':        { findings: 24, steps: 2, blocks: 4, exported: 6 },
+    'advanced/annotation': { findings: 24, steps: 3, blocks: 4, exported: 5 }
 };
 
 const presets = Object.keys(SOURCE.analyzer.samplePresets);

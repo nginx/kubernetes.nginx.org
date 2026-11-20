@@ -686,9 +686,22 @@
                 }
                 if (o.authSigninURL) { spec.authSigninURI = str(o.authSigninURL).replace(/^https?:\/\/[^\/]+/, '') || '/'; comments['spec.externalAuth.authSigninURI'] = mw.label + ' authSigninURL — a path: NGINX Ingress Controller signs in on the same host'; }
                 if (isMap(o.tls) && (o.tls.caSecret || o.tls.ca)) { spec.sslVerify = true; spec.trustedCertSecret = str(o.tls.caSecret) || 'auth-ca'; comments['spec.externalAuth.trustedCertSecret'] = mw.label + ' tls.caSecret — type nginx.org/ca'; }
+                // forward.go deletes the client's copy of each listed header and
+                // copies the auth server's, if it sent one; v5.8.0's
+                // authResponseHeaders does the same, for up to 32 names of
+                // letters, digits and hyphens, never one NGINX manages (types.go).
+                let managed = /^(host|connection|proxy-connection|content-length|transfer-encoding|te|keep-alive|expect|upgrade|x-real-ip|x-forwarded-(for|host|port|proto))$/i;
+                let seen = {}, names = [], refused = [];
+                list(o.authResponseHeaders).map(str).forEach(function(h) {
+                    if (!h || seen[h.toLowerCase()]) return;
+                    seen[h.toLowerCase()] = true;
+                    if (/^[A-Za-z0-9-]{1,46}$/.test(h) && !managed.test(h) && names.length < 32) names.push(h); else refused.push(h);
+                });
+                if (names.length) { spec.authResponseHeaders = names; comments['spec.externalAuth.authResponseHeaders'] = mw.label + ' authResponseHeaders'; }
                 f.policies.push({ name: dnsName(mw.name + '-external-auth'), spec: { externalAuth: spec }, ingress: 'nginx.org/policies', comments: comments });
                 let lost = [];
-                if (list(o.authResponseHeaders).length || o.authResponseHeadersRegex) lost.push('authResponseHeaders (the auth response headers are not copied to the backend request; authSnippets with auth_request_set and proxy_set_header can)');
+                if (refused.length) lost.push('authResponseHeaders ' + refused.join(', ') + ' (authResponseHeaders takes up to 32 names of letters, digits and hyphens, and none NGINX sets itself)');
+                if (o.authResponseHeadersRegex) lost.push('authResponseHeadersRegex (list the headers in authResponseHeaders instead)');
                 if (o.addAuthCookiesToResponse) lost.push('addAuthCookiesToResponse');
                 if (list(o.authRequestHeaders).length) lost.push('authRequestHeaders (every client header is forwarded)');
                 if (o.forwardBody) lost.push('forwardBody (the body is never sent to the auth service)');
@@ -766,11 +779,16 @@
                 if (unmapped.length) ctx.note(mw.label, 'No NGINX Ingress Controller equivalent for: ' + unmapped.join(', ') + '.', 'warning');
             },
 
+            // inFlightReq groups by request host unless told otherwise (New:
+            // requestHost by default), and Go's req.Host keeps the port, as
+            // $http_host does. The connectionLimit Policy, new in v5.8.0, keys on
+            // ${binary_remote_addr} or an $arg_/$http_/$cookie_ variable
+            // (validation/policy.go), and attaches to an Ingress too.
             inFlightReq: function(o, f, ctx, mw) {
                 let n = goInt(o.amount);
                 let sc = isMap(o.sourceCriterion) ? o.sourceCriterion : {};
-                // inFlightReq groups by host unless told otherwise (New: requestHost by default).
-                let key = sc.requestHeaderName ? '$http_' + str(sc.requestHeaderName).toLowerCase().replace(/-/g, '_') : (sc.ipStrategy ? '$binary_remote_addr' : '$host');
+                let key = sc.requestHeaderName ? '${http_' + str(sc.requestHeaderName).toLowerCase().replace(/-/g, '_') + '}' : (sc.ipStrategy ? '${binary_remote_addr}' : '${http_host}');
+                let keySource = sc.requestHeaderName ? ' sourceCriterion.requestHeaderName' : sc.ipStrategy ? ' sourceCriterion.ipStrategy' : ' — Traefik groups by request host by default';
                 // amount 0 (or unset): oxy's connlimit refuses a request once the
                 // count reaches the limit, so every request got 429. limit_conn
                 // takes no 0, so the route answers 429 itself.
@@ -779,12 +797,12 @@
                     ctx.note(mw.label, 'amount is ' + (o.amount === undefined ? 'unset' : str(o.amount)) + ', so Traefik refused every request with 429; the route answers 429 as it did.', 'warning');
                     return;
                 }
-                let zone = dnsName(mw.name + '-conn').replace(/-/g, '_');
-                f.http.push('limit_conn_zone ' + key + ' zone=' + zone + ':10m;');
-                f.httpSource = mw.label;
-                f.location.push({ line: 'limit_conn ' + zone + ' ' + n + ';', source: mw.label });
-                f.location.push({ line: 'limit_conn_status 429;', source: mw.label + ' — Traefik answers 429' });
-                ctx.note(mw.label, 'Concurrent-request limiting has no Policy: it is limit_conn in location-snippets with its zone in http-snippets, keyed as Traefik grouped (' + key + ').', 'warning');
+                // limit_conn takes at most 65535 ("connection limit must be less
+                // 65536"); a larger amount is a limit no client reaches.
+                if (n > 65535) { ctx.note(mw.label, 'amount ' + n + ' is above 65535, the most NGINX can limit to; it is migrated as 65535.', 'warning'); n = 65535; }
+                f.policies.push({ name: dnsName(mw.name + '-connection-limit'), spec: { connectionLimit: { connections: n, key: key, rejectCode: 429 } }, ingress: 'nginx.org/policies',
+                    comments: { 'spec.connectionLimit.connections': mw.label + ' amount', 'spec.connectionLimit.key': mw.label + keySource, 'spec.connectionLimit.rejectCode': mw.label + ' — Traefik answers 429' } });
+                if (isMap(sc.ipStrategy)) ctx.note(mw.label, 'sourceCriterion.ipStrategy is global in NGINX Ingress Controller (set-real-ip-from, real-ip-header).', 'warning');
             },
 
             ipAllowList: function(o, f, ctx, mw) {
@@ -825,11 +843,11 @@
                 // PEM with those lines. info is one URL-encoded header of
                 // the chosen fields, Subject="…";Issuer="…".
                 if (o.pem === true) {
-                    f.reqSet.push({ h: header('X-Forwarded-Tls-Client-Cert', '${ssl_client_escaped_cert}'), source: mw.label + ' pem — the leaf as URL-encoded PEM' });
+                    f.reqSet.push({ h: header('X-Forwarded-Tls-Client-Cert', '${ssl_client_escaped_cert}'), vars: true, source: mw.label + ' pem — the leaf as URL-encoded PEM' });
                     ctx.note(mw.label, 'pem: Traefik sent each certificate of the chain as bare base64 (no BEGIN/END lines), comma-separated; NGINX sends the client certificate alone, as URL-encoded PEM. A backend that parses the header needs to accept that form.', 'warning');
                 }
                 if (isMap(o.info)) {
-                    f.reqSet.push({ h: header('X-Forwarded-Tls-Client-Cert-Info', 'Subject="${ssl_client_s_dn}";Issuer="${ssl_client_i_dn}"'), source: mw.label + ' info' });
+                    f.reqSet.push({ h: header('X-Forwarded-Tls-Client-Cert-Info', 'Subject="${ssl_client_s_dn}";Issuer="${ssl_client_i_dn}"'), vars: true, source: mw.label + ' info' });
                     ctx.note(mw.label, 'info: Traefik built X-Forwarded-Tls-Client-Cert-Info from the fields it lists (subject and issuer parts, serialNumber, notBefore, notAfter, sans), URL-encoded; NGINX has the whole subject and issuer DNs in RFC 2253 order, so the header carries those, unencoded.', 'warning');
                 }
                 ctx.note(mw.label, 'NGINX has a client certificate only when the host asks for one, as Traefik did only under a TLSOption with clientAuth: the host needs the ingressMTLS Policy that TLSOption migrates to.');
@@ -957,7 +975,9 @@
             jwt: function(o, f, ctx, mw) {
                 let spec = { realm: 'traefik' };
                 let c = { 'spec.jwt.realm': mw.label + ' — Traefik sends no realm; NGINX Ingress Controller requires one' };
-                if (o.jwksUrl) { spec.jwksURI = str(o.jwksUrl); c['spec.jwt.jwksURI'] = mw.label + ' jwksUrl'; }
+                // keyCache is required with jwksURI (validateJWTRemoteJWKS, v5.7.0 and
+                // v5.8.0); Traefik caches the key set itself, so there is no value to carry.
+                if (o.jwksUrl) { spec.jwksURI = str(o.jwksUrl); spec.keyCache = '1h'; c['spec.jwt.jwksURI'] = mw.label + ' jwksUrl'; c['spec.jwt.keyCache'] = 'required with jwksURI; Traefik caches the key set itself'; }
                 else {
                     spec.secret = dnsName(mw.name + '-jwk');
                     c['spec.jwt.secret'] = mw.label + (o.signingSecret ? ' signingSecret' : o.publicKey ? ' publicKey' : ' jwksFile') + ' — as a JWK set in a Secret of type nginx.org/jwk, key jwk';
@@ -965,8 +985,14 @@
                 }
                 if (o.tokenKey) { spec.token = '$arg_' + str(o.tokenKey); c['spec.jwt.token'] = mw.label + ' tokenKey — the query parameter (Traefik also read form data)'; }
                 f.policies.push({ name: dnsName(mw.name + '-jwt'), spec: { jwt: spec }, ingress: null, plus: true, comments: c });
-                let lost = ['claims', 'forwardHeaders', 'usernameClaim', 'forwardAuthorization'].filter(function(k) { return o[k] !== undefined; });
-                ctx.note(mw.label, 'The jwt Policy needs NGINX Plus and attaches to a VirtualServer only.' + (lost.length ? ' ' + lost.join(', ') + ' have no jwt Policy field: claims checks and claim headers are NGINX Plus $jwt_claim_* variables in snippets.' : ''), 'warning');
+                // v5.8.0's jwt authorization checks claims (Exact, Contains, Regex,
+                // Present; rules combined with Any or All) and forwards one with
+                // proxySetHeader (types.go JWTAuthorization). Traefik's claims is
+                // an expression language, so it is rewritten by hand.
+                let mapped = ['claims', 'forwardHeaders'].filter(function(k) { return o[k] !== undefined; });
+                let lost = ['usernameClaim', 'forwardAuthorization'].filter(function(k) { return o[k] !== undefined; });
+                if (mapped.length) ctx.todo(mw.label, (o.claims !== undefined ? 'the claims expression "' + cmt(o.claims) + '" as spec.jwt.authorization.rules' : '') + (mapped.length > 1 ? ', and ' : '') + (o.forwardHeaders !== undefined ? 'forwardHeaders as a proxySetHeader on each claim in those rules' : ''));
+                ctx.note(mw.label, 'The jwt Policy needs NGINX Plus and attaches to a VirtualServer only.' + (mapped.length ? ' ' + mapped.join(' and ') + (mapped.length > 1 ? ' map' : ' maps') + ' to spec.jwt.authorization, new in v5.8.0: rules of claim checks (Exact, Contains, Regex, Present), each claim able to set a request header (proxySetHeader).' : '') + (lost.length ? ' ' + lost.join(', ') + (lost.length > 1 ? ' have' : ' has') + ' no jwt Policy field.' : ''), 'warning');
             },
             oidc: function(o, f, ctx, mw) {
                 let spec = { issuer: str(o.issuer) || 'https://issuer.example.com', clientID: str(o.clientId) || 'client-id' };
@@ -1854,9 +1880,13 @@
             Object.keys(byAnn).forEach(function(k) { set(k, byAnn[k].join(','), 'the Policies above'); });
             // Request and response headers: the annotation forms take name: value
             // pairs split on commas; a value with a comma, colon or quote needs
-            // the VirtualServer form, so it is reported.
-            let req = f.reqSet.filter(function(r) { return annotationSafe(r.h.value) && r.h.value !== ''; });
-            if (req.length) set('nginx.org/proxy-set-headers', req.map(function(r) { return r.h.name + ': ' + r.h.value; }).join(','), f.reqSet.map(function(r) { return r.source; }).filter(function(v, i, a) { return a.indexOf(v) === i; }).join(' + '));
+            // the VirtualServer form, so it is reported. Since v5.8.0
+            // nginx.org/proxy-set-headers takes NGINX variables, so a value the
+            // analyzer wrote as one (vars) stays; a "$" Traefik sent literally
+            // would be read as a variable, so it still cannot.
+            let reqSafe = function(r) { return r.vars ? annotationSafe(r.h.value.replace(/\$\{[A-Za-z0-9_]+\}/g, '')) && MigrationTool.NIC.headerVariablesOk(r.h.value) : annotationSafe(r.h.value); };
+            let req = f.reqSet.filter(function(r) { return reqSafe(r) && r.h.value !== ''; });
+            if (req.length) set('nginx.org/proxy-set-headers', req.map(function(r) { return r.h.name + ': ' + r.h.value; }).join(','), req.map(function(r) { return r.source; }).filter(function(v, i, a) { return a.indexOf(v) === i; }).join(' + '));
             // nginx.org/hsts always appends preload (nginx.ingress.tmpl), which
             // asks browsers to put the domain on their preload lists: it fits a
             // middleware that set stsPreload. Without it, the header is written
@@ -1866,7 +1896,7 @@
             let res_ = f.resAdd.filter(function(r) { return annotationSafe(r.h.value); });
             if (res_.length) set('nginx.org/add-header', res_.map(function(r) { return r.h.name + ': ' + r.h.value + ': always'; }).join(','), f.resAdd.map(function(r) { return r.source; }).filter(function(v, i, a) { return a.indexOf(v) === i; }).join(' + '));
             if (f.resHide.length) set('nginx.org/proxy-hide-headers', f.resHide.map(function(r) { return r.name; }).join(','), f.resHide[0].source);
-            let unsafe = f.reqSet.concat(f.resAdd).filter(function(r) { return !annotationSafe(r.h.value) || r.h.value === ''; });
+            let unsafe = f.reqSet.filter(function(r) { return !reqSafe(r) || r.h.value === ''; }).concat(f.resAdd.filter(function(r) { return !annotationSafe(r.h.value); }));
             if (unsafe.length) ctx.note(label, 'Header values with a comma, colon, quote or $ (' + unsafe.map(function(r) { return r.h.name; }).join(', ') + ') do not survive the nginx.org header annotations, which split on commas and colons; they are left out. A VirtualServer carries them (CRD-first).', 'warning');
             if (f.location.length) { set('nginx.org/location-snippets', f.location.map(function(l) { return l.line; }).join('\n'), f.location.map(function(l) { return l.source; }).filter(function(v, i, a) { return a.indexOf(v) === i; }).join(' + ')); }
             // Path rewrites: nginx.org/path-regex makes every path a regex
@@ -2685,7 +2715,7 @@
             { keys: ['middleware:forwardAuth'], source: 'Middleware forwardAuth', nic: 'Policy CRD externalAuth', type: 'policy', category: 'Authentication', anchor: 'authentication', section: 'oss', generator: 'generateExternalAuthPolicy' },
             { keys: ['middleware:grpcWeb'], source: 'Middleware grpcWeb', nic: 'No direct equivalent — NGINX Ingress Controller has no gRPC-Web-to-gRPC translation (nginx.org/grpc-services proxies native gRPC only); keep a gRPC-Web proxy in the pod', type: 'unsupported', category: 'Miscellaneous', anchor: 'miscellaneous', section: 'oss' },
             { keys: ['middleware:headers'], source: 'Middleware headers', nic: 'VirtualServer requestHeaders + responseHeaders, Policy CRD cors — or — nginx.org/add-header, nginx.org/proxy-set-headers, nginx.org/hsts*', type: 'policy', category: 'CORS & headers', anchor: 'headers', section: 'oss', generator: 'generateHeadersContributions', verified: { traefik: 'v3.7.17', nic: 'v5.7.0' } },
-            { keys: ['middleware:inFlightReq'], source: 'Middleware inFlightReq', nic: 'nginx.org/location-snippets (limit_conn) + ConfigMap http-snippets (limit_conn_zone)', type: 'annotation', category: 'Rate limiting & concurrency', anchor: 'rate-limiting', section: 'oss', generator: 'generateInFlightReqNote', verified: { traefik: 'v3.7.17', nic: 'v5.7.0' } },
+            { keys: ['middleware:inFlightReq'], source: 'Middleware inFlightReq', nic: 'Policy CRD connectionLimit (VirtualServer policies[] or nginx.org/policies)', type: 'policy', category: 'Rate limiting & concurrency', anchor: 'rate-limiting', section: 'oss', generator: 'generateConnectionLimitPolicy', verified: { traefik: 'v3.7.17', nic: 'v5.8.0' } },
             { keys: ['middleware:ipAllowList', 'middleware:ipWhiteList'], source: 'Middleware ipAllowList', nic: 'Policy CRD accessControl', type: 'policy', category: 'Access control', anchor: 'access-control', section: 'oss', generator: 'generateAccessControlPolicy', verified: { traefik: 'v3.7.17', nic: 'v5.7.0' } },
             { keys: ['middleware:passTLSClientCert'], source: 'Middleware passTLSClientCert', nic: 'VirtualServer requestHeaders.set with ${ssl_client_escaped_cert} / ${ssl_client_s_dn} (+ ingressMTLS Policy)', type: 'virtualserver', category: 'Access control', anchor: 'access-control', section: 'oss', generator: 'generatePassTLSClientCertVS', verified: { traefik: 'v3.7.17', nic: 'v5.7.0' } },
             { keys: ['middleware:rateLimit'], source: 'Middleware rateLimit', nic: 'Policy CRD rateLimit — or — nginx.org/limit-req-rate + nginx.org/limit-req-burst', type: 'policy', category: 'Rate limiting & concurrency', anchor: 'rate-limiting', section: 'oss', dualApproach: true, generator: 'generateRateLimitPolicy', verified: { traefik: 'v3.7.17', nic: 'v5.7.0' } },
@@ -2716,7 +2746,7 @@
             { keys: ['kind:ServersTransportTCP'], source: 'ServersTransportTCP', nic: 'TransportServer upstreamParameters.connectTimeout + serverSnippets (proxy_protocol); no backend TLS', type: 'transportserver', category: 'Backend transport', anchor: 'backend-transport', section: 'oss', generator: 'generateTransportServerFromTCP', verified: { traefik: 'v3.7.17', nic: 'v5.7.0' } },
 
             // Traefik Hub (commercial) middlewares → NGINX Plus
-            { keys: ['middleware:jwt'], source: 'Middleware jwt (Hub)', nic: 'Policy CRD jwt (NGINX Plus)', type: 'policy', category: 'JWT authentication', anchor: 'jwt-authentication', section: 'plus', plusRequired: true, generator: 'generateHubMiddlewareNote', verified: { traefik: 'v3.7.17', nic: 'v5.7.0' } },
+            { keys: ['middleware:jwt'], source: 'Middleware jwt (Hub)', nic: 'Policy CRD jwt (NGINX Plus)', type: 'policy', category: 'JWT authentication', anchor: 'jwt-authentication', section: 'plus', plusRequired: true, generator: 'generateHubMiddlewareNote', verified: { traefik: 'v3.7.17', nic: 'v5.8.0' } },
             { keys: ['middleware:oidc'], source: 'Middleware oidc (Hub)', nic: 'Policy CRD oidc (NGINX Plus)', type: 'policy', category: 'OIDC authentication', anchor: 'oidc-authentication', section: 'plus', plusRequired: true, generator: 'generateHubMiddlewareNote', verified: { traefik: 'v3.7.17', nic: 'v5.7.0' } },
             { keys: ['middleware:apiKey'], source: 'Middleware apiKey (Hub)', nic: 'Policy CRD apiKey', type: 'policy', category: 'API key authentication', anchor: 'api-key-authentication', section: 'plus', generator: 'generateHubMiddlewareNote', verified: { traefik: 'v3.7.17', nic: 'v5.7.0' } },
             { keys: ['middleware:waf'], source: 'Middleware waf (Hub)', nic: 'Policy CRD waf (NGINX Plus, via nginx.com/policies on Ingress)', type: 'policy', category: 'WAF', anchor: 'waf', section: 'plus', plusRequired: true, generator: 'generateHubMiddlewareNote', verified: { traefik: 'v3.7.17', nic: 'v5.7.0' } },

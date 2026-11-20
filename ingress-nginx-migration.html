@@ -188,7 +188,7 @@
 
         <div class="tool-page active" id="page-getting-started">
         <div class="info-box warning eol-warning" style="margin: 0 0 var(--space-2x);"><strong>Warning:</strong> The community-maintained <code>kubernetes/ingress-nginx</code> project has <a href="https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/" target="_blank" rel="noopener">reached end of maintenance</a>. <strong><span data-ingress-nginx-version>v1.15.1</span> (March 19, 2026) is the final release</strong>: it will receive no further releases, bugfixes, or security patches. NGINX Ingress Controller (<code>nginx/kubernetes-ingress</code>) is actively maintained and is the recommended migration target.</div>
-        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Ingress-NGINX <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.7.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.7.0</span></a>.</div>
+        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Ingress-NGINX <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.8.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.8.0</span></a>.</div>
 
         <section id="overview">
             <h2 id="migration-overview">Overview</h2>
@@ -346,12 +346,12 @@
             <p>CRDs can be installed via Helm or manually using manifests, depending on your deployment method. See the <a href="https://docs.nginx.com/nginx-ingress-controller/install/" target="_blank" rel="noopener">NGINX Ingress Controller installation docs</a> for full instructions.</p>
             <div class="install-box"><h3>Helm (example)</h3>
                 <p style="margin: 0 0 var(--space-2x); font-size: var(--fs-body); line-height: var(--lh-body);">If you install NGINX Ingress Controller via Helm, CRDs are included automatically. To ensure they are enabled:</p>
-                <pre><code data-nic-helm-install>helm install nginx-ingress oci://ghcr.io/nginx/charts/nginx-ingress --version 2.8.0 --set controller.enableCustomResources=true</code></pre>
+                <pre><code data-nic-helm-install>helm install nginx-ingress oci://ghcr.io/nginx/charts/nginx-ingress --version 2.9.0 --set controller.enableCustomResources=true</code></pre>
                 <p style="margin: var(--space-2x) 0 0; font-size: var(--fs-caption); line-height: var(--lh-caption); opacity: 0.8;">The <code>controller.enableCustomResources</code> flag is <code>true</code> by default. If you previously disabled it, re-enable it to use CRD resources. See the <a href="https://docs.nginx.com/nginx-ingress-controller/install/helm/" target="_blank" rel="noopener">Helm installation guide</a> for details.</p>
             </div>
             <div class="install-box"><h3>Manifests (example)</h3>
                 <p style="margin: 0 0 var(--space-2x); font-size: var(--fs-body); line-height: var(--lh-body);">If you deploy using manifests, install CRDs manually before deploying the controller:</p>
-                <pre><code data-nic-crd-install>kubectl apply -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/v5.7.0/deploy/crds.yaml</code></pre>
+                <pre><code data-nic-crd-install>kubectl apply -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/v5.8.0/deploy/crds.yaml</code></pre>
                 <p style="margin: var(--space-2x) 0 0; font-size: var(--fs-caption); line-height: var(--lh-caption); opacity: 0.8;">Replace the version number with your target controller version. See the <a href="https://docs.nginx.com/nginx-ingress-controller/install/manifests/" target="_blank" rel="noopener">manifest installation guide</a> for the full step-by-step process.</p>
             </div>
             <div class="info-box note"><strong>Note:</strong> The <code>crds.yaml</code> file contains all CRDs (VirtualServer, VirtualServerRoute, Policy, TransportServer, GlobalConfiguration) in a single manifest.</div>
@@ -426,7 +426,7 @@
 
         <div class="tool-page" id="page-analyzer" hidden>
         <div class="info-box warning eol-warning" style="margin: 0 0 var(--space-2x);"><strong>Warning:</strong> The community-maintained <code>kubernetes/ingress-nginx</code> project has <a href="https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/" target="_blank" rel="noopener">reached end of maintenance</a>. <strong><span data-ingress-nginx-version>v1.15.1</span> (March 19, 2026) is the final release</strong>: it will receive no further releases, bugfixes, or security patches. NGINX Ingress Controller (<code>nginx/kubernetes-ingress</code>) is actively maintained and is the recommended migration target.</div>
-        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Ingress-NGINX <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.7.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.7.0</span></a>.</div>
+        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Ingress-NGINX <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.8.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.8.0</span></a>.</div>
         <!-- YAML Migration Analyzer -->
         <section id="analyzer">
             <h2 id="yaml-analyzer">Ingress-NGINX config analyzer</h2>
@@ -489,7 +489,7 @@ spec:
 
         <div class="tool-page" id="page-reference" hidden>
         <div class="info-box warning eol-warning" style="margin: 0 0 var(--space-2x);"><strong>Warning:</strong> The community-maintained <code>kubernetes/ingress-nginx</code> project has <a href="https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/" target="_blank" rel="noopener">reached end of maintenance</a>. <strong><span data-ingress-nginx-version>v1.15.1</span> (March 19, 2026) is the final release</strong>: it will receive no further releases, bugfixes, or security patches. NGINX Ingress Controller (<code>nginx/kubernetes-ingress</code>) is actively maintained and is the recommended migration target.</div>
-        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Ingress-NGINX <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.7.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.7.0</span></a>.</div>
+        <div class="info-box note" style="margin: 0 0 var(--space-3x);"><strong>Version reference:</strong> This tool is based on <a data-ingress-nginx-release-link href="https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1" target="_blank" rel="noopener">Ingress-NGINX <span data-ingress-nginx-version>v1.15.1</span> (final release)</a> and <a data-nic-release-link href="https://github.com/nginx/kubernetes-ingress/releases/tag/v5.8.0" target="_blank" rel="noopener">NGINX Ingress Controller <span data-nic-version>v5.8.0</span></a>.</div>
         <!-- Key Differences -->
         <section id="differences">
             <h2 id="key-differences">Key differences</h2>
@@ -509,12 +509,17 @@ spec:
             <div class="info-box note" style="margin: var(--space-2hx) 0 0;"><strong>Note:</strong> Many Ingress-NGINX capabilities that do not have direct NGINX Ingress Controller annotations or CRDs can still be achieved through NGINX configuration snippets (via either snippet annotations or VirtualServer/VirtualServerRoute CRDs). We recommend that users proceed with caution when using snippets, as they inject raw NGINX configuration and are intended for more advanced use cases.</div>
             <div class="info-box note release-notes" style="margin: var(--space-2x) 0 0;"><strong>New in NGINX Ingress Controller</strong>
                 <div class="approach-tabs" aria-label="NGINX Ingress Controller release">
-                    <button class="approach-tab active" data-action="switchApproach" data-approach="v5-7-0">v5.7.0</button>
+                    <button class="approach-tab active" data-action="switchApproach" data-approach="v5-8-0">v5.8.0</button>
+                    <button class="approach-tab" data-action="switchApproach" data-approach="v5-7-0">v5.7.0</button>
                     <button class="approach-tab" data-action="switchApproach" data-approach="v5-6-0">v5.6.0</button>
                     <button class="approach-tab" data-action="switchApproach" data-approach="v5-5-0">v5.5.0</button>
                     <button class="approach-tab" data-action="switchApproach" data-approach="v5-4-0">v5.4.0</button>
                 </div>
-                <div class="approach-content active" data-approach="v5-7-0">
+                <div class="approach-content active" data-approach="v5-8-0">
+                    <p><strong>In NGINX Ingress Controller:</strong> A new <code>connectionLimit</code> Policy CRD limits how many requests each client, or each value of another key, has open at once. It attaches to a VirtualServer, one of its routes, or an Ingress (through <code>nginx.org/policies</code>), where a snippet was needed before. The <code>externalAuth</code> Policy's <code>authResponseHeaders</code> copies headers from the auth service's response into the request sent to the backend, and <code>nginx.org/proxy-set-headers</code> takes NGINX variables, as a VirtualServer header already did. With NGINX Plus, the <code>jwt</code> Policy's <code>authorization</code> checks the token's claims.</p>
+                    <p><strong>For Ingress-NGINX users:</strong> <code>nginx.ingress.kubernetes.io/limit-connections</code> maps to the <code>connectionLimit</code> Policy, with no snippet or ConfigMap zone, and <code>nginx.ingress.kubernetes.io/auth-response-headers</code> to <code>authResponseHeaders</code>, with no snippet. <code>nginx.ingress.kubernetes.io/x-forwarded-prefix</code> keeps a variable such as <code>$host</code> on the annotation path.</p>
+                </div>
+                <div class="approach-content" data-approach="v5-7-0">
                     <p><strong>In NGINX Ingress Controller:</strong> <code>nginx.org/proxy-http-version</code> and a VirtualServer upstream's <code>proxy-http-version</code> set the HTTP version spoken to the backend, HTTP/2 included, where a snippet was needed before. <code>nginx.org/http2</code> or <code>spec.http2</code> turns HTTP/2 on per host. An <code>Opaque</code> Secret works wherever a CA, TLS, or htpasswd Secret did. The <code>otel-trace-context</code> ConfigMap key can continue an incoming trace, and the <code>use-forwarded-headers</code> key keeps the forwarded headers a proxy in front has set. <code>least_time last_byte</code> load balancing is now on NGINX Open Source. cert-manager HTTP-01 challenges pass the HTTPS redirect and authentication, and <code>-enable-topology-aware-routing</code> sends traffic to the endpoints in the controller pod's own zone when the Service asks for it.</p>
                     <p><strong>For Ingress-NGINX users:</strong> <code>nginx.ingress.kubernetes.io/proxy-http-version</code> maps to these with no snippet, and a gRPC backend gets HTTP/2 per host, with or without TLS. <code>nginx.ingress.kubernetes.io/opentelemetry-trust-incoming-span</code> maps to the <code>otel-trace-context</code> ConfigMap key, and <code>nginx.ingress.kubernetes.io/load-balance: ewma</code> to <code>least_time last_byte</code>. The community controller's Secrets can be used as they are, though basic auth still needs its key renamed from <code>auth</code> to <code>htpasswd</code>. The <code>use-forwarded-headers</code> ConfigMap key keeps its name, cert-manager HTTP-01 challenges pass as the community controller's defaults let them, and <code>-enable-topology-aware-routing</code> arrives with the community flag's name.</p>
                 </div>
@@ -955,6 +960,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/auth-url: "http://auth-svc.default.svc.cluster.local/auth"
     nginx.ingress.kubernetes.io/auth-method: "GET"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User, X-Auth-Request-Email"
     nginx.ingress.kubernetes.io/auth-signin: "https://auth.example.com/login"
     nginx.ingress.kubernetes.io/auth-snippet: |
       proxy_set_header X-Original-URI $request_uri;</code></pre></div>
@@ -972,6 +978,9 @@ spec:
     authSnippets: |  # auth-snippet + auth-method
       proxy_set_header X-Original-URI $request_uri;
       proxy_method GET;
+    authResponseHeaders:  # auth-response-headers
+      - X-Auth-Request-User
+      - X-Auth-Request-Email
 ---
 # 2. Reference from Ingress (new in v5.5.0)
 apiVersion: networking.k8s.io/v1
@@ -981,7 +990,8 @@ metadata:
   annotations:
     nginx.org/policies: "my-app-external-auth"  # attaches the Policy above</code></pre></div>
                                 </div>
-                                <div class="info-box note"><strong>New in v5.5.0:</strong> The <code>externalAuth</code> Policy CRD can be referenced directly from Ingress resources using the <code>nginx.org/policies</code> annotation. This is the simplest migration path: you stay on Ingress resources. <code>auth-url</code> is split into <code>authURI</code> (path) and <code>authServiceName</code> (<code>&lt;namespace&gt;/&lt;service&gt;</code>). The community's <code>auth-method</code>, <code>auth-response-headers</code>, <code>auth-cache-duration</code>, <code>auth-cache-key</code>, <code>auth-proxy-set-headers</code>, <code>auth-request-redirect</code>, and <code>auth-signin-redirect-param</code> annotations have no dedicated Policy fields; express these through <code>authSnippets</code> when needed. If you are not adopting a Policy, place the same directives directly in <code>nginx.org/location-snippets</code> alongside the <code>auth_request</code> directive instead. NGINX Ingress Controller's <code>authSigninURI</code> is a <em>relative</em> URI (validated <code>^/.*$</code>): a full <code>auth-signin</code> URL is reduced to its path, and a sign-in page on a different host cannot be expressed by this field. NGINX Ingress Controller proxies sign-in requests to the auth Service from a location at <code>authSigninRedirectBasePath</code> (default <code>/oauth2</code>); never set it to <code>/</code> or to a path a route already uses, because NGINX rejects the duplicate location. The analyzer sets it to the sign-in path's parent directory, or to the path itself when that parent is <code>/</code>, as for <code>/login</code> here.</div>
+                                <div class="info-box note"><strong>New in v5.8.0:</strong> <code>authResponseHeaders</code> copies the listed headers from the auth service's 2xx response into the request sent to the backend, as <code>auth-response-headers</code> did. The auth service's value replaces any the client sent, and a listed header it does not return is removed. The field takes up to 32 names of letters, digits, and hyphens. A name with an underscore, or one NGINX sets itself (<code>Host</code>, the <code>X-Forwarded-*</code> headers and the like), stays as <code>auth_request_set</code> and <code>proxy_set_header</code> in a location snippet.</div>
+                                <div class="info-box note"><strong>New in v5.5.0:</strong> The <code>externalAuth</code> Policy CRD can be referenced directly from Ingress resources using the <code>nginx.org/policies</code> annotation. This is the simplest migration path: you stay on Ingress resources. <code>auth-url</code> is split into <code>authURI</code> (path) and <code>authServiceName</code> (<code>&lt;namespace&gt;/&lt;service&gt;</code>). The community's <code>auth-method</code>, <code>auth-cache-duration</code>, <code>auth-cache-key</code>, <code>auth-proxy-set-headers</code>, <code>auth-request-redirect</code>, and <code>auth-signin-redirect-param</code> annotations have no dedicated Policy fields; express these through <code>authSnippets</code> when needed. If you are not adopting a Policy, place the same directives directly in <code>nginx.org/location-snippets</code> alongside the <code>auth_request</code> directive instead. NGINX Ingress Controller's <code>authSigninURI</code> is a <em>relative</em> URI (validated <code>^/.*$</code>): a full <code>auth-signin</code> URL is reduced to its path, and a sign-in page on a different host cannot be expressed by this field. NGINX Ingress Controller proxies sign-in requests to the auth Service from a location at <code>authSigninRedirectBasePath</code> (default <code>/oauth2</code>); never set it to <code>/</code> or to a path a route already uses, because NGINX rejects the duplicate location. The analyzer sets it to the sign-in path's parent directory, or to the path itself when that parent is <code>/</code>, as for <code>/login</code> here.</div>
                             </div>
                             <div class="approach-content" data-approach="vs-policy">
                                 <div class="comparison">
@@ -992,6 +1002,7 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/auth-url: "http://auth-svc.default.svc.cluster.local/auth"
     nginx.ingress.kubernetes.io/auth-method: "GET"
+    nginx.ingress.kubernetes.io/auth-response-headers: "X-Auth-Request-User, X-Auth-Request-Email"
     nginx.ingress.kubernetes.io/auth-signin: "https://auth.example.com/login"
     nginx.ingress.kubernetes.io/auth-snippet: |
       proxy_set_header X-Original-URI $request_uri;</code></pre></div>
@@ -1009,6 +1020,9 @@ spec:
     authSnippets: |  # auth-snippet + auth-method
       proxy_set_header X-Original-URI $request_uri;
       proxy_method GET;
+    authResponseHeaders:  # auth-response-headers
+      - X-Auth-Request-User
+      - X-Auth-Request-Email
 ---
 # 2. Reference from VirtualServer (or VirtualServerRoute)
 apiVersion: k8s.nginx.org/v1
@@ -2274,7 +2288,7 @@ spec:
                 value: "/api"  # x-forwarded-prefix</code></pre></div>
                                 </div>
                             </div>
-                            <div class="info-box warning"><strong>Literal values only on the annotation path:</strong> <code>nginx.org/upstream-vhost</code> accepts a lowercase hostname with no port and no NGINX variables, and <code>nginx.org/proxy-set-headers</code> rejects <code>$</code> in a value. NGINX Ingress Controller rejects the whole Ingress otherwise. For a port or a variable, use the CRD approach, which writes variables in braces (<code>${host}</code>). A capture group such as <code>$1</code> in <code>x-forwarded-prefix</code> has no equivalent in either.</div>
+                            <div class="info-box warning"><strong>Variables on the annotation path:</strong> <code>nginx.org/upstream-vhost</code> accepts a lowercase hostname with no port and no NGINX variables; for those, use the CRD approach. <code>nginx.org/proxy-set-headers</code> takes NGINX variables since v5.8.0, written in braces (<code>${host}</code>), from the same list as a VirtualServer header. NGINX Ingress Controller rejects the whole Ingress for any other variable. <code>$uri</code> is not on that list, and a capture group such as <code>$1</code> in <code>x-forwarded-prefix</code> has no equivalent in either approach.</div>
                             <div class="info-box note"><strong>New in v5.6.0:</strong> <code>nginx.org/upstream-vhost</code> sets the <code>Host</code> header sent upstream (<code>grpc_set_header</code> for gRPC Services); minion Ingresses inherit it from their master. Don't also set <code>Host</code> in <code>nginx.org/proxy-set-headers</code>: that writes a second directive and NGINX Ingress Controller warns on the Ingress.</div>
                         </div></td></tr>
                         <tr class="expandable"><td>No direct equivalent</td><td><code>nginx.org/add-header</code> <span class="badge badge-new">New v5.5.0</span><br><code>nginx.org/add-header-inherit</code> <span class="badge badge-new">New v5.5.0</span></td></tr>
@@ -2312,9 +2326,9 @@ kind: Ingress
 metadata:
   name: my-app
   annotations:
-    nginx.org/proxy-set-headers: "X-Custom-Header: my-value, X-Request-Source"</code></pre></div>
+    nginx.org/proxy-set-headers: "X-Custom-Header: my-value, X-Client-IP: ${remote_addr}, X-Request-Source"</code></pre></div>
                             </div>
-                            <div class="info-box note"><strong>Note:</strong> <code>nginx.org/proxy-set-headers</code> takes a comma-separated list of headers inline, each written <code>Name: value</code>. A name without a value forwards the client's own header of that name (<code>X-Request-Source</code> above sends <code>$http_x_request_source</code>). Values are literal: NGINX Ingress Controller rejects the Ingress for a <code>$</code>, a newline, or an unescaped quote in one. Set the upstream <code>Host</code> with <code>nginx.org/upstream-vhost</code> instead.</div>
+                            <div class="info-box note"><strong>Note:</strong> <code>nginx.org/proxy-set-headers</code> takes a comma-separated list of headers inline, each written <code>Name: value</code>. A name without a value forwards the client's own header of that name (<code>X-Request-Source</code> above sends <code>$http_x_request_source</code>). A value takes NGINX variables since v5.8.0, written in braces (<code>${remote_addr}</code>), from the list a VirtualServer header accepts; NGINX Ingress Controller rejects the Ingress for any other variable, a newline, or an unescaped quote. Set the upstream <code>Host</code> with <code>nginx.org/upstream-vhost</code> instead.</div>
                         </div></td></tr>
                     </tbody>
                 </table>
@@ -3557,7 +3571,7 @@ spec:
                     <tbody>
                         <tr class="expandable">
                             <td><code>nginx.ingress.kubernetes.io/limit-burst-multiplier</code><br><code>nginx.ingress.kubernetes.io/limit-connections</code><br><code>nginx.ingress.kubernetes.io/limit-rate</code><br><code>nginx.ingress.kubernetes.io/limit-rate-after</code><br><code>nginx.ingress.kubernetes.io/limit-rpm</code><br><code>nginx.ingress.kubernetes.io/limit-rps</code><br><code>nginx.ingress.kubernetes.io/limit-whitelist</code></td>
-                            <td><span class="badge badge-policy">Policy CRD</span> <code>rateLimit.*</code><span class="or-text">— or —</span><code>nginx.org/limit-req-burst</code><br><code>nginx.org/limit-req-rate</code><br><code>nginx.org/location-snippets</code></td>
+                            <td><span class="badge badge-policy">Policy CRD</span> <code>rateLimit.*</code> + <code>connectionLimit.*</code> <span class="badge badge-new">New v5.8.0</span><span class="or-text">— or —</span><code>nginx.org/limit-req-burst</code><br><code>nginx.org/limit-req-rate</code><br><code>nginx.org/location-snippets</code><br><code>nginx.org/policies</code></td>
                         </tr>
                         <tr class="example-row"><td colspan="2"><div class="example-content">
                             <div class="approach-tabs">
@@ -3578,8 +3592,8 @@ metadata:
     nginx.ingress.kubernetes.io/limit-rpm: "300"
     nginx.ingress.kubernetes.io/limit-rps: "10"
     nginx.ingress.kubernetes.io/limit-whitelist: "10.0.0.0/8,172.16.0.0/12"</code></pre></div>
-                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># 1. The Ingress: one request rate, plus the connection and
-#    bandwidth limits as a location snippet
+                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># 1. The Ingress: one request rate, the bandwidth limits as a
+#    location snippet, and the connection limit as a Policy
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -3589,22 +3603,24 @@ metadata:
     nginx.org/limit-req-burst: "50"  # limit-rps × limit-burst-multiplier (5)
     nginx.org/limit-req-no-delay: "true"  # the community controller always used nodelay
     nginx.org/limit-req-reject-code: "503"  # the community limit-req-status-code default
-    nginx.org/location-snippets: |  # limit-connections + the community limit-conn-status-code default + limit-rate + limit-rate-after
-      limit_conn my_app_conn 5;
-      limit_conn_status 503;
+    nginx.org/policies: "my-app-connection-limit"  # attaches the Policy below
+    nginx.org/location-snippets: |  # limit-rate + limit-rate-after
       limit_rate 100k;
       limit_rate_after 1024k;
 ---
-# 2. The zone limit_conn counts in, in the global ConfigMap
-apiVersion: v1
-kind: ConfigMap
+# 2. The connectionLimit Policy
+apiVersion: k8s.nginx.org/v1
+kind: Policy
 metadata:
-  name: nginx-config
-data:
-  http-snippets: |  # zones the migrated location snippets use
-    limit_conn_zone $binary_remote_addr zone=my_app_conn:5m;</code></pre></div>
+  name: my-app-connection-limit
+spec:
+  connectionLimit:
+    connections: 5  # limit-connections
+    key: ${binary_remote_addr}  # the community limit-conn-zone-variable default
+    zoneSize: "5m"  # the community zone size
+    rejectCode: 503  # the community limit-conn-status-code default</code></pre></div>
                                 </div>
-                                <div class="info-box warning"><strong>Not carried over:</strong> An Ingress takes one <code>nginx.org/limit-req-rate</code>, so this approach keeps <code>limit-rps</code> and drops <code>limit-rpm</code>; use the CRD Approach to keep both. NGINX Ingress Controller has no rate-limit exemption list for <code>limit-whitelist</code>. To keep <code>10.0.0.0/8</code> and <code>172.16.0.0/12</code> unlimited, set <code>nginx.org/limit-req-key</code> from a <code>geo</code> map in the ConfigMap's <code>http-snippets</code> that yields an empty key for them, because NGINX does not count an empty key.</div>
+                                <div class="info-box warning"><strong>Not carried over:</strong> An Ingress takes one <code>nginx.org/limit-req-rate</code>, so this approach keeps <code>limit-rps</code> and drops <code>limit-rpm</code>; use the CRD Approach to keep both. NGINX Ingress Controller has no exemption list for <code>limit-whitelist</code>. NGINX does not count an empty key, so to keep <code>10.0.0.0/8</code> and <code>172.16.0.0/12</code> out of the request rate, set <code>nginx.org/limit-req-key</code> from a <code>geo</code> map in the ConfigMap's <code>http-snippets</code> that yields an empty key for them. A Policy <code>key</code> cannot read a <code>geo</code> map, so the connection limit still applies to them; to exempt them, use <code>limit_conn</code> in a location snippet instead, with its <code>limit_conn_zone</code> keyed on the map.</div>
                             </div>
                             <div class="approach-content active" data-approach="crd">
                                 <div class="comparison">
@@ -3620,16 +3636,7 @@ metadata:
     nginx.ingress.kubernetes.io/limit-rpm: "300"
     nginx.ingress.kubernetes.io/limit-rps: "10"
     nginx.ingress.kubernetes.io/limit-whitelist: "10.0.0.0/8,172.16.0.0/12"</code></pre></div>
-                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># 1. The zone limit_conn counts in, in the global ConfigMap
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-data:
-  http-snippets: |  # zones the migrated location snippets use
-    limit_conn_zone $binary_remote_addr zone=my_app_conn:5m;
----
-# 2. One rateLimit Policy per community rate
+                                    <div class="comparison-block new"><h4>NGINX Ingress Controller</h4><pre><code># 1. One rateLimit Policy per community rate
 apiVersion: k8s.nginx.org/v1
 kind: Policy
 metadata:
@@ -3639,7 +3646,7 @@ spec:
     rate: "10r/s"  # limit-rps
     burst: 50  # limit-rps × limit-burst-multiplier (5)
     noDelay: true  # the community controller always used nodelay
-    key: ${binary_remote_addr}
+    key: ${binary_remote_addr}  # the community limit-conn-zone-variable default
     zoneSize: "10M"
     rejectCode: 503  # the community limit-req-status-code default
 ---
@@ -3652,11 +3659,23 @@ spec:
     rate: "300r/m"  # limit-rpm
     burst: 1500  # limit-rpm × limit-burst-multiplier (5)
     noDelay: true  # the community controller always used nodelay
-    key: ${binary_remote_addr}
+    key: ${binary_remote_addr}  # the community limit-conn-zone-variable default
     zoneSize: "10M"
     rejectCode: 503  # the community limit-req-status-code default
 ---
-# 3. Attach both, with the connection and bandwidth limits as a snippet
+# 2. The connectionLimit Policy
+apiVersion: k8s.nginx.org/v1
+kind: Policy
+metadata:
+  name: my-app-connection-limit
+spec:
+  connectionLimit:
+    connections: 5  # limit-connections
+    key: ${binary_remote_addr}  # the community limit-conn-zone-variable default
+    zoneSize: "5m"  # the community zone size
+    rejectCode: 503  # the community limit-conn-status-code default
+---
+# 3. Attach all three, with the bandwidth limits as a snippet
 apiVersion: k8s.nginx.org/v1
 kind: VirtualServer
 metadata:
@@ -3666,22 +3685,22 @@ spec:
   policies:  # attaches the Policies above
     - name: my-app-rate-limit-rs
     - name: my-app-rate-limit-rm
+    - name: my-app-connection-limit
   upstreams:
     - name: backend
       service: backend-svc
       port: 80
   routes:
     - path: /
-      location-snippets: |  # limit-connections + the community limit-conn-status-code default + limit-rate + limit-rate-after
-        limit_conn my_app_conn 5;
-        limit_conn_status 503;
+      location-snippets: |  # limit-rate + limit-rate-after
         limit_rate 100k;
         limit_rate_after 1024k;
       action:
         pass: backend</code></pre></div>
                                 </div>
-                                <div class="info-box warning"><strong>No exemption list:</strong> NGINX Ingress Controller has no rate-limit exemption list for <code>limit-whitelist</code>. To keep <code>10.0.0.0/8</code> and <code>172.16.0.0/12</code> unlimited, set the rateLimit <code>key</code> from a <code>geo</code> map in the ConfigMap's <code>http-snippets</code> that yields an empty key for them, because NGINX does not count an empty key.</div>
-                                <div class="info-box note"><strong>Note:</strong> The rateLimit Policy CRD covers <code>limit-rps</code>, <code>limit-rpm</code> (as <code>rate</code> in <code>r/m</code>), and <code>limit-burst-multiplier</code>; a VirtualServer can reference one Policy per rate, as the community controller enforced both. The community controller always used <code>nodelay</code> and answered 503, so the Policies say so. <code>limit-connections</code>, <code>limit-rate</code>, and <code>limit-rate-after</code> have no Policy fields and become a location snippet; <code>limit_conn</code> needs a <code>limit_conn_zone</code>, which goes in the ConfigMap's <code>http-snippets</code> (no <code>-enable-snippets</code> needed there). The location snippet does need <code>-enable-snippets</code>.</div>
+                                <div class="info-box warning"><strong>No exemption list:</strong> NGINX Ingress Controller has no exemption list for <code>limit-whitelist</code>, and a Policy <code>key</code> takes only <code>${binary_remote_addr}</code>, <code>${request_uri}</code>, <code>${uri}</code>, <code>${args}</code>, <code>${request_method}</code> and the <code>${arg_*}</code>, <code>${http_*}</code> and <code>${cookie_*}</code> variables, so it cannot read a <code>geo</code> map. To keep <code>10.0.0.0/8</code> and <code>172.16.0.0/12</code> unlimited, use <code>limit_req</code> and <code>limit_conn</code> in a location snippet instead of the Policies, with their zones in the ConfigMap's <code>http-snippets</code> keyed on a <code>geo</code> map that yields an empty key for those addresses, because NGINX does not count an empty key.</div>
+                                <div class="info-box note"><strong>New in v5.8.0:</strong> The <code>connectionLimit</code> Policy CRD writes <code>limit_conn</code> itself, so <code>limit-connections</code> no longer needs a snippet and a ConfigMap zone. It keys on the client address and answers 503 by default, as the community controller did. It attaches to a VirtualServer, one of its routes, or an Ingress (through <code>nginx.org/policies</code>).</div>
+                                <div class="info-box note"><strong>Note:</strong> The rateLimit Policy CRD covers <code>limit-rps</code>, <code>limit-rpm</code> (as <code>rate</code> in <code>r/m</code>), and <code>limit-burst-multiplier</code>; a VirtualServer can reference one Policy per rate, as the community controller enforced both. The community controller always used <code>nodelay</code> and answered 503, so the Policies say so. <code>limit-rate</code> and <code>limit-rate-after</code> have no Policy fields and become a location snippet, which needs <code>-enable-snippets</code>.</div>
                             </div>
                         </div></td></tr>
                         <tr class="expandable">

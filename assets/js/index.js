@@ -20,8 +20,8 @@
 
         /* ── Auto-Fetch Versions ── */
         let VERSION_CONFIG = {
-            nic: { repo: 'nginx/kubernetes-ingress',        chartPath: 'charts/nginx-ingress',        fallback: { release: 'v5.7.0', helm: 'v2.8.0' } },
-            ngf: { repo: 'nginx/nginx-gateway-fabric',      chartPath: 'charts/nginx-gateway-fabric', fallback: { release: 'v2.8.0', helm: 'v2.8.0' } },
+            nic: { repo: 'nginx/kubernetes-ingress',        chartPath: 'charts/nginx-ingress',        fallback: { release: 'v5.8.0', helm: 'v2.9.0' } },
+            ngf: { repo: 'nginx/nginx-gateway-fabric',      chartPath: 'charts/nginx-gateway-fabric', fallback: { release: 'v2.9.0', helm: 'v2.9.0' } },
             i2g: { repo: 'kubernetes-sigs/ingress2gateway',  fallback: { release: 'v1.2.0' } },
             lens: { repo: 'nginx/gateway-lens',              fallback: { release: 'v0.4.1', helm: 'v0.4.1' } }
         };

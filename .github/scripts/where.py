@@ -1599,6 +1599,9 @@ ALTERNATIVE_TABS = {
     ('traefik-migration.html', 'traffic-splitting', 'annotation'): 'the same mirror snippets as Ingress annotations',
     ('haproxy-migration.html', 'rate-limiting', '(single)'): 'rate-limit-whitelist as a hand-written geo/map key '
                              'beside the rate-limit Policy; NGINX Ingress Controller has no exemption field',
+    ('traefik-migration.html', 'jwt-authentication', '(single)'): 'the Hub jwt claims expression rewritten by hand as '
+                             'jwt authorization rules; the analyzer leaves a TODO, since the expression language has no '
+                             'one-to-one form',
 } | {('haproxy-migration.html', 'enterprise', '(single)#' + k): 'HAProxy Enterprise ' + k + ' arrives as raw configuration '
                              'in a snippet key; the tab shows the NGINX Plus product that replaces it, which the analyzer '
                              'cannot read from the snippet (it converts the snippet key itself, with a TODO per line)'

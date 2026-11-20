@@ -7,6 +7,10 @@
 #                       every upstream
 #   enable-cors         a Policy, which must end up referenced and not merely
 #                       generated
+#   limit-connections   a connectionLimit Policy (NGINX Ingress Controller
+#                       5.8.0), on the VirtualServer or the migrated Ingress;
+#                       NIC must admit it (state Valid) and routing must not
+#                       change. 100 is far above the sequential probes.
 #   proxy-body-size,    upstream fields on the virtualserver target, swaps on
 #   proxy-read-timeout, the ingress target; proxy-buffering "on" is the value NIC
 #   proxy-buffering     rejects verbatim, so it must arrive as a bool
@@ -38,6 +42,7 @@ metadata:
     nginx.ingress.kubernetes.io/session-cookie-name: E2ESESSION
     nginx.ingress.kubernetes.io/enable-cors: "true"
     nginx.ingress.kubernetes.io/cors-allow-origin: "https://shop.example.com"
+    nginx.ingress.kubernetes.io/limit-connections: "100"
 spec:
   ingressClassName: nginx
   tls:

@@ -321,7 +321,6 @@ test('B7: externalAuth names the Service, keeps the port and drops community-onl
     assert.deepEqual(ea.authServicePorts, [4180]);
     assert.equal(ea.authSigninURI, '/oauth2/start');
     assert.ok(!/escaped_request_uri/.test(r.text));
-    assert.match(kinds(r, 'VirtualServer')[0].spec.routes[0]['location-snippets'], /proxy_set_header X-Auth-Request-User \$auth_x_auth_request_user;/);
     const ext = kinds(run(ingress({ 'auth-url': 'https://auth.example.com/check' })), 'Policy')[0].spec.externalAuth;
     assert.notEqual(ext.authServiceName, 'auth', 'an external host is not a Service name');
 });
@@ -438,9 +437,85 @@ test('B12: CORS keeps the community defaults, and never pairs * with credentials
 test('B15: rate limits keep nodelay and the community 503', () => {
     const rl = kinds(run(ingress({ 'limit-rps': '10', 'limit-connections': '5' })), 'Policy')[0].spec.rateLimit;
     assert.deepEqual([rl.rate, rl.burst, rl.noDelay, rl.rejectCode], ['10r/s', 50, true, 503]);
-    const r = run(ingress({ 'limit-rps': '10', 'limit-connections': '5' }));
-    assert.match(kinds(r, 'ConfigMap')[0].data['http-snippets'], /limit_conn_zone \$binary_remote_addr zone=app_conn:5m;/);
-    assert.match(kinds(r, 'VirtualServer')[0].spec.routes[0]['location-snippets'], /limit_conn app_conn 5;/);
+});
+
+/* NGINX Ingress Controller 5.8.0: constructs that moved from a snippet to a
+   native field, each checked against the v5.8.0 tag. */
+test('limit-connections becomes a connectionLimit Policy on the VirtualServer or the migrated Ingress, with no snippet', () => {
+    /* The community controller wrote limit_conn_zone $binary_remote_addr
+       zone=<ns>_<name>_<uid>_conn:5m and limit_conn per location, answering
+       503 (ratelimit/main.go, template.go buildRateLimitZones). v5.8.0's
+       connectionLimit Policy renders the same directives (policy.go
+       addConnectionLimitConfig) and attaches to an Ingress too
+       (IsPolicySupportedOnIngress). Before, a ConfigMap zone plus a location
+       snippet needed -enable-snippets. */
+    for (const strategy of ['crd', 'annotation']) {
+        const r = run(ingress({ 'limit-connections': '5' }), strategy);
+        assert.deepEqual(kinds(r, 'Policy').map((p) => p.spec.connectionLimit),
+            [{ connections: 5, key: '${binary_remote_addr}', zoneSize: '5m', rejectCode: 503 }], strategy);
+        assert.doesNotMatch(r.text, /limit_conn/, strategy + ': no snippet and no zone');
+        assert.equal(kinds(r, 'ConfigMap').length, 0, strategy);
+        const owner = strategy === 'crd' ? kinds(r, 'VirtualServer')[0].spec.policies.map((p) => p.name) : kinds(r, 'Ingress')[0].metadata.annotations['nginx.org/policies'].split(',');
+        assert.deepEqual(owner, ['app-connection-limit'], strategy);
+        assert.equal(warnings.length, 0);
+    }
+    // NGINX refuses limit_conn above 65535, so the community controller never
+    // loaded such a value, and connectionLimit.connections has the same bound.
+    const big = run(ingress({ 'limit-connections': '65536' }));
+    assert.equal(kinds(big, 'Policy').length, 0);
+    assert.match(notes(big), /65536 is above 65535, which NGINX refuses/);
+    assert.equal(kinds(run(ingress({ 'limit-connections': '65535' })), 'Policy')[0].spec.connectionLimit.connections, 65535);
+});
+
+test('limit-whitelist: a Policy key cannot read a geo map, and nginx.org/limit-req-key can', () => {
+    /* A rateLimit or connectionLimit key takes only $binary_remote_addr,
+       $request_uri, $uri, $args, $request_method and $arg_/$http_/$cookie_
+       variables (validation/policy.go, v5.7.0 and v5.8.0), so the old advice to
+       key the rateLimit Policy on a geo map was refused at admission.
+       nginx.org/limit-req-key takes any variable (validateLimitReqKeyAnnotation). */
+    const crd = notes(run(ingress({ 'limit-rps': '10', 'limit-connections': '5', 'limit-whitelist': '10.0.0.0/8' })));
+    assert.match(crd, /A Policy key cannot read a geo map, so limit-rps and limit-connections still limit them/);
+    assert.doesNotMatch(crd, /set the rateLimit key from a geo map/);
+    const ann = notes(run(ingress({ 'limit-rps': '10', 'limit-whitelist': '10.0.0.0/8' }), 'annotation'));
+    assert.match(ann, /Set nginx\.org\/limit-req-key from that map/);
+    assert.doesNotMatch(ann, /Policy key/, 'no Policy to warn about');
+});
+
+test('auth-response-headers becomes externalAuth.authResponseHeaders, and only the names it refuses stay snippets', () => {
+    /* The community controller set each listed header from the auth response
+       and blanked it when absent (buildAuthResponseHeaders); v5.8.0's
+       authResponseHeaders does both (auth_response_headers.go). It takes
+       [A-Za-z0-9-]{1,46}, 32 at most, unique ignoring case, never Host or an
+       X-Forwarded-* header (types.go); the community took underscores too. */
+    const r = run(ingress({ 'auth-url': 'http://auth.ns.svc/verify', 'auth-response-headers': 'X-Auth-Request-User, X-Auth-Request-Email,x-auth-request-user,X_Under,Host' }));
+    assert.deepEqual(kinds(r, 'Policy')[0].spec.externalAuth.authResponseHeaders, ['X-Auth-Request-User', 'X-Auth-Request-Email']);
+    const snip = kinds(r, 'VirtualServer')[0].spec.routes[0]['location-snippets'];
+    assert.match(snip, /proxy_set_header X_Under \$auth_x_under;/);
+    assert.match(snip, /proxy_set_header Host \$auth_host;/);
+    assert.doesNotMatch(snip, /X-Auth-Request/);
+    assert.match(notes(r), /X_Under, Host are copied with auth_request_set/);
+    const plain = run(ingress({ 'auth-url': 'http://auth.ns.svc/verify', 'auth-response-headers': 'X-User' }), 'annotation');
+    assert.doesNotMatch(plain.text, /location-snippets|auth_request_set/);
+    const many = Array.from({ length: 33 }, (_, i) => 'X-H' + i).join(',');
+    assert.equal(kinds(run(ingress({ 'auth-url': 'http://auth.ns.svc/verify', 'auth-response-headers': many })), 'Policy')[0].spec.externalAuth.authResponseHeaders.length, 32);
+});
+
+test('x-forwarded-prefix and upstream-vhost keep a variable NGINX Ingress Controller takes, and never one it refuses', () => {
+    /* v5.8.0 takes ${name} in nginx.org/proxy-set-headers, from the list a
+       VirtualServer header uses (validateProxySetHeaderAnnotation,
+       actionProxyHeaderVariables). $uri is not on it, on either form: the
+       VirtualServer carried ${uri} before and was rejected. */
+    const ann = (v) => kinds(run(ingress({ 'x-forwarded-prefix': v }), 'annotation'), 'Ingress')[0].metadata.annotations['nginx.org/proxy-set-headers'];
+    assert.equal(ann('/$host/x'), 'X-Forwarded-Prefix: /${host}/x');
+    assert.equal(ann('/api'), 'X-Forwarded-Prefix: /api');
+    assert.equal(ann('/$uri'), undefined);
+    assert.equal(ann('$1'), undefined);
+    const vs = (a) => kinds(run(ingress(a)), 'VirtualServer')[0].spec.routes[0].action.proxy.requestHeaders.set;
+    assert.deepEqual(vs({ 'x-forwarded-prefix': '/$host' }), [{ name: 'X-Forwarded-Prefix', value: '/${host}' }]);
+    assert.doesNotMatch(JSON.stringify(vs({ 'x-forwarded-prefix': '/$uri' })), /\$\{uri\}/);
+    assert.doesNotMatch(JSON.stringify(vs({ 'upstream-vhost': '$uri.example.com' })), /\$\{uri\}/);
+    // The TODO comment wraps over several lines; read it as one.
+    assert.match(run(ingress({ 'x-forwarded-prefix': '/$uri' })).text.replace(/\n\s*#\s*/g, ' '), /TODO: set X-Forwarded-Prefix without \$uri, which a VirtualServer header does not take/);
 });
 
 test('B16: session affinity keeps max-age and the community cookie name', () => {
@@ -613,7 +688,8 @@ test('the install command carries only the flags the output needs, each with its
        now, and a flag nothing needs is not on it. */
     const flags = (doc, strategy) => [...run(doc, strategy).plan.prerequisites.flags.map((x) => x.flag.split('=')[0])];
     assert.deepEqual(flags(ingress({ 'proxy-body-size': '1m' })), ['controller.ingressClass.name']);
-    assert.deepEqual(flags(ingress({ 'limit-connections': '5' })), ['controller.ingressClass.name', 'controller.config.name', 'controller.enableSnippets']);
+    assert.deepEqual(flags(ingress({ 'limit-rate': '100' })), ['controller.ingressClass.name', 'controller.enableSnippets']);
+    assert.deepEqual(flags(ingress({ 'limit-connections': '5' })), ['controller.ingressClass.name'], 'a connectionLimit Policy needs no snippets and no ConfigMap');
     assert.deepEqual(flags(ingress({ 'ssl-passthrough': 'true' })), ['controller.ingressClass.name', 'controller.enableTLSPassthrough']);
     // A directive NGINX Ingress Controller does not build in fails the reload for
     // every resource: a step-0 warning, not a note.
@@ -720,10 +796,11 @@ test('each card shows the community annotations behind its own resource', () => 
     const cards = cardKeys(run(source.analyzer.samplePresets.advanced));
     const card = (re) => cards.find((c) => re.test(c.name)).keys.sort();
     assert.deepEqual(card(/ingress-mtls$/), ['auth-tls-secret', 'auth-tls-verify-client', 'auth-tls-verify-depth']);
-    assert.deepEqual(card(/rate-limit$/), ['limit-connections', 'limit-rps']);
+    assert.deepEqual(card(/rate-limit$/), ['limit-rps']);
+    assert.deepEqual(card(/connection-limit$/), ['limit-connections']);
     const vs = card(/secure\.example\.com/);
-    assert.ok(vs.includes('proxy-body-size') && vs.includes('affinity') && vs.includes('limit-connections'));
-    assert.ok(!vs.includes('cors-allow-origin') && !vs.includes('limit-rps') && !vs.includes('enable-modsecurity'), vs.join(' '));
+    assert.ok(vs.includes('proxy-body-size') && vs.includes('affinity'));
+    assert.ok(!vs.includes('cors-allow-origin') && !vs.includes('limit-rps') && !vs.includes('limit-connections') && !vs.includes('enable-modsecurity'), vs.join(' '));
     // A canary pair: the merged VirtualServer shows both Ingresses' annotations.
     const pair = Y.stringifyAll([ingress({ 'proxy-body-size': '8m' }), Object.assign(ingress({ canary: 'true', 'canary-weight': '20' }), { metadata: { name: 'app-canary', annotations: { 'nginx.ingress.kubernetes.io/canary': 'true', 'nginx.ingress.kubernetes.io/canary-weight': '20' } } })]);
     assert.deepEqual(cardKeys(run(pair)).find((c) => /a\.example\.com/.test(c.name)).keys.sort(), ['canary', 'canary-weight', 'proxy-body-size']);
@@ -1240,15 +1317,17 @@ test('a community Ingress with several hosts becomes one VirtualServer or Ingres
         assert.equal(r.plan.infoNotes.filter((n) => /was split into one per host/.test(n.message)).length, 0, strategy);
         assert.equal(r.plan.banner.strongText, '4 annotations analyzed', strategy + ': the pieces share one set of annotations');
         // One Policy for both pieces, as the source had one set of annotations.
-        assert.deepEqual(kinds(r, 'Policy').map((p) => p.metadata.name).sort(), strategy === 'crd' ? ['app-cors', 'app-rate-limit'] : ['app-cors']);
+        assert.deepEqual(kinds(r, 'Policy').map((p) => p.metadata.name).sort(), strategy === 'crd' ? ['app-connection-limit', 'app-cors', 'app-rate-limit'] : ['app-connection-limit', 'app-cors']);
     }
-    // limit_conn shares the source's zone, as the community controller counted
-    // one limit across the Ingress's hosts (ratelimit/main.go); a rate-limit
-    // Policy cannot, and says so.
+    // The community controller counted one limit across the Ingress's hosts
+    // (ratelimit/main.go). NGINX Ingress Controller names a rateLimit or
+    // connectionLimit zone after the resource that references the Policy
+    // (policy.go), so after the split each host counts on its own, and the
+    // notes say so.
     const crd = run(two, 'crd');
-    assert.equal((crd.text.match(/limit_conn_zone/g) || []).length, 1);
-    assert.match(crd.text, /zone=prod_app_conn:5m/);
     assert.match(notes(crd), /counted this rate limit once across a\.example\.com, b\.example\.com/);
+    assert.match(notes(crd), /counted limit-connections once across a\.example\.com, b\.example\.com\. NGINX Ingress Controller keeps a connection-limit zone per VirtualServer/);
+    assert.match(notes(run(two, 'annotation')), /connection-limit zone per Ingress/);
 });
 
 test('community Ingresses on one host merge into one VirtualServer with every path (CRD-first)', () => {

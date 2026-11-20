@@ -607,3 +607,18 @@ test('the reference row for HAProxy Ingresses on one host matches what the analy
         assert.deepEqual(shown, got, strategy);
     }
 });
+
+test('request-set-header keeps a variable nginx.org/proxy-set-headers takes since v5.8.0, and no other', () => {
+    /* v5.8.0 takes ${name} in nginx.org/proxy-set-headers from the list a
+       VirtualServer header uses (validateProxySetHeaderAnnotation);
+       add-header and upstream-vhost still take literals only. */
+    const ann = (v) => {
+        const r = run(ingress({ 'haproxy.org/request-set-header': v }), 'annotation');
+        const i = r.docs.find((d) => d.kind === 'Ingress');
+        return i ? i.metadata.annotations['nginx.org/proxy-set-headers'] : undefined;
+    };
+    assert.equal(ann('X-Client $remote_addr'), 'X-Client: ${remote_addr}');
+    assert.equal(ann('X-Lit fixed'), 'X-Lit: fixed');
+    assert.equal(ann('X-Path $uri'), undefined, '$uri is not on the list');
+    assert.equal(ann('X-Src %[src]'), undefined, 'a sample fetch is not NGINX syntax');
+});

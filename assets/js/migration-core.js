@@ -17,12 +17,30 @@
         // also update the version pills/install URLs in index.html). The source
         // controller's version lives at the top of its migration-<source>.js.
         const NIC = {
-            VERSION: 'v5.7.0',
-            HELM_VERSION: '2.8.0'
+            VERSION: 'v5.8.0',
+            HELM_VERSION: '2.9.0'
         };
         NIC.CRD_INSTALL_CMD = 'kubectl apply -f https://raw.githubusercontent.com/nginx/kubernetes-ingress/' + NIC.VERSION + '/deploy/crds.yaml';
         NIC.HELM_INSTALL_CMD = 'helm install nginx-ingress oci://ghcr.io/nginx/charts/nginx-ingress --version ' + NIC.HELM_VERSION + ' --set controller.enableCustomResources=true';
         NIC.RELEASE_URL = 'https://github.com/nginx/kubernetes-ingress/releases/tag/' + NIC.VERSION;
+        // The NGINX variables a request header value may carry, in a VirtualServer
+        // requestHeaders.set and, since v5.8.0, in nginx.org/proxy-set-headers:
+        // always ${name}, from this list or the $arg_, $http_, $cookie_ families
+        // ($jwt_* on NGINX Plus only), and never ending in "$"
+        // (actionProxyHeaderVariables, validateStringWithVariables).
+        const HEADER_VARIABLES = ['request_uri', 'request_method', 'request_body', 'scheme', 'args', 'host', 'request_time',
+            'request_length', 'nginx_version', 'pid', 'connection', 'remote_addr', 'remote_port', 'time_iso8601', 'time_local',
+            'server_addr', 'server_port', 'server_name', 'server_protocol', 'connections_active', 'connections_reading',
+            'connections_writing', 'connections_waiting', 'ssl_cipher', 'ssl_ciphers', 'ssl_client_cert', 'ssl_client_escaped_cert',
+            'ssl_client_fingerprint', 'ssl_client_i_dn', 'ssl_client_i_dn_legacy', 'ssl_client_raw_cert', 'ssl_client_s_dn',
+            'ssl_client_s_dn_legacy', 'ssl_client_serial', 'ssl_client_v_end', 'ssl_client_v_remain', 'ssl_client_v_start',
+            'ssl_client_verify', 'ssl_curves', 'ssl_early_data', 'ssl_protocol', 'ssl_server_name', 'ssl_session_id', 'ssl_session_reused'];
+        NIC.headerVariablesOk = function(value) {
+            let v = String(value);
+            if (/\$$/.test(v) || /\$(?!\{)/.test(v)) return false;
+            let names = (v.match(/\$\{([^}]*)\}/g) || []).map(function(m) { return m.slice(2, -1); });
+            return names.every(function(n) { return HEADER_VARIABLES.indexOf(n) !== -1 || /^(arg|http|cookie)_[A-Za-z0-9_]+$/.test(n); });
+        };
 
         // Index of the '#' that begins a trailing inline comment, or -1. A '#'
         // only starts a comment at the start of the value or after whitespace,

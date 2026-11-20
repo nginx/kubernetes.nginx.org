@@ -6,6 +6,10 @@
 #   headers (CORS)      a middleware that becomes a Policy the VirtualServer
 #                       must reference
 #   sticky.cookie       a service setting on the IngressRoute: Set-Cookie
+#   inFlightReq         a connectionLimit Policy (NGINX Ingress Controller
+#                       5.8.0) on one route; NIC must admit it (state Valid)
+#                       and routing must not change. 100 is far above the
+#                       sequential probes.
 #   two IngressRoutes   one host on two resources, merged into one
 #                       VirtualServer (the pinned shared-host convention)
 #   tls                 TLS terminates with the shop-tls Secret, and the
@@ -38,6 +42,15 @@ spec:
       - GET
       - POST
 ---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: shop-inflight
+  namespace: e2e-shop
+spec:
+  inFlightReq:
+    amount: 100
+---
 # The API leg: its own IngressRoute on the same host as the web one.
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -55,6 +68,7 @@ spec:
       middlewares:
         - name: strip-api
         - name: shop-cors
+        - name: shop-inflight
       services:
         - name: api-svc
           port: 8080

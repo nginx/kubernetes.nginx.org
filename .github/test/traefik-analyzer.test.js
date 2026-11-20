@@ -148,6 +148,63 @@ test('inFlightReq amount 0 refused every request, and the route answers 429', ()
     assert.equal(r.plan.configMap, null, 'no limit_conn_zone for a route that refuses everything');
 });
 
+/* NGINX Ingress Controller 5.8.0: constructs that moved from a snippet or
+   "no equivalent" to a native field, each checked against the v5.8.0 tag. */
+test('inFlightReq becomes a connectionLimit Policy keyed as Traefik grouped, with no snippet and no ConfigMap zone', () => {
+    /* inflight_req.go defaults sourceCriterion to requestHost, and Go's
+       req.Host keeps the port, as $http_host does; a connectionLimit key takes
+       $http_* but not $host (validation/policy.go connectionLimitKeyVariables). */
+    const pol = (opts, strategy) => {
+        const r = run(paste(route(['m']), mw('m', 'inFlightReq', opts)), strategy);
+        assert.doesNotMatch(r.text, /limit_conn/, 'no snippet and no zone');
+        assert.equal(r.plan.configMap, null);
+        assert.deepEqual(refused(kinds(r, 'Policy')[0]), []);
+        return kinds(r, 'Policy')[0].spec.connectionLimit;
+    };
+    assert.deepEqual(pol({ amount: 10 }), { connections: 10, key: '${http_host}', rejectCode: 429 });
+    assert.equal(pol({ amount: 10, sourceCriterion: { requestHeaderName: 'X-User' } }).key, '${http_x_user}');
+    assert.equal(pol({ amount: 10, sourceCriterion: { ipStrategy: { depth: 1 } } }).key, '${binary_remote_addr}');
+    assert.equal(pol({ amount: 70000 }).connections, 65535, 'NGINX refuses limit_conn above 65535');
+    // The Ingress references it, as v5.8.0 allows (IsPolicySupportedOnIngress).
+    const ing = run(paste(mw('m', 'inFlightReq', { amount: 5 }), doc({ apiVersion: 'networking.k8s.io/v1', kind: 'Ingress', metadata: { name: 'app', annotations: { 'traefik.ingress.kubernetes.io/router.middlewares': 'default-m@kubernetescrd' } },
+        spec: { rules: [{ host: 'a.example.com', http: { paths: [{ path: '/', pathType: 'Prefix', backend: { service: { name: 'web', port: { number: 80 } } } }] } }] } })), 'annotation');
+    assert.equal(kinds(ing, 'Ingress')[0].metadata.annotations['nginx.org/policies'], 'm-connection-limit');
+});
+
+test('forwardAuth authResponseHeaders become externalAuth.authResponseHeaders, and only names it refuses are lost', () => {
+    /* forward.go deletes the client's copy of each listed header and copies
+       the auth server's; v5.8.0 does the same (auth_response_headers.go). */
+    const r = run(paste(route(['m']), mw('m', 'forwardAuth', { address: 'http://auth.auth.svc.cluster.local:4180/check', authResponseHeaders: ['X-User', 'X_Under', 'Host', 'x-user'] })));
+    assert.deepEqual(kinds(r, 'Policy')[0].spec.externalAuth.authResponseHeaders, ['X-User']);
+    assert.ok(said(r, /authResponseHeaders X_Under, Host \(authResponseHeaders takes up to 32 names/));
+    assert.ok(!said(r, /auth response headers are not copied/));
+    assert.ok(said(run(paste(route(['m']), mw('m', 'forwardAuth', { address: 'http://auth.auth.svc/check', authResponseHeadersRegex: '^X-' }))), /authResponseHeadersRegex \(list the headers/));
+});
+
+test('a jwksUrl jwt Policy carries the keyCache NGINX Ingress Controller requires, and claims point at authorization', () => {
+    /* validateJWTRemoteJWKS (v5.7.0 and v5.8.0): keyCache is required with
+       jwksURI, so the Policy was refused at admission without it. */
+    const r = run(paste(route(['m']), doc({ apiVersion: 'traefik.io/v1alpha1', kind: 'Middleware', metadata: { name: 'm' }, spec: { plugin: { jwt: { jwksUrl: 'https://idp.example.com/jwks.json', claims: 'Equals(`grp`, `admin`)' } } } })));
+    const jwt = kinds(r, 'Policy')[0].spec.jwt;
+    assert.equal(jwt.keyCache, '1h');
+    assert.ok(said(r, /claims maps to spec\.jwt\.authorization, new in v5\.8\.0/));
+    assert.match(r.text.replace(/\n\s*#\s*/g, ' ') + JSON.stringify(r.plan), /Equals\(`grp`, `admin`\)/);
+});
+
+test('passTLSClientCert pem stays on the migrated Ingress through nginx.org/proxy-set-headers, a literal $ never does', () => {
+    /* v5.8.0 takes ${name} in nginx.org/proxy-set-headers from the list a
+       VirtualServer header uses (validateProxySetHeaderAnnotation);
+       ssl_client_escaped_cert is on it. Traefik sends a customRequestHeaders
+       value literally, so a "$" there cannot be carried. */
+    const ing = (m) => doc({ apiVersion: 'networking.k8s.io/v1', kind: 'Ingress', metadata: { name: 'app', annotations: { 'traefik.ingress.kubernetes.io/router.middlewares': 'default-' + m + '@kubernetescrd' } },
+        spec: { rules: [{ host: 'a.example.com', http: { paths: [{ path: '/', pathType: 'Prefix', backend: { service: { name: 'web', port: { number: 80 } } } }] } }] } });
+    const pem = run(paste(mw('c', 'passTLSClientCert', { pem: true }), ing('c')), 'annotation');
+    assert.equal(kinds(pem, 'Ingress')[0].metadata.annotations['nginx.org/proxy-set-headers'], 'X-Forwarded-Tls-Client-Cert: ${ssl_client_escaped_cert}');
+    const lit = run(paste(mw('h', 'headers', { customRequestHeaders: { 'X-Price': '${host}' } }), ing('h')), 'annotation');
+    assert.equal((kinds(lit, 'Ingress')[0].metadata.annotations || {})['nginx.org/proxy-set-headers'], undefined);
+    assert.ok(said(lit, /Header values with a comma, colon, quote or \$ \(X-Price\)/));
+});
+
 test('HSTS is sent as Traefik sent it: none at stsSeconds 0, preload only when asked', () => {
     // unrolled/secure sends the header only when STSSeconds is not 0;
     // nginx.ingress.tmpl appends preload whenever nginx.org/hsts is on.
