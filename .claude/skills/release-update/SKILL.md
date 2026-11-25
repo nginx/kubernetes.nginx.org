@@ -67,7 +67,7 @@ It has no Helm chart and no compatibility table, which is exactly why it is the 
 - The sidebar `data-version="i2g.release"` span.
 - The hero badge: both its text and its `releases/tag/` href.
 
-The pane installs the `nginx/ingress2gateway` fork from source, for its NGINX emitter, so it has no versioned `go install` line; the upstream `go install` and `brew` lines were removed until the emitter is merged upstream (kubernetes-sigs/ingress2gateway pull request 422). When they return, a `go install` line takes `data-version-format="atv"`, which renders `@v1.2.0`.
+The pane builds ingress2gateway from source, from upstream `main`, because no release carries the NGINX emitter yet: it was merged in kubernetes-sigs/ingress2gateway pull request 422 on 2026-11-25, after v1.2.0, which has no `pkg/i2gw/emitters/nginx`. That is why the pane has no versioned `go install` line. On each ingress2gateway bump, look in `pkg/i2gw/emitters/` at the new tag. Once it has `nginx`, put the `go install` and `brew` lines back and remove the build-from-source block and the "Where the NGINX emitter lives" note. The `go install` line takes `data-version-format="atv"`, which renders `@v1.2.0`.
 
 ## Gateway Lens only
 

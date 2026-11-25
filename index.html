@@ -851,12 +851,12 @@
                 </div>
                 <div class="page-body">
                     <div class="cta-row">
-                        <a class="cta cta-primary i2g" href="https://github.com/nginx/ingress2gateway" target="_blank" rel="noopener">
+                        <a class="cta cta-primary i2g" href="https://github.com/kubernetes-sigs/ingress2gateway" target="_blank" rel="noopener">
                             <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><use href="#icon-github"/></svg>
                             GitHub repository
                         </a>
-                        <a class="cta cta-secondary" href="https://github.com/nginx/ingress2gateway/blob/main/pkg/i2gw/emitters/nginx/README.md" target="_blank" rel="noopener">NGINX emitter</a>
-                        <a class="cta cta-secondary" href="https://github.com/nginx/ingress2gateway/blob/main/pkg/i2gw/providers/nginx/README.md" target="_blank" rel="noopener">NGINX provider</a>
+                        <a class="cta cta-secondary" href="https://github.com/kubernetes-sigs/ingress2gateway/blob/main/pkg/i2gw/emitters/nginx/README.md" target="_blank" rel="noopener">NGINX emitter</a>
+                        <a class="cta cta-secondary" href="https://github.com/kubernetes-sigs/ingress2gateway/blob/main/pkg/i2gw/providers/nginx/README.md" target="_blank" rel="noopener">NGINX provider</a>
                     </div>
 
                     <h2 class="sr-only">ingress2gateway features</h2>
@@ -888,7 +888,7 @@
                     </div>
 
                     <div class="info-box note">
-                        <strong>Where the NGINX emitter lives:</strong> the emitter is in the <a href="https://github.com/nginx/ingress2gateway" target="_blank" rel="noopener">nginx/ingress2gateway</a> fork while we work on getting it merged upstream in <a href="https://github.com/kubernetes-sigs/ingress2gateway/pull/422" target="_blank" rel="noopener">pull request 422 in kubernetes-sigs/ingress2gateway</a>. Until then, build it from source as shown below.
+                        <strong>Where the NGINX emitter lives:</strong> the NGINX emitter was merged into ingress2gateway in <a href="https://github.com/kubernetes-sigs/ingress2gateway/pull/422" target="_blank" rel="noopener">pull request 422</a> and is on its main branch, but no ingress2gateway release includes it yet. Until one does, build it from source as shown below.
                     </div>
 
                     <div class="info-box warning">
@@ -902,7 +902,7 @@
                     <h2 class="section-heading">Installation</h2>
                     <div class="code-section code-section-flush">
                         <div class="code-block"><button class="copy-btn" aria-label="Copy build-from-source commands">Copy</button><code><span class="comment"># Build from source</span>
-<span class="cmd">git</span> clone https://github.com/nginx/ingress2gateway.git &amp;&amp; <span class="cmd">cd</span> ingress2gateway
+<span class="cmd">git</span> clone https://github.com/kubernetes-sigs/ingress2gateway.git &amp;&amp; <span class="cmd">cd</span> ingress2gateway
 <span class="cmd">make</span> build
 <span class="cmd">go</span> install .</code></div>
                     </div>
